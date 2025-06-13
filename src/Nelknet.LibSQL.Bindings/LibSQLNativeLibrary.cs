@@ -42,17 +42,34 @@ internal static class LibSQLNativeLibrary
                 if (assemblyDirectory == null)
                     return false;
 
-                // Try to load the library from the runtime-specific path
-                var nativeLibraryPath = Path.Combine(assemblyDirectory, "runtimes", rid, "native");
-                
-                if (TryLoadFromDirectory(nativeLibraryPath))
+                // Try multiple locations in order of preference
+                var searchPaths = new[]
                 {
-                    _isInitialized = true;
-                    return true;
+                    // 1. Runtime-specific path (NuGet convention)
+                    Path.Combine(assemblyDirectory, "runtimes", rid, "native"),
+                    // 2. Direct runtime path (for local development)
+                    Path.Combine(assemblyDirectory, rid),
+                    // 3. Main assembly directory
+                    assemblyDirectory,
+                    // 4. Parent directory (for bin/Debug/net8.0 scenarios)
+                    Path.GetDirectoryName(assemblyDirectory) ?? assemblyDirectory,
+                    // 5. Application base directory
+                    AppDomain.CurrentDomain.BaseDirectory,
+                    // 6. Current directory
+                    Environment.CurrentDirectory
+                };
+
+                foreach (var path in searchPaths)
+                {
+                    if (TryLoadFromDirectory(path))
+                    {
+                        _isInitialized = true;
+                        return true;
+                    }
                 }
 
-                // Fallback: try to load from the main assembly directory
-                if (TryLoadFromDirectory(assemblyDirectory))
+                // Last resort: try system-wide loading
+                if (TryLoadSystemWide())
                 {
                     _isInitialized = true;
                     return true;
@@ -178,5 +195,31 @@ internal static class LibSQLNativeLibrary
 
         // Linux and other Unix-like systems
         return new[] { "libsql.so", "libsqlite3.so", "sqlite3.so" };
+    }
+
+    /// <summary>
+    /// Attempts to load the native library from system-wide locations.
+    /// </summary>
+    /// <returns>True if the library was successfully loaded.</returns>
+    private static bool TryLoadSystemWide()
+    {
+        var libraryNames = GetPlatformSpecificLibraryNames();
+        
+        // Try loading each library name without a specific path
+        // This allows the system loader to search standard paths
+        foreach (var libraryName in libraryNames)
+        {
+            try
+            {
+                if (NativeLibrary.TryLoad(libraryName, out _))
+                    return true;
+            }
+            catch
+            {
+                // Continue trying other names
+            }
+        }
+
+        return false;
     }
 }

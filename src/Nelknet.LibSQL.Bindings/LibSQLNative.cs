@@ -192,4 +192,36 @@ internal static partial class LibSQLNative
     internal static partial int libsql_enable_internal_tracing();
     
     #endregion
+    
+    #region Version Information
+    
+    /// <summary>
+    /// Returns the libSQL version string.
+    /// </summary>
+    /// <returns>The libSQL version as a string (e.g., "0.2.3").</returns>
+    [LibraryImport(LibraryName)]
+    internal static partial IntPtr libsql_libversion();
+    
+    /// <summary>
+    /// Returns the SQLite version string.
+    /// </summary>
+    /// <returns>The SQLite version as a string (e.g., "3.45.1").</returns>
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_libversion")]
+    internal static partial IntPtr sqlite3_libversion();
+    
+    /// <summary>
+    /// Returns the SQLite version number.
+    /// </summary>
+    /// <returns>The SQLite version as an integer (e.g., 3045001).</returns>
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_libversion_number")]
+    internal static partial int sqlite3_libversion_number();
+    
+    /// <summary>
+    /// Returns the SQLite source identifier.
+    /// </summary>
+    /// <returns>The SQLite source identifier string.</returns>
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_sourceid")]
+    internal static partial IntPtr sqlite3_sourceid();
+    
+    #endregion
 }

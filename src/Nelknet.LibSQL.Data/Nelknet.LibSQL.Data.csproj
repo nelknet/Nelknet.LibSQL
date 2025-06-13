@@ -2,11 +2,70 @@
 
   <PropertyGroup>
     <PackageId>Nelknet.LibSQL.Data</PackageId>
+    <PackageId Condition="'$(BuildType)' == 'Full'">Nelknet.LibSQL.Data.Full</PackageId>
     <Description>ADO.NET provider for libSQL - a native C# client library following ADO.NET patterns</Description>
+    <BuildType Condition="'$(BuildType)' == ''">ManagedOnly</BuildType>
+    <LibSQLVersion>0.2.2</LibSQLVersion>
+    <SkipArm Condition="'$(SkipArm)' == ''">false</SkipArm>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Nelknet.LibSQL.Bindings\Nelknet.LibSQL.Bindings.csproj" />
   </ItemGroup>
+
+  <!-- Download native libraries for Full package -->
+  <Target Name="DownloadAllNativeLibraries" BeforeTargets="GenerateAdditionalSources" Condition="'$(BuildType)' == 'Full'">
+    <!-- Windows -->
+    <MSBuild Projects="$(MSBuildProjectFile)" Targets="DownloadNativeLibraryForRid" Properties="Rid=win-x64" />
+    <MSBuild Projects="$(MSBuildProjectFile)" Targets="DownloadNativeLibraryForRid" Properties="Rid=win-x86" />
+    <MSBuild Projects="$(MSBuildProjectFile)" Targets="DownloadNativeLibraryForRid" Properties="Rid=win-arm64" Condition="'$(SkipArm)' != 'true'" />
+    
+    <!-- Linux -->
+    <MSBuild Projects="$(MSBuildProjectFile)" Targets="DownloadNativeLibraryForRid" Properties="Rid=linux-x64" />
+    <MSBuild Projects="$(MSBuildProjectFile)" Targets="DownloadNativeLibraryForRid" Properties="Rid=linux-arm64" Condition="'$(SkipArm)' != 'true'" />
+    <MSBuild Projects="$(MSBuildProjectFile)" Targets="DownloadNativeLibraryForRid" Properties="Rid=linux-arm" Condition="'$(SkipArm)' != 'true'" />
+    
+    <!-- macOS -->
+    <MSBuild Projects="$(MSBuildProjectFile)" Targets="DownloadNativeLibraryForRid" Properties="Rid=osx-x64" />
+    <MSBuild Projects="$(MSBuildProjectFile)" Targets="DownloadNativeLibraryForRid" Properties="Rid=osx-arm64" />
+  </Target>
+
+  <!-- Import the download target -->
+  <Import Project="..\..\build\DownloadNativeLibs.targets" />
+  
+  <!-- Target to download for a specific RID -->
+  <Target Name="DownloadNativeLibraryForRid">
+    <PropertyGroup>
+      <!-- TODO: Update these URLs once libSQL releases are available -->
+      <!-- For now, using placeholder URLs that would need to be replaced with actual libSQL release URLs -->
+      <LibSQLBaseUrl>https://github.com/tursodatabase/libsql/releases/download/v$(LibSQLVersion)</LibSQLBaseUrl>
+      <LibSQLReleaseUrl Condition="'$(Rid)' == 'win-x64'">$(LibSQLBaseUrl)/libsql-windows-x64.zip</LibSQLReleaseUrl>
+      <LibSQLReleaseUrl Condition="'$(Rid)' == 'win-x86'">$(LibSQLBaseUrl)/libsql-windows-x86.zip</LibSQLReleaseUrl>
+      <LibSQLReleaseUrl Condition="'$(Rid)' == 'win-arm64'">$(LibSQLBaseUrl)/libsql-windows-arm64.zip</LibSQLReleaseUrl>
+      <LibSQLReleaseUrl Condition="'$(Rid)' == 'linux-x64'">$(LibSQLBaseUrl)/libsql-linux-x64.tar.gz</LibSQLReleaseUrl>
+      <LibSQLReleaseUrl Condition="'$(Rid)' == 'linux-arm64'">$(LibSQLBaseUrl)/libsql-linux-arm64.tar.gz</LibSQLReleaseUrl>
+      <LibSQLReleaseUrl Condition="'$(Rid)' == 'linux-arm'">$(LibSQLBaseUrl)/libsql-linux-arm.tar.gz</LibSQLReleaseUrl>
+      <LibSQLReleaseUrl Condition="'$(Rid)' == 'osx-x64'">$(LibSQLBaseUrl)/libsql-darwin-x64.tar.gz</LibSQLReleaseUrl>
+      <LibSQLReleaseUrl Condition="'$(Rid)' == 'osx-arm64'">$(LibSQLBaseUrl)/libsql-darwin-arm64.tar.gz</LibSQLReleaseUrl>
+    </PropertyGroup>
+    
+    <CallTarget Targets="DownloadNativeLibrary" />
+  </Target>
+
+  <!-- Include native libraries in the package -->
+  <ItemGroup Condition="'$(BuildType)' == 'Full'">
+    <None Include="obj\runtimes\**\*.dll;obj\runtimes\**\*.so;obj\runtimes\**\*.dylib">
+      <Visible>false</Visible>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Pack>true</Pack>
+      <PackagePath>runtimes</PackagePath>
+      <Link>runtimes\%(RecursiveDir)%(FileName)%(Extension)</Link>
+    </None>
+  </ItemGroup>
+
+  <!-- Clean downloaded files -->
+  <Target Name="CleanDownloadedNativeLibraries" AfterTargets="Clean">
+    <RemoveDir Directories="$(MSBuildProjectDirectory)\obj\runtimes" />
+  </Target>
 
 </Project>
