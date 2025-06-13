@@ -93,6 +93,19 @@ internal static class LibSQLHelper
     }
     
     /// <summary>
+    /// Gets an error message from a native error message pointer
+    /// </summary>
+    /// <param name="errorPtr">Pointer to the error message</param>
+    /// <returns>The error message string</returns>
+    internal static string GetErrorMessage(IntPtr errorPtr)
+    {
+        if (errorPtr == IntPtr.Zero)
+            return "Unknown error";
+            
+        return Marshal.PtrToStringUTF8(errorPtr) ?? "Unknown error";
+    }
+    
+    /// <summary>
     /// Throws an exception if the libSQL operation failed
     /// </summary>
     /// <param name="result">The result code from a libSQL operation</param>
