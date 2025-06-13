@@ -20,6 +20,7 @@ public sealed class LibSQLConnection : DbConnection
     private ConnectionState _connectionState = ConnectionState.Closed;
     private string _connectionString = string.Empty;
     private LibSQLConnectionString? _parsedConnectionString;
+    internal LibSQLTransaction? _currentTransaction;
 
     // Connection state change event args for performance
     private static readonly StateChangeEventArgs FromClosedToOpenEventArgs = 
@@ -198,6 +199,20 @@ public sealed class LibSQLConnection : DbConnection
 
             try
             {
+                // Rollback any active transaction
+                if (_currentTransaction != null && !_currentTransaction.IsCompleted)
+                {
+                    try
+                    {
+                        _currentTransaction.Rollback();
+                    }
+                    catch
+                    {
+                        // Suppress exceptions during cleanup
+                    }
+                }
+                _currentTransaction = null;
+
                 _connectionHandle?.Dispose();
                 _connectionHandle = null;
 
@@ -244,9 +259,87 @@ public sealed class LibSQLConnection : DbConnection
     /// <returns>A <see cref="DbTransaction"/> representing the new transaction.</returns>
     protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel)
     {
+        return BeginTransaction(isolationLevel);
+    }
+
+    /// <summary>
+    /// Starts a database transaction with the specified isolation level.
+    /// </summary>
+    /// <param name="isolationLevel">The isolation level for the transaction.</param>
+    /// <returns>A <see cref="LibSQLTransaction"/> representing the new transaction.</returns>
+    public new LibSQLTransaction BeginTransaction(IsolationLevel isolationLevel = IsolationLevel.Serializable)
+    {
+        return BeginTransaction(isolationLevel, LibSQLTransactionBehavior.Deferred);
+    }
+
+    /// <summary>
+    /// Starts a database transaction with the specified isolation level and behavior.
+    /// </summary>
+    /// <param name="isolationLevel">The isolation level for the transaction.</param>
+    /// <param name="behavior">The transaction behavior for lock acquisition.</param>
+    /// <returns>A <see cref="LibSQLTransaction"/> representing the new transaction.</returns>
+    public LibSQLTransaction BeginTransaction(IsolationLevel isolationLevel, LibSQLTransactionBehavior behavior)
+    {
+        // Validate isolation level first before checking connection state
+        ValidateIsolationLevel(isolationLevel);
+        
         EnsureConnectionOpen();
-        // TODO: Implement LibSQLTransaction
-        throw new NotImplementedException("Transaction support will be implemented in Phase 9.");
+
+        if (_currentTransaction != null)
+        {
+            throw new InvalidOperationException("A transaction is already active on this connection. Nested transactions are not supported.");
+        }
+
+        var transaction = new LibSQLTransaction(this, isolationLevel, behavior);
+        
+        try
+        {
+            // Execute the BEGIN statement
+            var beginStatement = transaction.GetBeginStatement();
+            var result = LibSQLNative.libsql_execute(_connectionHandle!, beginStatement, out var errorMsg);
+            
+            if (result != 0)
+            {
+                var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
+                LibSQLNative.libsql_free_error_msg(errorMsg);
+                throw new LibSQLException($"Failed to begin transaction: {errorMessage}");
+            }
+
+            _currentTransaction = transaction;
+            return transaction;
+        }
+        catch
+        {
+            // If starting the transaction failed, dispose the transaction object
+            transaction.Dispose();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Validates that the specified isolation level is supported by libSQL.
+    /// </summary>
+    /// <param name="isolationLevel">The isolation level to validate.</param>
+    /// <exception cref="NotSupportedException">Thrown when the isolation level is not supported.</exception>
+    private static void ValidateIsolationLevel(IsolationLevel isolationLevel)
+    {
+        switch (isolationLevel)
+        {
+            case IsolationLevel.Serializable:
+            case IsolationLevel.ReadUncommitted:
+            case IsolationLevel.Unspecified: // Default to Serializable
+                break;
+            case IsolationLevel.ReadCommitted:
+                throw new NotSupportedException("ReadCommitted isolation level is not supported by libSQL. Use Serializable instead.");
+            case IsolationLevel.RepeatableRead:
+                throw new NotSupportedException("RepeatableRead isolation level is not supported by libSQL. Use Serializable instead.");
+            case IsolationLevel.Snapshot:
+                throw new NotSupportedException("Snapshot isolation level is not supported by libSQL. Use Serializable instead.");
+            case IsolationLevel.Chaos:
+                throw new NotSupportedException("Chaos isolation level is not supported by libSQL.");
+            default:
+                throw new NotSupportedException($"Isolation level {isolationLevel} is not supported by libSQL.");
+        }
     }
 
     /// <summary>
@@ -258,6 +351,11 @@ public sealed class LibSQLConnection : DbConnection
     /// Gets the connection handle for internal use.
     /// </summary>
     internal LibSQLConnectionHandle? ConnectionHandle => _connectionHandle;
+
+    /// <summary>
+    /// Gets the connection handle for transaction operations.
+    /// </summary>
+    internal LibSQLConnectionHandle Handle => _connectionHandle ?? throw new InvalidOperationException("Connection is not open.");
 
     /// <summary>
     /// Releases the unmanaged resources used by the <see cref="LibSQLConnection"/> and optionally releases the managed resources.

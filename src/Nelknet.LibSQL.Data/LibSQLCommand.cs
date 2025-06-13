@@ -515,6 +515,9 @@ public sealed class LibSQLCommand : DbCommand
     /// <param name="statement">The prepared statement handle.</param>
     private void BindParameters(LibSQLStatementHandle statement)
     {
+        // Validate all parameters before binding
+        Parameters.ValidateParameters();
+        
         for (int i = 0; i < Parameters.Count; i++)
         {
             var parameter = Parameters[i];

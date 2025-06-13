@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.Common;
 using System.Linq;
 
@@ -105,6 +106,38 @@ public sealed class LibSQLParameterCollection : DbParameterCollection
     }
 
     /// <summary>
+    /// Adds a parameter with the specified name, data type, and value.
+    /// </summary>
+    /// <param name="parameterName">The name of the parameter.</param>
+    /// <param name="dbType">The data type of the parameter.</param>
+    /// <param name="value">The value of the parameter.</param>
+    /// <returns>The newly created parameter.</returns>
+    public LibSQLParameter AddWithValue(string parameterName, DbType dbType, object? value)
+    {
+        var parameter = new LibSQLParameter(parameterName, dbType);
+        parameter.Value = value;
+        // Explicitly set the DbType again since setting Value might override it
+        parameter.DbType = dbType;
+        Add(parameter);
+        return parameter;
+    }
+
+    /// <summary>
+    /// Adds a range of LibSQLParameter objects to the collection.
+    /// </summary>
+    /// <param name="parameters">The parameters to add.</param>
+    public void AddRange(IEnumerable<LibSQLParameter> parameters)
+    {
+        if (parameters is null)
+            throw new ArgumentNullException(nameof(parameters));
+
+        foreach (var parameter in parameters)
+        {
+            Add(parameter);
+        }
+    }
+
+    /// <summary>
     /// Adds an array of parameters to the collection.
     /// </summary>
     /// <param name="values">The parameters to add.</param>
@@ -183,6 +216,9 @@ public sealed class LibSQLParameterCollection : DbParameterCollection
     /// <returns>The index of the parameter; -1 if not found.</returns>
     public override int IndexOf(string parameterName)
     {
+        if (string.IsNullOrEmpty(parameterName))
+            return -1;
+
         for (int i = 0; i < _parameters.Count; i++)
         {
             if (string.Equals(_parameters[i].ParameterName, parameterName, StringComparison.OrdinalIgnoreCase))
@@ -191,6 +227,24 @@ public sealed class LibSQLParameterCollection : DbParameterCollection
             }
         }
         return -1;
+    }
+
+    /// <summary>
+    /// Validates all parameters in the collection.
+    /// </summary>
+    public void ValidateParameters()
+    {
+        var parameterNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        
+        foreach (var parameter in _parameters)
+        {
+            parameter.Validate();
+            
+            if (!parameterNames.Add(parameter.ParameterName))
+            {
+                throw new InvalidOperationException($"Duplicate parameter name: {parameter.ParameterName}");
+            }
+        }
     }
 
     /// <summary>
@@ -288,5 +342,20 @@ public sealed class LibSQLParameterCollection : DbParameterCollection
             throw new ArgumentException($"Parameter '{parameterName}' not found.", nameof(parameterName));
         }
         _parameters[index] = (LibSQLParameter)value;
+    }
+
+    /// <summary>
+    /// Gets a safe index for the parameter name, throwing an exception if not found.
+    /// </summary>
+    /// <param name="parameterName">The name of the parameter.</param>
+    /// <returns>The index of the parameter.</returns>
+    private int GetSafeIndex(string parameterName)
+    {
+        var index = IndexOf(parameterName);
+        if (index < 0)
+        {
+            throw new ArgumentException($"Parameter '{parameterName}' not found.", nameof(parameterName));
+        }
+        return index;
     }
 }

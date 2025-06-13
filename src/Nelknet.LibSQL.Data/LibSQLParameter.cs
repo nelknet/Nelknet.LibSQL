@@ -137,6 +137,32 @@ public sealed class LibSQLParameter : DbParameter
     }
 
     /// <summary>
+    /// Gets or sets the maximum number of digits used to represent the Value property.
+    /// </summary>
+    public override byte Precision { get; set; }
+
+    /// <summary>
+    /// Gets or sets the number of decimal places to which Value is resolved.
+    /// </summary>
+    public override byte Scale { get; set; }
+
+    /// <summary>
+    /// Validates the parameter's properties.
+    /// </summary>
+    public void Validate()
+    {
+        if (string.IsNullOrEmpty(ParameterName))
+        {
+            throw new InvalidOperationException("Parameter name cannot be null or empty.");
+        }
+
+        if (!ParameterName.StartsWith("@") && !ParameterName.StartsWith(":") && !ParameterName.StartsWith("?"))
+        {
+            throw new ArgumentException("Parameter name must start with '@', ':', or '?'.", nameof(ParameterName));
+        }
+    }
+
+    /// <summary>
     /// Infers the DbType from the value type.
     /// </summary>
     /// <param name="value">The value to infer the type from.</param>
@@ -164,6 +190,10 @@ public sealed class LibSQLParameter : DbParameter
             byte[] => DbType.Binary,
             char => DbType.StringFixedLength,
             string => DbType.String,
+#if NET6_0_OR_GREATER
+            DateOnly => DbType.Date,
+            TimeOnly => DbType.Time,
+#endif
             _ => DbType.Object
         };
     }
