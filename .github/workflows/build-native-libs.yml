@@ -1,0 +1,239 @@
+name: Build Native Libraries
+
+on:
+  workflow_dispatch:
+    inputs:
+      libsql_tag:
+        description: 'libSQL repository tag to build (e.g. libsql-0.6.2)'
+        required: true
+        default: 'libsql-0.6.2'
+  push:
+    branches: [ main ]
+    paths:
+      - 'scripts/build-native-libs.*'
+      - '.github/workflows/build-native-libs.yml'
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - { rust: x86_64-unknown-linux-gnu, rid: linux-x64 }
+          - { rust: aarch64-unknown-linux-gnu, rid: linux-arm64 }
+    steps:
+      - name: Checkout Nelknet.LibSQL
+        uses: actions/checkout@v4
+
+      - name: Set libSQL tag
+        run: |
+          TAG=${{ github.event.inputs.libsql_tag || 'libsql-0.6.2' }}
+          echo "LIBSQL_TAG=$TAG" >> $GITHUB_ENV
+
+      - name: Checkout libSQL
+        uses: actions/checkout@v4
+        with:
+          repository: tursodatabase/libsql
+          ref: ${{ env.LIBSQL_TAG }}
+          path: libsql
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target.rust }}
+
+      - name: Install cross
+        run: cargo install cross
+
+      - name: Build libSQL
+        working-directory: libsql/bindings/c
+        run: cross build --release --target ${{ matrix.target.rust }}
+
+      - name: Create shared library
+        run: |
+          mkdir -p obj
+          cd obj
+          ar -x ../libsql/target/${{ matrix.target.rust }}/release/libsql_experimental.a
+          gcc -shared -o libsql.so *.o -lpthread -ldl -lm
+
+      - name: Prepare output
+        run: |
+          mkdir -p src/Nelknet.LibSQL.Bindings/runtimes/${{ matrix.target.rid }}/native
+          cp obj/libsql.so src/Nelknet.LibSQL.Bindings/runtimes/${{ matrix.target.rid }}/native/
+          cp libsql/bindings/c/include/libsql.h src/Nelknet.LibSQL.Bindings/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: libsql-${{ matrix.target.rid }}
+          path: |
+            src/Nelknet.LibSQL.Bindings/runtimes/${{ matrix.target.rid }}/native/libsql.so
+            src/Nelknet.LibSQL.Bindings/libsql.h
+
+  build-macos:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        target:
+          - { rust: x86_64-apple-darwin, rid: osx-x64 }
+          - { rust: aarch64-apple-darwin, rid: osx-arm64 }
+    steps:
+      - name: Checkout Nelknet.LibSQL
+        uses: actions/checkout@v4
+
+      - name: Set libSQL tag
+        run: |
+          TAG=${{ github.event.inputs.libsql_tag || 'libsql-0.6.2' }}
+          echo "LIBSQL_TAG=$TAG" >> $GITHUB_ENV
+
+      - name: Checkout libSQL
+        uses: actions/checkout@v4
+        with:
+          repository: tursodatabase/libsql
+          ref: ${{ env.LIBSQL_TAG }}
+          path: libsql
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target.rust }}
+
+      - name: Build libSQL
+        working-directory: libsql/bindings/c
+        run: cargo build --release --target ${{ matrix.target.rust }}
+
+      - name: Create dynamic library
+        run: |
+          mkdir -p obj
+          cd obj
+          ar -x ../libsql/target/${{ matrix.target.rust }}/release/libsql_experimental.a
+          clang -dynamiclib -o libsql.dylib *.o \
+            -framework Security -framework CoreFoundation \
+            -lSystem -lc -lm
+
+      - name: Prepare output
+        run: |
+          mkdir -p src/Nelknet.LibSQL.Bindings/runtimes/${{ matrix.target.rid }}/native
+          cp obj/libsql.dylib src/Nelknet.LibSQL.Bindings/runtimes/${{ matrix.target.rid }}/native/
+          cp libsql/bindings/c/include/libsql.h src/Nelknet.LibSQL.Bindings/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: libsql-${{ matrix.target.rid }}
+          path: |
+            src/Nelknet.LibSQL.Bindings/runtimes/${{ matrix.target.rid }}/native/libsql.dylib
+            src/Nelknet.LibSQL.Bindings/libsql.h
+
+  build-windows:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        target:
+          - { rust: x86_64-pc-windows-msvc, rid: win-x64 }
+          - { rust: i686-pc-windows-msvc, rid: win-x86 }
+          - { rust: aarch64-pc-windows-msvc, rid: win-arm64 }
+    steps:
+      - name: Checkout Nelknet.LibSQL
+        uses: actions/checkout@v4
+
+      - name: Set libSQL tag
+        run: |
+          $TAG = "${{ github.event.inputs.libsql_tag || 'libsql-0.6.2' }}"
+          echo "LIBSQL_TAG=$TAG" >> $env:GITHUB_ENV
+
+      - name: Checkout libSQL
+        uses: actions/checkout@v4
+        with:
+          repository: tursodatabase/libsql
+          ref: ${{ env.LIBSQL_TAG }}
+          path: libsql
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target.rust }}
+
+      - name: Build libSQL
+        working-directory: libsql/bindings/c
+        run: cargo build --release --target ${{ matrix.target.rust }}
+
+      - name: Create DLL
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          mkdir obj
+          cd obj
+          lib /list ..\libsql\target\${{ matrix.target.rust }}\release\sql_experimental.lib > objects.txt
+          for /f %%i in (objects.txt) do lib /extract:%%i ..\libsql\target\${{ matrix.target.rust }}\release\sql_experimental.lib
+          link /dll /out:libsql.dll *.o advapi32.lib bcrypt.lib kernel32.lib userenv.lib ws2_32.lib msvcrt.lib
+
+      - name: Prepare output
+        run: |
+          New-Item -ItemType Directory -Force -Path "src\Nelknet.LibSQL.Bindings\runtimes\${{ matrix.target.rid }}\native"
+          Copy-Item "obj\libsql.dll" "src\Nelknet.LibSQL.Bindings\runtimes\${{ matrix.target.rid }}\native\"
+          Copy-Item "libsql\bindings\c\include\libsql.h" "src\Nelknet.LibSQL.Bindings\"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: libsql-${{ matrix.target.rid }}
+          path: |
+            src/Nelknet.LibSQL.Bindings/runtimes/${{ matrix.target.rid }}/native/libsql.dll
+            src/Nelknet.LibSQL.Bindings/libsql.h
+
+  package:
+    needs: [build-linux, build-macos, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Organize native libraries
+        run: |
+          # Copy all artifacts to the correct location
+          for dir in artifacts/libsql-*; do
+            cp -r $dir/* .
+          done
+          
+          # Create version file
+          echo "${{ github.event.inputs.libsql_tag || 'libsql-0.6.2' }}" > src/Nelknet.LibSQL.Bindings/runtimes/LIBSQL_VERSION
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build and pack
+        run: |
+          dotnet build -c Release
+          dotnet pack -c Release -p:BuildType=Full -o packages
+
+      - name: Upload NuGet packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages
+          path: packages/*.nupkg
+
+      - name: Create Pull Request
+        if: github.event_name == 'workflow_dispatch'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          commit-message: "Update libSQL native libraries to ${{ github.event.inputs.libsql_tag }}"
+          title: "Update libSQL native libraries to ${{ github.event.inputs.libsql_tag }}"
+          body: |
+            This PR updates the libSQL native libraries to version `${{ github.event.inputs.libsql_tag }}`.
+            
+            Libraries updated:
+            - Windows (x64, x86, ARM64)
+            - Linux (x64, ARM64)
+            - macOS (x64, ARM64)
+            
+            This update was generated automatically by the build-native-libs workflow.
+          branch: update-libsql-${{ github.event.inputs.libsql_tag }}
+          delete-branch: true

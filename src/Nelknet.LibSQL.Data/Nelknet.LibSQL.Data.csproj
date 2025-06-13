@@ -61,7 +61,17 @@
 
   <!-- Include native libraries in the package -->
   <ItemGroup Condition="'$(BuildType)' == 'Full'">
-    <None Include="obj\runtimes\**\*.dll;obj\runtimes\**\*.so;obj\runtimes\**\*.dylib">
+    <!-- From MSBuild download -->
+    <None Include="obj\runtimes\**\*.dll;obj\runtimes\**\*.so;obj\runtimes\**\*.dylib" Condition="Exists('obj\runtimes')">
+      <Visible>false</Visible>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Pack>true</Pack>
+      <PackagePath>runtimes</PackagePath>
+      <Link>runtimes\%(RecursiveDir)%(FileName)%(Extension)</Link>
+    </None>
+    
+    <!-- From pre-built binaries in Bindings project -->
+    <None Include="..\Nelknet.LibSQL.Bindings\runtimes\**\*.dll;..\Nelknet.LibSQL.Bindings\runtimes\**\*.so;..\Nelknet.LibSQL.Bindings\runtimes\**\*.dylib" Condition="Exists('..\Nelknet.LibSQL.Bindings\runtimes')">
       <Visible>false</Visible>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Pack>true</Pack>

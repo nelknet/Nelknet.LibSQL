@@ -112,29 +112,58 @@ if (LibSQLVersion.IsLibraryLoaded())
 }
 ```
 
-## Building libSQL from Source
+## Building Native Libraries
 
-Currently, pre-built libSQL binaries are not available from the official releases. To use Nelknet.LibSQL, you'll need to:
+Nelknet.LibSQL provides comprehensive build scripts to build libSQL native libraries from source:
 
-1. **Build libSQL from source**:
+### Quick Build
+
+```bash
+# Build everything (native libs + managed code + NuGet packages)
+./build-all.sh --all
+
+# Or build only native libraries
+./scripts/build-native-libs.sh libsql-0.6.2
+```
+
+### Manual Build Process
+
+1. **Prerequisites**:
+   - Rust toolchain (https://rustup.rs)
+   - Platform build tools (gcc/clang/Visual Studio)
+
+2. **Build native libraries**:
    ```bash
-   git clone https://github.com/tursodatabase/libsql
-   cd libsql
-   cargo xtask build
+   # Linux/macOS
+   ./scripts/build-native-libs.sh [libsql-tag]
+   
+   # Windows
+   .\scripts\build-native-libs.ps1 -LibSQLTag "libsql-0.6.2"
    ```
-   The compiled libraries will be in `libsql-sqlite3/.libs/`
 
-2. **Use SQLite3 for testing** (since libSQL is SQLite3-compatible):
-   ```bash
-   # A helper script is provided to download and build SQLite3
-   ./scripts/download-sqlite3.sh
+3. **Libraries are placed in**:
    ```
-   This will build SQLite3 libraries that can be used for testing basic functionality
+   src/Nelknet.LibSQL.Bindings/runtimes/
+   ├── win-x64/native/libsql.dll
+   ├── linux-x64/native/libsql.so
+   └── osx-arm64/native/libsql.dylib
+   ```
 
-3. **Place the library in your application directory**:
-   - Windows: `libsql.dll` or `sqlite3.dll`
-   - Linux: `libsql.so` or `libsqlite3.so`
-   - macOS: `libsql.dylib` or `libsqlite3.dylib`
+### GitHub Actions
+
+For automated builds across all platforms:
+```yaml
+gh workflow run build-native-libs.yml -f libsql_tag=libsql-0.6.2
+```
+
+### Alternative: SQLite3 for Testing
+
+For basic testing without building libSQL:
+```bash
+./scripts/download-sqlite3.sh
+```
+
+See [Building Native Libraries](BuildingNativeLibraries.md) for detailed instructions.
 
 ## Troubleshooting
 
