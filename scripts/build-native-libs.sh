@@ -11,7 +11,7 @@ BUILD_DIR="$PROJECT_ROOT/build-temp"
 OUTPUT_DIR="$PROJECT_ROOT/src/Nelknet.LibSQL.Bindings/runtimes"
 
 # libSQL version to build (can be overridden by command line)
-LIBSQL_TAG="${1:-libsql-0.6.2}"
+LIBSQL_TAG="${1:-libsql-rs-v0.5.0}"
 
 echo "=== Building libSQL Native Libraries ==="
 echo "libSQL version: $LIBSQL_TAG"
@@ -101,6 +101,11 @@ case "$OS" in
         print_status "Building for macOS..."
         
         # Check if we have required tools
+        # Source cargo env if it exists
+        if [ -f "$HOME/.cargo/env" ]; then
+            source "$HOME/.cargo/env"
+        fi
+        
         if ! command -v cargo &> /dev/null; then
             print_error "Rust/Cargo not found. Please install Rust from https://rustup.rs"
             exit 1
@@ -121,16 +126,18 @@ case "$OS" in
         cd "$BUILD_DIR/obj"
         ar -x "$BUILD_DIR/libsql/target/release/libsql_experimental.a"
         
-        # Link into dynamic library
+        # Link into dynamic library - use -all_load to ensure all symbols are included
         if [ "$ARCH" = "arm64" ]; then
             # macOS ARM64 (Apple Silicon)
-            clang -dynamiclib -o libsql.dylib *.o \
+            clang -dynamiclib -o libsql.dylib \
+                -all_load "$BUILD_DIR/libsql/target/release/libsql_experimental.a" \
                 -framework Security -framework CoreFoundation \
                 -lSystem -lc -lm
             copy_library "$BUILD_DIR/obj/libsql.dylib" "osx-arm64" "libsql.dylib"
         else
             # macOS x64
-            clang -dynamiclib -o libsql.dylib *.o \
+            clang -dynamiclib -o libsql.dylib \
+                -all_load "$BUILD_DIR/libsql/target/release/libsql_experimental.a" \
                 -framework Security -framework CoreFoundation \
                 -lSystem -lc -lm
             copy_library "$BUILD_DIR/obj/libsql.dylib" "osx-x64" "libsql.dylib"
@@ -190,10 +197,10 @@ case "$OS" in
         ;;
 esac
 
-# Clean up build directory
-print_status "Cleaning up..."
+# Keep build directory for debugging
+print_status "Build artifacts preserved in $BUILD_DIR"
 cd "$PROJECT_ROOT"
-rm -rf "$BUILD_DIR"
+# rm -rf "$BUILD_DIR"
 
 print_status "Build complete! Native libraries are in:"
 find "$OUTPUT_DIR" -name "*.so" -o -name "*.dylib" -o -name "*.dll" | while read -r file; do

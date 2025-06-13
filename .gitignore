@@ -490,3 +490,13 @@ IMPLEMENTATION_PLAN.md
 
 # Native libraries (for local testing only)
 native-libs/
+
+# Build temporary directories
+build-temp/
+temp/
+
+# Generated header files (will be regenerated during build)
+src/Nelknet.LibSQL.Bindings/libsql.h
+
+# Native library binaries (will be built or downloaded)
+src/Nelknet.LibSQL.Bindings/runtimes/

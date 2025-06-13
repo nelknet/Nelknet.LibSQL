@@ -34,8 +34,10 @@ print_warning() {
 BUILD_NATIVE=false
 BUILD_MANAGED=false
 PACK_NUGET=false
-LIBSQL_VERSION="libsql-0.6.2"
+LIBSQL_VERSION="libsql-rs-v0.5.0"
 SKIP_TESTS=false
+CONFIGURATION="Release"
+BUILD_TYPE=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -65,6 +67,14 @@ while [[ $# -gt 0 ]]; do
             SKIP_TESTS=true
             shift
             ;;
+        --configuration)
+            CONFIGURATION="$2"
+            shift 2
+            ;;
+        --build-type)
+            BUILD_TYPE="$2"
+            shift 2
+            ;;
         --help)
             echo "Usage: $0 [options]"
             echo "Options:"
@@ -72,8 +82,10 @@ while [[ $# -gt 0 ]]; do
             echo "  --managed         Build managed .NET assemblies"
             echo "  --pack           Create NuGet packages"
             echo "  --all            Build everything (native + managed + pack)"
-            echo "  --libsql-version Version of libSQL to build (default: libsql-0.6.2)"
+            echo "  --libsql-version Version of libSQL to build (default: libsql-rs-v0.5.0)"
             echo "  --skip-tests     Skip running tests"
+            echo "  --configuration  Build configuration (Debug/Release, default: Release)"
+            echo "  --build-type     MSBuild BuildType property (ManagedOnly/Full)"
             echo "  --help           Show this help message"
             exit 0
             ;;
@@ -112,11 +124,15 @@ if [ "$BUILD_MANAGED" = true ]; then
     dotnet restore
     
     print_status "Building solution..."
-    dotnet build -c Release
+    BUILD_ARGS="-c $CONFIGURATION"
+    if [ -n "$BUILD_TYPE" ]; then
+        BUILD_ARGS="$BUILD_ARGS -p:BuildType=$BUILD_TYPE"
+    fi
+    dotnet build $BUILD_ARGS
     
     if [ "$SKIP_TESTS" = false ]; then
         print_status "Running tests..."
-        if dotnet test -c Release --no-build; then
+        if dotnet test -c $CONFIGURATION --no-build; then
             print_status "All tests passed!"
         else
             print_warning "Some tests failed (likely due to missing native library)"
@@ -134,7 +150,7 @@ if [ "$PACK_NUGET" = true ]; then
     # Pack managed-only package
     print_status "Creating managed-only package..."
     dotnet pack src/Nelknet.LibSQL.Data/Nelknet.LibSQL.Data.csproj \
-        -c Release \
+        -c $CONFIGURATION \
         -p:BuildType=ManagedOnly \
         -o artifacts \
         --no-build
@@ -143,7 +159,7 @@ if [ "$PACK_NUGET" = true ]; then
     if [ -d "src/Nelknet.LibSQL.Bindings/runtimes" ] && [ "$(ls -A src/Nelknet.LibSQL.Bindings/runtimes)" ]; then
         print_status "Creating full package with native libraries..."
         dotnet pack src/Nelknet.LibSQL.Data/Nelknet.LibSQL.Data.csproj \
-            -c Release \
+            -c $CONFIGURATION \
             -p:BuildType=Full \
             -o artifacts \
             --no-build
