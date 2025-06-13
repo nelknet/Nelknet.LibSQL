@@ -341,10 +341,9 @@ public sealed class LibSQLCommand : DbCommand
             throw new InvalidOperationException($"Failed to execute query: {errorMessage}");
         }
 
-        // Create LibSQLDataReader - full implementation will be in Phase 7
-        // For now, clean up the handle and return a stub reader
-        LibSQLNative.libsql_free_rows(rowsHandle);
-        return new LibSQLDataReader();
+        // Create LibSQLDataReader with the rows handle
+        var rowsHandleWrapper = new LibSQLRowsHandle(rowsHandle);
+        return new LibSQLDataReader(rowsHandleWrapper, behavior);
     }
 
     /// <summary>
