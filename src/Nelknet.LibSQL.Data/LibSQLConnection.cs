@@ -19,7 +19,7 @@ public sealed class LibSQLConnection : DbConnection
     private LibSQLConnectionHandle? _connectionHandle;
     private ConnectionState _connectionState = ConnectionState.Closed;
     private string _connectionString = string.Empty;
-    private LibSQLConnectionString? _parsedConnectionString;
+    private LibSQLConnectionStringBuilder? _connectionStringBuilder;
     internal LibSQLTransaction? _currentTransaction;
 
     // Connection state change event args for performance
@@ -54,7 +54,7 @@ public sealed class LibSQLConnection : DbConnection
         {
             EnsureConnectionClosed();
             _connectionString = value ?? string.Empty;
-            _parsedConnectionString = null; // Reset parsed connection string
+            _connectionStringBuilder = null; // Reset parsed connection string
         }
     }
 
@@ -70,12 +70,12 @@ public sealed class LibSQLConnection : DbConnection
     /// <summary>
     /// Gets the name of the database after a connection is opened.
     /// </summary>
-    public override string Database => ParsedConnectionString.DataSource;
+    public override string Database => ConnectionStringBuilder.DataSource ?? string.Empty;
 
     /// <summary>
     /// Gets the name of the database server.
     /// </summary>
-    public override string DataSource => ParsedConnectionString.DataSource;
+    public override string DataSource => ConnectionStringBuilder.DataSource ?? string.Empty;
 
     /// <summary>
     /// Gets the version of the libSQL server.
@@ -88,17 +88,17 @@ public sealed class LibSQLConnection : DbConnection
     public override ConnectionState State => _connectionState;
 
     /// <summary>
-    /// Gets the parsed connection string.
+    /// Gets the connection string builder.
     /// </summary>
-    private LibSQLConnectionString ParsedConnectionString
+    private LibSQLConnectionStringBuilder ConnectionStringBuilder
     {
         get
         {
-            if (_parsedConnectionString is null)
+            if (_connectionStringBuilder is null)
             {
-                _parsedConnectionString = LibSQLConnectionString.Parse(_connectionString);
+                _connectionStringBuilder = new LibSQLConnectionStringBuilder(_connectionString);
             }
-            return _parsedConnectionString;
+            return _connectionStringBuilder;
         }
     }
 
@@ -116,37 +116,43 @@ public sealed class LibSQLConnection : DbConnection
                 // Initialize the native library if not already done
                 LibSQLNative.Initialize();
 
-                var parsed = ParsedConnectionString;
+                var builder = ConnectionStringBuilder;
                 IntPtr dbHandle;
                 IntPtr errorMsg;
                 
                 // Open the database
                 int result;
-                if (parsed.IsRemote)
+                var dataSource = builder.DataSource ?? throw new InvalidOperationException("Data source is required.");
+                
+                switch (builder.Mode)
                 {
-                    if (string.IsNullOrEmpty(parsed.AuthToken))
-                    {
-                        throw new InvalidOperationException("Auth token is required for remote connections.");
-                    }
-                    
-                    if (parsed.WithWebPKI)
-                    {
+                    case LibSQLConnectionMode.Remote:
+                        if (string.IsNullOrEmpty(builder.AuthToken))
+                        {
+                            throw new InvalidOperationException("Auth token is required for remote connections.");
+                        }
+                        
+                        // For now, always use WebPKI for remote connections
                         result = LibSQLNative.libsql_open_remote_with_webpki(
-                            parsed.DataSource, parsed.AuthToken, out dbHandle, out errorMsg);
-                    }
-                    else
-                    {
-                        result = LibSQLNative.libsql_open_remote(
-                            parsed.DataSource, parsed.AuthToken, out dbHandle, out errorMsg);
-                    }
-                }
-                else if (parsed.IsFile)
-                {
-                    result = LibSQLNative.libsql_open_file(parsed.DataSource, out dbHandle, out errorMsg);
-                }
-                else
-                {
-                    result = LibSQLNative.libsql_open_ext(parsed.DataSource, out dbHandle, out errorMsg);
+                            dataSource, builder.AuthToken, out dbHandle, out errorMsg);
+                        break;
+                        
+                    case LibSQLConnectionMode.EmbeddedReplica:
+                        // For embedded replica, we need to use the sync configuration
+                        // This will be implemented when we add sync support
+                        throw new NotSupportedException("Embedded replica mode is not yet supported.");
+                        
+                    case LibSQLConnectionMode.Local:
+                    default:
+                        if (dataSource == ":memory:" || dataSource.StartsWith(":memory:?"))
+                        {
+                            result = LibSQLNative.libsql_open_ext(dataSource, out dbHandle, out errorMsg);
+                        }
+                        else
+                        {
+                            result = LibSQLNative.libsql_open_file(dataSource, out dbHandle, out errorMsg);
+                        }
+                        break;
                 }
 
                 if (result != 0)
