@@ -112,6 +112,30 @@ if (LibSQLVersion.IsLibraryLoaded())
 }
 ```
 
+## Building libSQL from Source
+
+Currently, pre-built libSQL binaries are not available from the official releases. To use Nelknet.LibSQL, you'll need to:
+
+1. **Build libSQL from source**:
+   ```bash
+   git clone https://github.com/tursodatabase/libsql
+   cd libsql
+   cargo xtask build
+   ```
+   The compiled libraries will be in `libsql-sqlite3/.libs/`
+
+2. **Use SQLite3 for testing** (since libSQL is SQLite3-compatible):
+   ```bash
+   # A helper script is provided to download and build SQLite3
+   ./scripts/download-sqlite3.sh
+   ```
+   This will build SQLite3 libraries that can be used for testing basic functionality
+
+3. **Place the library in your application directory**:
+   - Windows: `libsql.dll` or `sqlite3.dll`
+   - Linux: `libsql.so` or `libsqlite3.so`
+   - macOS: `libsql.dylib` or `libsqlite3.dylib`
+
 ## Troubleshooting
 
 ### Library Not Found

@@ -36,8 +36,15 @@
   <!-- Target to download for a specific RID -->
   <Target Name="DownloadNativeLibraryForRid">
     <PropertyGroup>
-      <!-- TODO: Update these URLs once libSQL releases are available -->
-      <!-- For now, using placeholder URLs that would need to be replaced with actual libSQL release URLs -->
+      <!-- 
+        NOTE: As of Phase 12 implementation, libSQL does not provide pre-built binaries.
+        These URLs are placeholders for future use when libSQL starts providing official releases.
+        
+        Current options:
+        1. Build libSQL from source: https://github.com/tursodatabase/libsql
+        2. Use SQLite3 libraries for testing (libSQL is SQLite3-compatible)
+        3. Extract from libsql-js Node.js bindings (these are .node files, not raw libraries)
+      -->
       <LibSQLBaseUrl>https://github.com/tursodatabase/libsql/releases/download/v$(LibSQLVersion)</LibSQLBaseUrl>
       <LibSQLReleaseUrl Condition="'$(Rid)' == 'win-x64'">$(LibSQLBaseUrl)/libsql-windows-x64.zip</LibSQLReleaseUrl>
       <LibSQLReleaseUrl Condition="'$(Rid)' == 'win-x86'">$(LibSQLBaseUrl)/libsql-windows-x86.zip</LibSQLReleaseUrl>

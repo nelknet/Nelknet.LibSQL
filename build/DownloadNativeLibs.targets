@@ -1,4 +1,15 @@
 <Project>
+  <!-- 
+    This target downloads native libSQL libraries from GitHub releases.
+    NOTE: As of Phase 12 implementation, libSQL does not provide pre-built binaries.
+    The URLs below are placeholders that would need to be updated when/if libSQL
+    starts providing official binary releases.
+    
+    For now, users need to:
+    1. Build libSQL from source (https://github.com/tursodatabase/libsql)
+    2. Use the SQLite3 compatibility (since libSQL is SQLite3-compatible)
+    3. Wait for official libSQL binary releases
+  -->
   <Target Name="DownloadNativeLibrary">
     <PropertyGroup>
       <NativeLibsDir>$(MSBuildProjectDirectory)\obj\runtimes\$(Rid)\native</NativeLibsDir>

@@ -33,11 +33,20 @@ public static class LibSQLVersion
 
                 EnsureNativeLibraryLoaded();
                 
-                var ptr = LibSQLNative.libsql_libversion();
-                if (ptr == IntPtr.Zero)
-                    throw new InvalidOperationException("Failed to get libSQL version");
+                try
+                {
+                    var ptr = LibSQLNative.libsql_libversion();
+                    if (ptr == IntPtr.Zero)
+                        throw new InvalidOperationException("Failed to get libSQL version");
 
-                _libSQLVersion = Marshal.PtrToStringAnsi(ptr) ?? "Unknown";
+                    _libSQLVersion = Marshal.PtrToStringAnsi(ptr) ?? "Unknown";
+                }
+                catch (EntryPointNotFoundException)
+                {
+                    // Fallback: If using SQLite3 instead of libSQL, return SQLite version
+                    _libSQLVersion = $"SQLite {SQLiteVersionString} (libSQL-compatible)";
+                }
+                
                 return _libSQLVersion;
             }
         }
@@ -133,8 +142,8 @@ public static class LibSQLVersion
         {
             LibSQLNative.Initialize();
             
-            // Try to get version to verify the library is working
-            var ptr = LibSQLNative.libsql_libversion();
+            // Try to get SQLite version to verify the library is working
+            var ptr = LibSQLNative.sqlite3_libversion();
             return ptr != IntPtr.Zero;
         }
         catch
