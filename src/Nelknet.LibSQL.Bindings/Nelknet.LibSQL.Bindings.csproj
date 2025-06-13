@@ -4,6 +4,43 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <PackageId>Nelknet.LibSQL.Bindings</PackageId>
     <Description>Native bindings for libSQL - low-level P/Invoke wrapper</Description>
+    <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
+    <!-- TODO: Update with actual libSQL release URL when available -->
+    <LibSQLArtifactRoot Condition=" '$(LibSQLArtifactRoot)' == '' ">https://github.com/tursodatabase/libsql/releases/download/libsql-server-v0.24.26</LibSQLArtifactRoot>
   </PropertyGroup>
+  
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>Nelknet.LibSQL.Tests</_Parameter1>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>Nelknet.LibSQL.Data</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <!-- Download and include the native libraries into the NuGet package-->
+  <Target Name="DownloadNativeLibs" BeforeTargets="GenerateAdditionalSources" Condition="'$(BuildType)' == 'Full' ">
+    <!-- Note: These URLs are placeholders and need to be updated with actual libSQL release URLs -->
+    <MSBuild Projects="DownloadNativeLibs.targets" Properties="Rid=win-x64;LibUrl=$(LibSQLArtifactRoot)/libsql-windows-amd64.zip" />
+    <MSBuild Condition="'$(SkipArm)' == ''" Projects="DownloadNativeLibs.targets" Properties="Rid=win-arm64;LibUrl=$(LibSQLArtifactRoot)/libsql-windows-arm64.zip" />
+    <MSBuild Projects="DownloadNativeLibs.targets" Properties="Rid=linux-x64;LibUrl=$(LibSQLArtifactRoot)/libsql-linux-amd64.zip" />
+    <MSBuild Condition="'$(SkipArm)' == ''" Projects="DownloadNativeLibs.targets" Properties="Rid=linux-arm64;LibUrl=$(LibSQLArtifactRoot)/libsql-linux-arm64.zip" />
+    <MSBuild Projects="DownloadNativeLibs.targets" Properties="Rid=osx-x64;LibUrl=$(LibSQLArtifactRoot)/libsql-osx-x64.zip" />
+    <MSBuild Condition="'$(SkipArm)' == ''" Projects="DownloadNativeLibs.targets" Properties="Rid=osx-arm64;LibUrl=$(LibSQLArtifactRoot)/libsql-osx-arm64.zip" />
+  </Target>
+  
+  <Target Name="CleanNativeLibs" BeforeTargets="Clean" Condition="'$(BuildType)' == 'Full' ">
+    <RemoveDir Directories="obj\runtimes" />
+  </Target>
+  
+  <ItemGroup Condition="'$(BuildType)' == 'Full' ">
+    <None Include="obj\runtimes\**\*.dll;obj\runtimes\**\*.so;obj\runtimes\**\*.dylib;">
+      <Visible>false</Visible>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Pack>true</Pack>
+      <PackagePath>\runtimes</PackagePath>
+      <Link>runtimes\%(RecursiveDir)\%(FileName)%(Extension)</Link>
+    </None>
+  </ItemGroup>
 
 </Project>
