@@ -4,6 +4,167 @@ using System.Runtime.InteropServices;
 namespace Nelknet.LibSQL.Native;
 
 /// <summary>
+/// LibSQL result codes (based on SQLite result codes)
+/// </summary>
+internal enum LibSQLResultCode : int
+{
+    /// <summary>
+    /// Successful result
+    /// </summary>
+    Ok = 0,
+    
+    /// <summary>
+    /// Generic error
+    /// </summary>
+    Error = 1,
+    
+    /// <summary>
+    /// Internal logic error in SQLite
+    /// </summary>
+    Internal = 2,
+    
+    /// <summary>
+    /// Access permission denied
+    /// </summary>
+    Perm = 3,
+    
+    /// <summary>
+    /// Callback routine requested an abort
+    /// </summary>
+    Abort = 4,
+    
+    /// <summary>
+    /// The database file is locked
+    /// </summary>
+    Busy = 5,
+    
+    /// <summary>
+    /// A table in the database is locked
+    /// </summary>
+    Locked = 6,
+    
+    /// <summary>
+    /// A malloc() failed
+    /// </summary>
+    NoMem = 7,
+    
+    /// <summary>
+    /// Attempt to write a readonly database
+    /// </summary>
+    ReadOnly = 8,
+    
+    /// <summary>
+    /// Operation terminated by interrupt
+    /// </summary>
+    Interrupt = 9,
+    
+    /// <summary>
+    /// Some kind of disk I/O error occurred
+    /// </summary>
+    IoErr = 10,
+    
+    /// <summary>
+    /// The database disk image is malformed
+    /// </summary>
+    Corrupt = 11,
+    
+    /// <summary>
+    /// Unknown opcode in file control
+    /// </summary>
+    NotFound = 12,
+    
+    /// <summary>
+    /// Insertion failed because database is full
+    /// </summary>
+    Full = 13,
+    
+    /// <summary>
+    /// Unable to open the database file
+    /// </summary>
+    CantOpen = 14,
+    
+    /// <summary>
+    /// Database lock protocol error
+    /// </summary>
+    Protocol = 15,
+    
+    /// <summary>
+    /// Internal use only
+    /// </summary>
+    Empty = 16,
+    
+    /// <summary>
+    /// The database schema changed
+    /// </summary>
+    Schema = 17,
+    
+    /// <summary>
+    /// String or BLOB exceeds size limit
+    /// </summary>
+    TooBig = 18,
+    
+    /// <summary>
+    /// Abort due to constraint violation
+    /// </summary>
+    Constraint = 19,
+    
+    /// <summary>
+    /// Data type mismatch
+    /// </summary>
+    Mismatch = 20,
+    
+    /// <summary>
+    /// Library used incorrectly
+    /// </summary>
+    Misuse = 21,
+    
+    /// <summary>
+    /// Uses OS features not supported on host
+    /// </summary>
+    NoLfs = 22,
+    
+    /// <summary>
+    /// Authorization denied
+    /// </summary>
+    Auth = 23,
+    
+    /// <summary>
+    /// Not used
+    /// </summary>
+    Format = 24,
+    
+    /// <summary>
+    /// 2nd parameter to bind out of range
+    /// </summary>
+    Range = 25,
+    
+    /// <summary>
+    /// File opened that is not a database file
+    /// </summary>
+    NotADb = 26,
+    
+    /// <summary>
+    /// Notifications from log
+    /// </summary>
+    Notice = 27,
+    
+    /// <summary>
+    /// Warnings from log
+    /// </summary>
+    Warning = 28,
+    
+    /// <summary>
+    /// Step has another row ready
+    /// </summary>
+    Row = 100,
+    
+    /// <summary>
+    /// Step has finished executing
+    /// </summary>
+    Done = 101
+}
+
+/// <summary>
 /// LibSQL data type constants
 /// </summary>
 internal static class LibSQLType

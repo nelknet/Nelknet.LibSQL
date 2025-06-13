@@ -1,11 +1,28 @@
 using System;
 using System.Runtime.InteropServices;
+using Nelknet.LibSQL.Bindings;
 
 namespace Nelknet.LibSQL.Native;
 
+/// <summary>
+/// Native P/Invoke methods for libSQL library
+/// </summary>
 internal static partial class LibSQLNative
 {
-    private const string LibraryName = "libsql";
+    private const string LibraryName = LibSQLNativeLibrary.LibraryName;
+    
+    /// <summary>
+    /// Initializes the native library
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown when the native library cannot be loaded</exception>
+    internal static void Initialize()
+    {
+        if (!LibSQLNativeLibrary.TryInitialize())
+        {
+            throw new InvalidOperationException("Failed to load libSQL native library. " +
+                "Please ensure the appropriate native library is available for your platform.");
+        }
+    }
     
     #region Database Management
     

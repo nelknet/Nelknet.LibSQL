@@ -1,5 +1,6 @@
 using Microsoft.Win32.SafeHandles;
 using System;
+using System.Runtime.InteropServices;
 
 namespace Nelknet.LibSQL.Native;
 
@@ -118,6 +119,33 @@ internal sealed class LibSQLRowHandle : SafeHandleZeroOrMinusOneIsInvalid
         if (!IsInvalid && !IsClosed)
         {
             LibSQLNative.libsql_free_row(handle);
+        }
+        return true;
+    }
+}
+
+/// <summary>
+/// Safe handle for generic libSQL pointer that needs to be freed with free()
+/// Used for error messages and other allocated strings
+/// </summary>
+internal sealed class LibSQLAllocatedPointerHandle : SafeHandleZeroOrMinusOneIsInvalid
+{
+    internal LibSQLAllocatedPointerHandle() : base(true)
+    {
+    }
+
+    internal LibSQLAllocatedPointerHandle(IntPtr handle) : base(true)
+    {
+        SetHandle(handle);
+    }
+
+    protected override bool ReleaseHandle()
+    {
+        if (!IsInvalid && !IsClosed)
+        {
+            // Use standard C library free() for generic allocated pointers
+            // This handle is used for error messages and similar allocated strings
+            Marshal.FreeHGlobal(handle);
         }
         return true;
     }
