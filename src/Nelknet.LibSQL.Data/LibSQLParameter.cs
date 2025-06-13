@@ -117,7 +117,15 @@ public sealed class LibSQLParameter : DbParameter
     public override object? Value
     {
         get => _value;
-        set => _value = value;
+        set
+        {
+            _value = value;
+            // Auto-infer DbType based on the value type
+            if (value != null && value != DBNull.Value)
+            {
+                _dbType = InferDbTypeFromValue(value);
+            }
+        }
     }
 
     /// <summary>
@@ -126,5 +134,37 @@ public sealed class LibSQLParameter : DbParameter
     public override void ResetDbType()
     {
         _dbType = DbType.String;
+    }
+
+    /// <summary>
+    /// Infers the DbType from the value type.
+    /// </summary>
+    /// <param name="value">The value to infer the type from.</param>
+    /// <returns>The inferred DbType.</returns>
+    private static DbType InferDbTypeFromValue(object value)
+    {
+        return value switch
+        {
+            bool => DbType.Boolean,
+            byte => DbType.Byte,
+            sbyte => DbType.SByte,
+            short => DbType.Int16,
+            ushort => DbType.UInt16,
+            int => DbType.Int32,
+            uint => DbType.UInt32,
+            long => DbType.Int64,
+            ulong => DbType.UInt64,
+            float => DbType.Single,
+            double => DbType.Double,
+            decimal => DbType.Decimal,
+            DateTime => DbType.DateTime,
+            DateTimeOffset => DbType.DateTimeOffset,
+            TimeSpan => DbType.Time,
+            Guid => DbType.Guid,
+            byte[] => DbType.Binary,
+            char => DbType.StringFixedLength,
+            string => DbType.String,
+            _ => DbType.Object
+        };
     }
 }
