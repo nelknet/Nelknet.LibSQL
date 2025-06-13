@@ -4,6 +4,7 @@ using System;
 using System.Data;
 using System.Data.Common;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Nelknet.LibSQL.Bindings;
@@ -524,45 +525,47 @@ public sealed class LibSQLCommand : DbCommand
             IntPtr errorMsg;
             int result;
 
-            if (parameter.Value == null || parameter.Value == DBNull.Value)
+            // Get the converted value for libSQL
+            var libSQLValue = parameter.GetLibSQLValue();
+
+            if (LibSQLTypeConverter.IsNull(libSQLValue))
             {
                 result = LibSQLNative.libsql_bind_null(statement, i + 1, out errorMsg);
             }
             else
             {
-                switch (parameter.DbType)
+                switch (parameter.LibSQLType)
                 {
-                    case DbType.Int16:
-                    case DbType.Int32:
-                    case DbType.Int64:
-                    case DbType.UInt16:
-                    case DbType.UInt32:
-                    case DbType.UInt64:
-                    case DbType.Byte:
-                    case DbType.SByte:
-                        var longValue = Convert.ToInt64(parameter.Value);
+                    case LibSQLDbType.Integer:
+                        var longValue = (long)libSQLValue;
                         result = LibSQLNative.libsql_bind_int(statement, i + 1, longValue, out errorMsg);
                         break;
 
-                    case DbType.Single:
-                    case DbType.Double:
-                    case DbType.Decimal:
-                        var doubleValue = Convert.ToDouble(parameter.Value);
+                    case LibSQLDbType.Real:
+                        var doubleValue = (double)libSQLValue;
                         result = LibSQLNative.libsql_bind_float(statement, i + 1, doubleValue, out errorMsg);
                         break;
 
-                    case DbType.String:
-                    case DbType.StringFixedLength:
-                    case DbType.AnsiString:
-                    case DbType.AnsiStringFixedLength:
-                    default:
-                        var stringValue = Convert.ToString(parameter.Value) ?? string.Empty;
+                    case LibSQLDbType.Text:
+                        var stringValue = (string)libSQLValue;
                         result = LibSQLNative.libsql_bind_string(statement, i + 1, stringValue, out errorMsg);
                         break;
 
-                    case DbType.Binary:
-                        // TODO: Implement blob binding in a future phase
-                        throw new NotSupportedException("Binary parameter binding will be implemented in Phase 10.");
+                    case LibSQLDbType.Blob:
+                        var blobValue = (byte[])libSQLValue;
+                        var pinnedBlob = GCHandle.Alloc(blobValue, GCHandleType.Pinned);
+                        try
+                        {
+                            result = LibSQLNative.libsql_bind_blob(statement, i + 1, pinnedBlob.AddrOfPinnedObject(), blobValue.Length, out errorMsg);
+                        }
+                        finally
+                        {
+                            pinnedBlob.Free();
+                        }
+                        break;
+
+                    default:
+                        throw new NotSupportedException($"Unsupported libSQL type: {parameter.LibSQLType}");
                 }
             }
 

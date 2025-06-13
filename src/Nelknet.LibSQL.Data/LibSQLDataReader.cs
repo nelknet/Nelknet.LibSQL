@@ -133,7 +133,11 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The value of the specified column.</returns>
     public override bool GetBoolean(int ordinal)
     {
-        throw new NotImplementedException("LibSQLDataReader will be implemented in Phase 7.");
+        var value = GetValue(ordinal);
+        if (value == DBNull.Value)
+            throw new InvalidCastException("Cannot convert NULL to boolean.");
+        
+        return (bool)LibSQLTypeConverter.ConvertFromLibSQL(value, typeof(bool));
     }
 
     /// <summary>
@@ -143,7 +147,11 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The value of the specified column.</returns>
     public override byte GetByte(int ordinal)
     {
-        throw new NotImplementedException("LibSQLDataReader will be implemented in Phase 7.");
+        var value = GetValue(ordinal);
+        if (value == DBNull.Value)
+            throw new InvalidCastException("Cannot convert NULL to byte.");
+        
+        return (byte)LibSQLTypeConverter.ConvertFromLibSQL(value, typeof(byte));
     }
 
     /// <summary>
@@ -186,7 +194,11 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The value of the specified column.</returns>
     public override char GetChar(int ordinal)
     {
-        throw new NotImplementedException("LibSQLDataReader will be implemented in Phase 7.");
+        var value = GetValue(ordinal);
+        if (value == DBNull.Value)
+            throw new InvalidCastException("Cannot convert NULL to char.");
+        
+        return (char)LibSQLTypeConverter.ConvertFromLibSQL(value, typeof(char));
     }
 
     /// <summary>
@@ -200,7 +212,27 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The actual number of characters read.</returns>
     public override long GetChars(int ordinal, long dataOffset, char[]? buffer, int bufferOffset, int length)
     {
-        throw new NotImplementedException("LibSQLDataReader will be implemented in Phase 7.");
+        var value = GetValue(ordinal);
+        if (value == DBNull.Value)
+            return 0;
+
+        string str = (string)LibSQLTypeConverter.ConvertFromLibSQL(value, typeof(string));
+        
+        if (buffer == null)
+        {
+            // Just return the length
+            return str.Length;
+        }
+
+        var charsToRead = Math.Min(str.Length - dataOffset, length);
+        charsToRead = Math.Min(charsToRead, buffer.Length - bufferOffset);
+        
+        if (charsToRead > 0)
+        {
+            str.CopyTo((int)dataOffset, buffer, bufferOffset, (int)charsToRead);
+        }
+        
+        return charsToRead;
     }
 
     /// <summary>
@@ -210,7 +242,36 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The name of the data type.</returns>
     public override string GetDataTypeName(int ordinal)
     {
-        throw new NotImplementedException("LibSQLDataReader will be implemented in Phase 7.");
+        if (_disposed)
+            throw new ObjectDisposedException(nameof(LibSQLDataReader));
+        if (_closed || _rowsHandle == null)
+            throw new InvalidOperationException("Reader is closed.");
+
+        ValidateOrdinal(ordinal);
+
+        // Get the column type from the current row if available
+        if (_currentRow != null)
+        {
+            int result = LibSQLNative.libsql_column_type(_rowsHandle, _currentRow, ordinal, out int columnType, out IntPtr errorMsg);
+            if (result == 0)
+            {
+                return columnType switch
+                {
+                    0 => "NULL",
+                    1 => "INTEGER",
+                    2 => "REAL",
+                    3 => "TEXT",
+                    4 => "BLOB",
+                    _ => "UNKNOWN"
+                };
+            }
+            else
+            {
+                LibSQLNative.libsql_free_error_msg(errorMsg);
+            }
+        }
+
+        return "UNKNOWN";
     }
 
     /// <summary>
@@ -220,7 +281,11 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The value of the specified column.</returns>
     public override DateTime GetDateTime(int ordinal)
     {
-        throw new NotImplementedException("LibSQLDataReader will be implemented in Phase 7.");
+        var value = GetValue(ordinal);
+        if (value == DBNull.Value)
+            throw new InvalidCastException("Cannot convert NULL to DateTime.");
+        
+        return (DateTime)LibSQLTypeConverter.ConvertFromLibSQL(value, typeof(DateTime));
     }
 
     /// <summary>
@@ -230,7 +295,11 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The value of the specified column.</returns>
     public override decimal GetDecimal(int ordinal)
     {
-        throw new NotImplementedException("LibSQLDataReader will be implemented in Phase 7.");
+        var value = GetValue(ordinal);
+        if (value == DBNull.Value)
+            throw new InvalidCastException("Cannot convert NULL to decimal.");
+        
+        return (decimal)LibSQLTypeConverter.ConvertFromLibSQL(value, typeof(decimal));
     }
 
     /// <summary>
@@ -240,7 +309,22 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The value of the specified column.</returns>
     public override double GetDouble(int ordinal)
     {
-        throw new NotImplementedException("LibSQLDataReader will be implemented in Phase 7.");
+        if (_disposed)
+            throw new ObjectDisposedException(nameof(LibSQLDataReader));
+        if (_closed || _rowsHandle == null || _currentRow == null)
+            throw new InvalidOperationException("No current row available. Call Read() first.");
+
+        ValidateOrdinal(ordinal);
+
+        int result = LibSQLNative.libsql_get_float(_currentRow, ordinal, out double value, out IntPtr errorMsg);
+        if (result != 0)
+        {
+            var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
+            LibSQLNative.libsql_free_error_msg(errorMsg);
+            throw new InvalidOperationException($"Failed to get double value: {errorMessage}");
+        }
+
+        return value;
     }
 
     /// <summary>
@@ -249,7 +333,7 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>An IEnumerator that can be used to iterate through the rows in the data reader.</returns>
     public override IEnumerator GetEnumerator()
     {
-        throw new NotImplementedException("LibSQLDataReader will be implemented in Phase 7.");
+        return new DbEnumerator(this);
     }
 
     /// <summary>
@@ -259,7 +343,36 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The data type of the specified column.</returns>
     public override Type GetFieldType(int ordinal)
     {
-        throw new NotImplementedException("LibSQLDataReader will be implemented in Phase 7.");
+        if (_disposed)
+            throw new ObjectDisposedException(nameof(LibSQLDataReader));
+        if (_closed || _rowsHandle == null)
+            throw new InvalidOperationException("Reader is closed.");
+
+        ValidateOrdinal(ordinal);
+
+        // Get the column type from the current row if available, otherwise default to object
+        if (_currentRow != null)
+        {
+            int result = LibSQLNative.libsql_column_type(_rowsHandle, _currentRow, ordinal, out int columnType, out IntPtr errorMsg);
+            if (result == 0)
+            {
+                return columnType switch
+                {
+                    0 => typeof(object), // NULL
+                    1 => typeof(long),   // INTEGER
+                    2 => typeof(double), // REAL
+                    3 => typeof(string), // TEXT
+                    4 => typeof(byte[]), // BLOB
+                    _ => typeof(object)
+                };
+            }
+            else
+            {
+                LibSQLNative.libsql_free_error_msg(errorMsg);
+            }
+        }
+
+        return typeof(object);
     }
 
     /// <summary>
@@ -269,7 +382,11 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The value of the specified column.</returns>
     public override float GetFloat(int ordinal)
     {
-        throw new NotImplementedException("LibSQLDataReader will be implemented in Phase 7.");
+        var value = GetValue(ordinal);
+        if (value == DBNull.Value)
+            throw new InvalidCastException("Cannot convert NULL to float.");
+        
+        return (float)LibSQLTypeConverter.ConvertFromLibSQL(value, typeof(float));
     }
 
     /// <summary>
@@ -279,7 +396,11 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The value of the specified column.</returns>
     public override Guid GetGuid(int ordinal)
     {
-        throw new NotImplementedException("LibSQLDataReader will be implemented in Phase 7.");
+        var value = GetValue(ordinal);
+        if (value == DBNull.Value)
+            throw new InvalidCastException("Cannot convert NULL to Guid.");
+        
+        return (Guid)LibSQLTypeConverter.ConvertFromLibSQL(value, typeof(Guid));
     }
 
     /// <summary>
@@ -289,7 +410,11 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The value of the specified column.</returns>
     public override short GetInt16(int ordinal)
     {
-        throw new NotImplementedException("LibSQLDataReader will be implemented in Phase 7.");
+        var value = GetValue(ordinal);
+        if (value == DBNull.Value)
+            throw new InvalidCastException("Cannot convert NULL to short.");
+        
+        return (short)LibSQLTypeConverter.ConvertFromLibSQL(value, typeof(short));
     }
 
     /// <summary>
@@ -299,7 +424,11 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The value of the specified column.</returns>
     public override int GetInt32(int ordinal)
     {
-        throw new NotImplementedException("LibSQLDataReader will be implemented in Phase 7.");
+        var value = GetValue(ordinal);
+        if (value == DBNull.Value)
+            throw new InvalidCastException("Cannot convert NULL to int.");
+        
+        return (int)LibSQLTypeConverter.ConvertFromLibSQL(value, typeof(int));
     }
 
     /// <summary>
@@ -309,7 +438,22 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The value of the specified column.</returns>
     public override long GetInt64(int ordinal)
     {
-        throw new NotImplementedException("LibSQLDataReader will be implemented in Phase 7.");
+        if (_disposed)
+            throw new ObjectDisposedException(nameof(LibSQLDataReader));
+        if (_closed || _rowsHandle == null || _currentRow == null)
+            throw new InvalidOperationException("No current row available. Call Read() first.");
+
+        ValidateOrdinal(ordinal);
+
+        int result = LibSQLNative.libsql_get_int(_currentRow, ordinal, out long value, out IntPtr errorMsg);
+        if (result != 0)
+        {
+            var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
+            LibSQLNative.libsql_free_error_msg(errorMsg);
+            throw new InvalidOperationException($"Failed to get integer value: {errorMessage}");
+        }
+
+        return value;
     }
 
     /// <summary>
@@ -364,7 +508,31 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The value of the specified column.</returns>
     public override string GetString(int ordinal)
     {
-        throw new NotImplementedException("LibSQLDataReader will be implemented in Phase 7.");
+        if (_disposed)
+            throw new ObjectDisposedException(nameof(LibSQLDataReader));
+        if (_closed || _rowsHandle == null || _currentRow == null)
+            throw new InvalidOperationException("No current row available. Call Read() first.");
+
+        ValidateOrdinal(ordinal);
+
+        IntPtr strPtr;
+        int result = LibSQLNative.libsql_get_string(_currentRow, ordinal, out strPtr, out IntPtr errorMsg);
+        if (result != 0)
+        {
+            var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
+            LibSQLNative.libsql_free_error_msg(errorMsg);
+            throw new InvalidOperationException($"Failed to get string value: {errorMessage}");
+        }
+
+        try
+        {
+            return Marshal.PtrToStringUTF8(strPtr) ?? string.Empty;
+        }
+        finally
+        {
+            if (strPtr != IntPtr.Zero)
+                LibSQLNative.libsql_free_string(strPtr);
+        }
     }
 
     /// <summary>
@@ -410,7 +578,16 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The number of instances of Object in the array.</returns>
     public override int GetValues(object[] values)
     {
-        throw new NotImplementedException("LibSQLDataReader will be implemented in Phase 7.");
+        if (values == null)
+            throw new ArgumentNullException(nameof(values));
+        
+        int count = Math.Min(values.Length, FieldCount);
+        for (int i = 0; i < count; i++)
+        {
+            values[i] = GetValue(i);
+        }
+        
+        return count;
     }
 
     /// <summary>
@@ -559,24 +736,10 @@ public sealed class LibSQLDataReader : DbDataReader
             return default!;
         }
 
-        if (value is T directValue)
-            return directValue;
-            
-        // Handle nullable types
-        var underlyingType = Nullable.GetUnderlyingType(typeof(T));
-        if (underlyingType != null)
-        {
-            if (value == null || value == DBNull.Value)
-                return default!;
-                
-            value = Convert.ChangeType(value, underlyingType);
-            return (T)value!;
-        }
-
-        // Handle conversions
+        // Use type converter for consistent conversions
         try
         {
-            return (T)Convert.ChangeType(value, typeof(T));
+            return (T)LibSQLTypeConverter.ConvertFromLibSQL(value, typeof(T));
         }
         catch (Exception ex)
         {

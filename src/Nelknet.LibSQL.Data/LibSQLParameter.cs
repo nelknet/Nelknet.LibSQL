@@ -163,38 +163,25 @@ public sealed class LibSQLParameter : DbParameter
     }
 
     /// <summary>
+    /// Gets the libSQL database type for this parameter.
+    /// </summary>
+    internal LibSQLDbType LibSQLType => LibSQLTypeMapper.GetLibSQLType(_dbType);
+
+    /// <summary>
+    /// Gets the value converted for libSQL binding.
+    /// </summary>
+    internal object GetLibSQLValue()
+    {
+        return LibSQLTypeConverter.ConvertToLibSQL(_value, LibSQLType);
+    }
+
+    /// <summary>
     /// Infers the DbType from the value type.
     /// </summary>
     /// <param name="value">The value to infer the type from.</param>
     /// <returns>The inferred DbType.</returns>
     private static DbType InferDbTypeFromValue(object value)
     {
-        return value switch
-        {
-            bool => DbType.Boolean,
-            byte => DbType.Byte,
-            sbyte => DbType.SByte,
-            short => DbType.Int16,
-            ushort => DbType.UInt16,
-            int => DbType.Int32,
-            uint => DbType.UInt32,
-            long => DbType.Int64,
-            ulong => DbType.UInt64,
-            float => DbType.Single,
-            double => DbType.Double,
-            decimal => DbType.Decimal,
-            DateTime => DbType.DateTime,
-            DateTimeOffset => DbType.DateTimeOffset,
-            TimeSpan => DbType.Time,
-            Guid => DbType.Guid,
-            byte[] => DbType.Binary,
-            char => DbType.StringFixedLength,
-            string => DbType.String,
-#if NET6_0_OR_GREATER
-            DateOnly => DbType.Date,
-            TimeOnly => DbType.Time,
-#endif
-            _ => DbType.Object
-        };
+        return LibSQLTypeMapper.GetDbType(value.GetType());
     }
 }
