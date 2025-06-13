@@ -1,0 +1,25 @@
+<Project>
+  <PropertyGroup>
+    <!-- Common properties for all projects -->
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    
+    <!-- Package metadata -->
+    <Authors>Nelknet</Authors>
+    <Company>Nelknet</Company>
+    <Product>Nelknet.LibSQL</Product>
+    <Copyright>Copyright © Nelknet 2024</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/nelknet/Nelknet.LibSQL</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/nelknet/Nelknet.LibSQL</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    
+    <!-- Versioning -->
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <VersionSuffix>alpha</VersionSuffix>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,12 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Nelknet.LibSQL.Data</PackageId>
+    <Description>ADO.NET provider for libSQL - a native C# client library following ADO.NET patterns</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Nelknet.LibSQL.Bindings\Nelknet.LibSQL.Bindings.csproj" />
+  </ItemGroup>
+
+</Project>
