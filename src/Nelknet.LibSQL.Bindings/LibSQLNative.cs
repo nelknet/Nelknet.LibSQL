@@ -166,6 +166,26 @@ internal static partial class LibSQLNative
     
     #endregion
     
+    #region Error Handling
+    
+    [LibraryImport(LibraryName)]
+    internal static partial void libsql_free_error_msg(IntPtr errMsg);
+    
+    #endregion
+    
+    #region Transaction Control
+    
+    [LibraryImport(LibraryName, StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial int libsql_begin_transaction(LibSQLConnectionHandle conn, out IntPtr outErrMsg);
+    
+    [LibraryImport(LibraryName, StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial int libsql_commit_transaction(LibSQLConnectionHandle conn, out IntPtr outErrMsg);
+    
+    [LibraryImport(LibraryName, StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial int libsql_rollback_transaction(LibSQLConnectionHandle conn, out IntPtr outErrMsg);
+    
+    #endregion
+    
     #region Tracing
     
     [LibraryImport(LibraryName)]
