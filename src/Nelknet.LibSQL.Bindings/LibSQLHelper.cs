@@ -1,7 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 
-namespace Nelknet.LibSQL.Native;
+namespace Nelknet.LibSQL.Bindings;
 
 /// <summary>
 /// Helper class for working with libSQL native functions and creating SafeHandle instances
@@ -110,26 +110,12 @@ internal static class LibSQLHelper
     /// </summary>
     /// <param name="result">The result code from a libSQL operation</param>
     /// <param name="errorMessage">The error message if available</param>
-    /// <exception cref="LibSQLException">Thrown if the operation failed</exception>
+    /// <exception cref="InvalidOperationException">Thrown if the operation failed</exception>
     internal static void ThrowIfError(int result, string? errorMessage = null)
     {
         if (!IsSuccess(result))
         {
-            throw new LibSQLException(errorMessage ?? $"LibSQL operation failed with code: {result}");
+            throw new InvalidOperationException(errorMessage ?? $"LibSQL operation failed with code: {result}");
         }
-    }
-}
-
-/// <summary>
-/// Exception thrown when a libSQL operation fails
-/// </summary>
-public class LibSQLException : Exception
-{
-    public LibSQLException(string message) : base(message)
-    {
-    }
-    
-    public LibSQLException(string message, Exception innerException) : base(message, innerException)
-    {
     }
 }

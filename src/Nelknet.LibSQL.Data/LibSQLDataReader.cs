@@ -1,6 +1,6 @@
 #nullable disable warnings
 
-using Nelknet.LibSQL.Native;
+using Nelknet.LibSQL.Bindings;
 using System;
 using System.Collections;
 using System.Data;

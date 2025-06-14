@@ -2,20 +2,34 @@ using Microsoft.Win32.SafeHandles;
 using System;
 using System.Runtime.InteropServices;
 
-namespace Nelknet.LibSQL.Native;
+namespace Nelknet.LibSQL.Bindings;
+
+/// <summary>
+/// Base class for all libSQL safe handles
+/// </summary>
+internal abstract class LibSQLSafeHandle : SafeHandleZeroOrMinusOneIsInvalid
+{
+    protected LibSQLSafeHandle() : base(true)
+    {
+    }
+
+    protected LibSQLSafeHandle(IntPtr handle) : base(true)
+    {
+        SetHandle(handle);
+    }
+}
 
 /// <summary>
 /// Safe handle for libsql_database_t
 /// </summary>
-internal sealed class LibSQLDatabaseHandle : SafeHandleZeroOrMinusOneIsInvalid
+internal sealed class LibSQLDatabaseHandle : LibSQLSafeHandle
 {
-    internal LibSQLDatabaseHandle() : base(true)
+    internal LibSQLDatabaseHandle() : base()
     {
     }
 
-    internal LibSQLDatabaseHandle(IntPtr handle) : base(true)
+    internal LibSQLDatabaseHandle(IntPtr handle) : base(handle)
     {
-        SetHandle(handle);
     }
 
     protected override bool ReleaseHandle()
@@ -31,15 +45,14 @@ internal sealed class LibSQLDatabaseHandle : SafeHandleZeroOrMinusOneIsInvalid
 /// <summary>
 /// Safe handle for libsql_connection_t
 /// </summary>
-internal sealed class LibSQLConnectionHandle : SafeHandleZeroOrMinusOneIsInvalid
+internal sealed class LibSQLConnectionHandle : LibSQLSafeHandle
 {
-    internal LibSQLConnectionHandle() : base(true)
+    internal LibSQLConnectionHandle() : base()
     {
     }
 
-    internal LibSQLConnectionHandle(IntPtr handle) : base(true)
+    internal LibSQLConnectionHandle(IntPtr handle) : base(handle)
     {
-        SetHandle(handle);
     }
 
     protected override bool ReleaseHandle()
@@ -55,15 +68,14 @@ internal sealed class LibSQLConnectionHandle : SafeHandleZeroOrMinusOneIsInvalid
 /// <summary>
 /// Safe handle for libsql_stmt_t
 /// </summary>
-internal sealed class LibSQLStatementHandle : SafeHandleZeroOrMinusOneIsInvalid
+internal sealed class LibSQLStatementHandle : LibSQLSafeHandle
 {
-    internal LibSQLStatementHandle() : base(true)
+    internal LibSQLStatementHandle() : base()
     {
     }
 
-    internal LibSQLStatementHandle(IntPtr handle) : base(true)
+    internal LibSQLStatementHandle(IntPtr handle) : base(handle)
     {
-        SetHandle(handle);
     }
 
     protected override bool ReleaseHandle()
@@ -79,15 +91,14 @@ internal sealed class LibSQLStatementHandle : SafeHandleZeroOrMinusOneIsInvalid
 /// <summary>
 /// Safe handle for libsql_rows_t
 /// </summary>
-internal sealed class LibSQLRowsHandle : SafeHandleZeroOrMinusOneIsInvalid
+internal sealed class LibSQLRowsHandle : LibSQLSafeHandle
 {
-    internal LibSQLRowsHandle() : base(true)
+    internal LibSQLRowsHandle() : base()
     {
     }
 
-    internal LibSQLRowsHandle(IntPtr handle) : base(true)
+    internal LibSQLRowsHandle(IntPtr handle) : base(handle)
     {
-        SetHandle(handle);
     }
 
     protected override bool ReleaseHandle()
@@ -103,15 +114,14 @@ internal sealed class LibSQLRowsHandle : SafeHandleZeroOrMinusOneIsInvalid
 /// <summary>
 /// Safe handle for libsql_row_t
 /// </summary>
-internal sealed class LibSQLRowHandle : SafeHandleZeroOrMinusOneIsInvalid
+internal sealed class LibSQLRowHandle : LibSQLSafeHandle
 {
-    internal LibSQLRowHandle() : base(true)
+    internal LibSQLRowHandle() : base()
     {
     }
 
-    internal LibSQLRowHandle(IntPtr handle) : base(true)
+    internal LibSQLRowHandle(IntPtr handle) : base(handle)
     {
-        SetHandle(handle);
     }
 
     protected override bool ReleaseHandle()

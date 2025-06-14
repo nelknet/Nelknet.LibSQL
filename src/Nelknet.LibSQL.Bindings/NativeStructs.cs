@@ -1,7 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 
-namespace Nelknet.LibSQL.Native;
+namespace Nelknet.LibSQL.Bindings;
 
 /// <summary>
 /// LibSQL result codes (based on SQLite result codes)
@@ -269,4 +269,25 @@ internal struct LibSQLBlob
         Marshal.Copy(Ptr, result, 0, Len);
         return result;
     }
+}
+
+/// <summary>
+/// Transaction behavior modes
+/// </summary>
+internal enum LibSQLTransactionBehavior
+{
+    /// <summary>
+    /// Deferred transaction (default) - lock acquired when needed
+    /// </summary>
+    Deferred = 0,
+    
+    /// <summary>
+    /// Immediate transaction - reserved lock acquired immediately
+    /// </summary>
+    Immediate = 1,
+    
+    /// <summary>
+    /// Exclusive transaction - exclusive lock acquired immediately
+    /// </summary>
+    Exclusive = 2
 }

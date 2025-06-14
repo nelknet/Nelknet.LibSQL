@@ -1,7 +1,7 @@
 #nullable disable warnings
 
 using Nelknet.LibSQL.Data;
-using Nelknet.LibSQL.Native;
+using Nelknet.LibSQL.Bindings;
 using System;
 using System.Data;
 using System.Threading;

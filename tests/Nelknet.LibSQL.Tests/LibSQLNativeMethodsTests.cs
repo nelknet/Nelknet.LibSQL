@@ -1,5 +1,4 @@
 using Nelknet.LibSQL.Bindings;
-using Nelknet.LibSQL.Native;
 using System;
 using System.Reflection;
 using System.Runtime.InteropServices;

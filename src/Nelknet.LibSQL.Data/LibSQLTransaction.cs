@@ -4,7 +4,7 @@ using System;
 using System.Data;
 using System.Data.Common;
 using Nelknet.LibSQL.Bindings;
-using Nelknet.LibSQL.Native;
+using Nelknet.LibSQL.Data.Exceptions;
 
 namespace Nelknet.LibSQL.Data;
 

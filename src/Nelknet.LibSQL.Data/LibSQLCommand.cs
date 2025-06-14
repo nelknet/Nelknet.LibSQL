@@ -8,7 +8,6 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Nelknet.LibSQL.Bindings;
-using Nelknet.LibSQL.Native;
 
 namespace Nelknet.LibSQL.Data;
 

@@ -1,4 +1,4 @@
-using Nelknet.LibSQL.Native;
+using Nelknet.LibSQL.Bindings;
 using System;
 using Xunit;
 

@@ -5,7 +5,7 @@ using System.Data;
 using System.Data.Common;
 using System.Runtime.CompilerServices;
 using Nelknet.LibSQL.Bindings;
-using Nelknet.LibSQL.Native;
+using Nelknet.LibSQL.Data.Exceptions;
 
 namespace Nelknet.LibSQL.Data;
 
@@ -159,7 +159,7 @@ public sealed class LibSQLConnection : DbConnection
                 {
                     var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
                     LibSQLNative.libsql_free_error_msg(errorMsg);
-                    throw new InvalidOperationException($"Failed to open database: {errorMessage}");
+                    throw new LibSQLConnectionException($"Failed to open database: {errorMessage}", result, dataSource);
                 }
 
                 _databaseHandle = new LibSQLDatabaseHandle(dbHandle);
@@ -173,7 +173,7 @@ public sealed class LibSQLConnection : DbConnection
                     LibSQLNative.libsql_free_error_msg(errorMsg);
                     _databaseHandle.Dispose();
                     _databaseHandle = null;
-                    throw new InvalidOperationException($"Failed to connect to database: {errorMessage}");
+                    throw new LibSQLConnectionException($"Failed to connect to database: {errorMessage}", result, dataSource);
                 }
 
                 _connectionHandle = new LibSQLConnectionHandle(connHandle);
@@ -308,7 +308,7 @@ public sealed class LibSQLConnection : DbConnection
             {
                 var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
                 LibSQLNative.libsql_free_error_msg(errorMsg);
-                throw new LibSQLException($"Failed to begin transaction: {errorMessage}");
+                throw LibSQLException.FromErrorCode(result, $"Failed to begin transaction: {errorMessage}", beginStatement);
             }
 
             _currentTransaction = transaction;

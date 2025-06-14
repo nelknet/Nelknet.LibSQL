@@ -1,6 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
-using Nelknet.LibSQL.Native;
+using Nelknet.LibSQL.Bindings;
 
 namespace Nelknet.LibSQL.Data;
 

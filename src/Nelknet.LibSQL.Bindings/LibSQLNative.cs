@@ -1,8 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
-using Nelknet.LibSQL.Bindings;
 
-namespace Nelknet.LibSQL.Native;
+namespace Nelknet.LibSQL.Bindings;
 
 /// <summary>
 /// Native P/Invoke methods for libSQL library
@@ -170,6 +169,30 @@ internal static partial class LibSQLNative
     
     [LibraryImport(LibraryName)]
     internal static partial void libsql_free_error_msg(IntPtr errMsg);
+    
+    /// <summary>
+    /// Returns the last error message for the database connection in English.
+    /// </summary>
+    /// <param name="db">Database handle</param>
+    /// <returns>Pointer to error message string</returns>
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_errmsg")]
+    internal static partial IntPtr sqlite3_errmsg(IntPtr db);
+    
+    /// <summary>
+    /// Returns the extended error code for the most recent failed API call.
+    /// </summary>
+    /// <param name="db">Database handle</param>
+    /// <returns>Extended error code</returns>
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_extended_errcode")]
+    internal static partial int sqlite3_extended_errcode(IntPtr db);
+    
+    /// <summary>
+    /// Returns the error code for the most recent failed API call.
+    /// </summary>
+    /// <param name="db">Database handle</param>
+    /// <returns>Error code</returns>
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_errcode")]
+    internal static partial int sqlite3_errcode(IntPtr db);
     
     #endregion
     
