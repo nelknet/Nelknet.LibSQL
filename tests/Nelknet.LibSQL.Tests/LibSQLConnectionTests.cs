@@ -94,7 +94,9 @@ public class LibSQLConnectionTests
     {
         var connection = new LibSQLConnection();
         
-        Assert.Equal("libSQL", connection.ServerVersion);
+        // ServerVersion returns the full version string including SQLite version
+        Assert.StartsWith("libSQL", connection.ServerVersion);
+        Assert.Contains("SQLite", connection.ServerVersion);
     }
 
     [Fact]

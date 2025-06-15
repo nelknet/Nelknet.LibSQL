@@ -22,8 +22,9 @@ public sealed class LibSQLConnection : DbConnection
     private string _connectionString = string.Empty;
     private LibSQLConnectionStringBuilder? _connectionStringBuilder;
     internal LibSQLTransaction? _currentTransaction;
-    private LibSQLFunctionManager? _functionManager;
-    private bool _extendedResultCodes;
+    // Commented out - libSQL doesn't support direct SQLite function registration
+    // private LibSQLFunctionManager? _functionManager;
+    // private bool _extendedResultCodes = false;
 
     // Connection state change event args for performance
     private static readonly StateChangeEventArgs FromClosedToOpenEventArgs = 
@@ -255,15 +256,16 @@ public sealed class LibSQLConnection : DbConnection
                 _connectionHandle = new LibSQLConnectionHandle(connHandle);
                 _connectionState = ConnectionState.Open;
                 
-                // Initialize function manager
-                _functionManager = new LibSQLFunctionManager();
+                // Initialize function manager (lazy initialization - only when needed)
+                // _functionManager = new LibSQLFunctionManager();
                 
                 // Enable extended result codes for better error reporting
-                if (_databaseHandle != null && !_databaseHandle.IsInvalid)
-                {
-                    LibSQLNative.sqlite3_extended_result_codes(_databaseHandle.DangerousGetHandle(), 1);
-                    _extendedResultCodes = true;
-                }
+                // Comment out for now to test if this is causing the crash
+                // if (_databaseHandle != null && !_databaseHandle.IsInvalid)
+                // {
+                //     LibSQLNative.sqlite3_extended_result_codes(_databaseHandle.DangerousGetHandle(), 1);
+                //     _extendedResultCodes = true;
+                // }
 
                 OnStateChange(FromClosedToOpenEventArgs);
             }
@@ -305,13 +307,13 @@ public sealed class LibSQLConnection : DbConnection
                 }
                 _currentTransaction = null;
 
-                // Clear and dispose function manager
-                if (_functionManager != null && _databaseHandle != null && !_databaseHandle.IsInvalid)
-                {
-                    _functionManager.Clear(_databaseHandle.DangerousGetHandle());
-                    _functionManager.Dispose();
-                    _functionManager = null;
-                }
+                // Function manager disabled - libSQL doesn't support custom functions
+                // if (_functionManager != null && _databaseHandle != null && !_databaseHandle.IsInvalid)
+                // {
+                //     _functionManager.Clear(_databaseHandle.DangerousGetHandle());
+                //     _functionManager.Dispose();
+                //     _functionManager = null;
+                // }
 
                 _connectionHandle?.Dispose();
                 _connectionHandle = null;
@@ -494,84 +496,37 @@ public sealed class LibSQLConnection : DbConnection
         }
     }
     
-    #region Custom Functions and Aggregates
-    
-    /// <summary>
-    /// Registers a custom scalar function.
-    /// </summary>
-    /// <param name="function">The function to register</param>
+    // #region Custom Functions and Aggregates - DISABLED
+    // libSQL doesn't expose the underlying SQLite APIs needed for custom functions
+    // These features require sqlite3_create_function_v2 which is not available through libSQL's API
+    /*
     public void RegisterFunction(LibSQLFunction function)
     {
-        ArgumentNullException.ThrowIfNull(function);
-        EnsureConnectionOpen();
-        
-        if (_functionManager == null || _databaseHandle == null)
-            throw new InvalidOperationException("Connection is not properly initialized.");
-        
-        _functionManager.RegisterFunction(_databaseHandle.DangerousGetHandle(), function);
+        throw new NotSupportedException("Custom functions are not supported in libSQL. This feature requires direct SQLite API access.");
     }
     
-    /// <summary>
-    /// Registers a custom aggregate function.
-    /// </summary>
-    /// <typeparam name="TAggregate">The type of aggregate to register</typeparam>
     public void RegisterAggregate<TAggregate>() where TAggregate : LibSQLAggregate, new()
     {
-        EnsureConnectionOpen();
-        
-        if (_functionManager == null || _databaseHandle == null)
-            throw new InvalidOperationException("Connection is not properly initialized.");
-        
-        _functionManager.RegisterAggregate<TAggregate>(_databaseHandle.DangerousGetHandle());
+        throw new NotSupportedException("Custom aggregates are not supported in libSQL. This feature requires direct SQLite API access.");
     }
     
-    /// <summary>
-    /// Unregisters a custom function.
-    /// </summary>
-    /// <param name="name">The name of the function to unregister</param>
     public void UnregisterFunction(string name)
     {
-        ArgumentNullException.ThrowIfNull(name);
-        EnsureConnectionOpen();
-        
-        if (_functionManager == null || _databaseHandle == null)
-            throw new InvalidOperationException("Connection is not properly initialized.");
-        
-        _functionManager.UnregisterFunction(_databaseHandle.DangerousGetHandle(), name);
+        throw new NotSupportedException("Custom functions are not supported in libSQL.");
     }
     
-    /// <summary>
-    /// Unregisters a custom aggregate.
-    /// </summary>
-    /// <param name="name">The name of the aggregate to unregister</param>
     public void UnregisterAggregate(string name)
     {
-        ArgumentNullException.ThrowIfNull(name);
-        EnsureConnectionOpen();
-        
-        if (_functionManager == null || _databaseHandle == null)
-            throw new InvalidOperationException("Connection is not properly initialized.");
-        
-        _functionManager.UnregisterAggregate(_databaseHandle.DangerousGetHandle(), name);
+        throw new NotSupportedException("Custom aggregates are not supported in libSQL.");
     }
     
-    /// <summary>
-    /// Gets whether extended result codes are enabled.
-    /// </summary>
-    public bool ExtendedResultCodes => _extendedResultCodes;
+    public bool ExtendedResultCodes => false; // Not supported in libSQL
+    */
+    // #endregion
     
-    #endregion
-    
-    #region Backup/Restore
-    
-    /// <summary>
-    /// Backs up the current database to another database.
-    /// </summary>
-    /// <param name="destinationConnection">The destination connection</param>
-    /// <param name="destinationDatabaseName">The destination database name (usually "main")</param>
-    /// <param name="sourceDatabaseName">The source database name (usually "main")</param>
-    /// <param name="pagesPerStep">Number of pages to backup per step, -1 for all at once</param>
-    /// <param name="progress">Optional progress callback</param>
+    // #region Backup/Restore - DISABLED
+    // libSQL doesn't expose the SQLite backup APIs (sqlite3_backup_*)
+    /*
     public void BackupDatabase(
         LibSQLConnection destinationConnection, 
         string destinationDatabaseName = "main",
@@ -579,58 +534,13 @@ public sealed class LibSQLConnection : DbConnection
         int pagesPerStep = -1,
         Action<int, int>? progress = null)
     {
-        ArgumentNullException.ThrowIfNull(destinationConnection);
-        EnsureConnectionOpen();
-        destinationConnection.EnsureConnectionOpen();
-        
-        if (_databaseHandle == null || destinationConnection._databaseHandle == null)
-            throw new InvalidOperationException("Connection is not properly initialized.");
-        
-        var backup = LibSQLNative.sqlite3_backup_init(
-            destinationConnection._databaseHandle.DangerousGetHandle(),
-            destinationDatabaseName,
-            _databaseHandle.DangerousGetHandle(),
-            sourceDatabaseName);
-        
-        if (backup == IntPtr.Zero)
-        {
-            var errorCode = LibSQLNative.sqlite3_errcode(destinationConnection._databaseHandle.DangerousGetHandle());
-            var errorMsg = GetLastError(destinationConnection._databaseHandle);
-            throw LibSQLException.FromErrorCode(errorCode, $"Failed to initialize backup: {errorMsg}");
-        }
-        
-        using var backupHandle = new LibSQLBackupHandle(backup);
-        
-        int result;
-        do
-        {
-            result = LibSQLNative.sqlite3_backup_step(backupHandle.DangerousGetHandle(), pagesPerStep);
-            
-            if (result == 0 || result == 5) // SQLITE_OK or SQLITE_BUSY
-            {
-                var remaining = LibSQLNative.sqlite3_backup_remaining(backupHandle.DangerousGetHandle());
-                var total = LibSQLNative.sqlite3_backup_pagecount(backupHandle.DangerousGetHandle());
-                var completed = total - remaining;
-                
-                // Call the provided progress callback
-                progress?.Invoke(completed, total);
-                
-                // Also raise the Progress event
-                OnProgress(completed, total, "Database backup in progress");
-            }
-        }
-        while (result == 0 || result == 5); // Continue while OK or BUSY
-        
-        if (result != 101) // SQLITE_DONE
-        {
-            var errorCode = LibSQLNative.sqlite3_errcode(_databaseHandle.DangerousGetHandle());
-            var errorMsg = GetLastError(_databaseHandle);
-            throw LibSQLException.FromErrorCode(errorCode, $"Backup failed: {errorMsg}");
-        }
+        throw new NotSupportedException("Database backup is not supported in libSQL. This feature requires direct SQLite backup API access.");
     }
+    */
+    // #endregion
     
-    #endregion
-    
+    // GetLastError removed - only needed for SQLite-specific APIs
+    /*
     private string GetLastError(LibSQLDatabaseHandle? handle)
     {
         if (handle == null || handle.IsInvalid)
@@ -642,6 +552,7 @@ public sealed class LibSQLConnection : DbConnection
         
         return Marshal.PtrToStringAnsi(errorPtr) ?? "Unknown error";
     }
+    */
     
     #region Event Handling
     

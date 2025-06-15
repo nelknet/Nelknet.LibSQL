@@ -67,7 +67,7 @@ internal class LibSQLSchemaReader
         var catalog = restrictionValues?.Length > 0 ? restrictionValues[0] : null;
         var tableName = restrictionValues?.Length > 1 ? restrictionValues[1] : null;
         
-        var query = "SELECT name, type FROM sqlite_master WHERE type = 'table'";
+        var query = "SELECT name, type FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'libsql_%'";
         if (!string.IsNullOrEmpty(tableName))
             query += $" AND name = '{tableName.Replace("'", "''")}'";
         query += " ORDER BY name";
@@ -112,8 +112,8 @@ internal class LibSQLSchemaReader
         var tableName = restrictionValues?.Length > 2 ? restrictionValues[2] : null;
         var columnName = restrictionValues?.Length > 3 ? restrictionValues[3] : null;
         
-        // Get all tables first
-        var tablesQuery = "SELECT name FROM sqlite_master WHERE type = 'table'";
+        // Get all tables first (excluding system tables)
+        var tablesQuery = "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'libsql_%'";
         if (!string.IsNullOrEmpty(tableName))
             tablesQuery += $" AND name = '{tableName.Replace("'", "''")}'";
         tablesQuery += " ORDER BY name";
@@ -142,19 +142,22 @@ internal class LibSQLSchemaReader
                 if (!string.IsNullOrEmpty(columnName) && colName != columnName)
                     continue;
                 
+                var isPrimaryKey = reader.GetInt32(5) == 1;
+                var isNotNull = reader.GetInt32(3) != 0;
+                
                 table.Rows.Add(
                     catalog,
                     schema ?? "main",
                     tbl,
                     colName,
                     reader.GetInt32(0), // cid
-                    reader.IsDBNull(4) ? null : reader.GetString(4), // dflt_value
-                    reader.GetInt32(3) == 0 ? "YES" : "NO", // notnull
+                    reader.IsDBNull(4) ? DBNull.Value : reader.GetValue(4), // dflt_value
+                    (isNotNull || isPrimaryKey) ? "NO" : "YES", // Primary keys are always NOT NULL
                     reader.GetString(2), // type
                     DBNull.Value, // CHARACTER_MAXIMUM_LENGTH
                     DBNull.Value, // NUMERIC_PRECISION
                     DBNull.Value, // NUMERIC_SCALE
-                    reader.GetInt32(5) == 1, // pk
+                    isPrimaryKey, // pk
                     false, // AUTOINCREMENT - would need to parse SQL
                     false  // UNIQUE - would need to check indexes
                 );
@@ -248,7 +251,7 @@ internal class LibSQLSchemaReader
         {
             var idxName = reader.GetString(0);
             var tblName = reader.GetString(1);
-            var sql = reader.IsDBNull(2) ? null : reader.GetString(2);
+            var sql = reader.IsDBNull(2) ? null : reader.GetValue(2)?.ToString();
             
             // Get index info
             using var infoCommand = _connection.CreateCommand();
@@ -273,7 +276,7 @@ internal class LibSQLSchemaReader
                     true, // AUTO_UPDATE
                     4, // NULL_COLLATION
                     infoReader.GetInt32(0), // seqno
-                    infoReader.GetString(2), // name
+                    infoReader.IsDBNull(2) ? DBNull.Value : infoReader.GetValue(2), // name
                     DBNull.Value, // COLUMN_GUID
                     DBNull.Value, // COLUMN_PROPID
                     1, // COLLATION (1 = ASC)
