@@ -214,9 +214,9 @@ public class LibSQLDataReaderTests
         using var reader = new LibSQLDataReader();
         
         // These will throw InvalidOperationException because reader is closed, 
-        // but that happens before argument validation
+        // which happens before argument validation
         Assert.Throws<InvalidOperationException>(() => reader.GetOrdinal(null));
-        Assert.Throws<ArgumentException>(() => reader.GetOrdinal(string.Empty));
+        Assert.Throws<InvalidOperationException>(() => reader.GetOrdinal(string.Empty));
     }
 
     [Fact]

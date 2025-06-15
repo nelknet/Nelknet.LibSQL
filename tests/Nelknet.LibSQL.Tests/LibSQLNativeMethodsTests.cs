@@ -177,24 +177,23 @@ public class LibSQLNativeMethodsTests
     }
     
     [Fact]
-    public void TransactionMethods_ShouldHaveCorrectSignatures()
+    public void TransactionMethods_ShouldBeHandledViaSQLCommands()
     {
-        // Test transaction control method signatures
-        var beginMethod = typeof(LibSQLNative).GetMethod("libsql_begin_transaction",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-        var commitMethod = typeof(LibSQLNative).GetMethod("libsql_commit_transaction",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-        var rollbackMethod = typeof(LibSQLNative).GetMethod("libsql_rollback_transaction",
+        // Transactions in libSQL are handled via SQL commands (BEGIN, COMMIT, ROLLBACK)
+        // not via separate API functions - verify execute method exists for SQL commands
+        var executeMethod = typeof(LibSQLNative).GetMethod("libsql_execute",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
         
-        Assert.NotNull(beginMethod);
-        Assert.NotNull(commitMethod);
-        Assert.NotNull(rollbackMethod);
+        Assert.NotNull(executeMethod);
+        Assert.Equal(typeof(int), executeMethod.ReturnType);
         
-        // All should return int (result code)
-        Assert.Equal(typeof(int), beginMethod.ReturnType);
-        Assert.Equal(typeof(int), commitMethod.ReturnType);
-        Assert.Equal(typeof(int), rollbackMethod.ReturnType);
+        // Verify parameters: connection, sql, out error
+        var parameters = executeMethod.GetParameters();
+        Assert.Equal(3, parameters.Length);
+        Assert.Equal(typeof(LibSQLConnectionHandle), parameters[0].ParameterType);
+        Assert.Equal(typeof(string), parameters[1].ParameterType);
+        Assert.Equal(typeof(IntPtr).MakeByRefType(), parameters[2].ParameterType);
+        Assert.True(parameters[2].IsOut);
     }
     
     [Fact]
@@ -288,14 +287,12 @@ public class LibSQLNativeMethodsTests
             "libsql_open_ext",
             "libsql_open_file", 
             "libsql_open_remote",
+            "libsql_open_remote_with_webpki",
             "libsql_prepare",
             "libsql_execute",
             "libsql_query",
             "libsql_bind_string",
-            "libsql_load_extension",
-            "libsql_begin_transaction",
-            "libsql_commit_transaction",
-            "libsql_rollback_transaction"
+            "libsql_load_extension"
         };
         
         var nativeType = typeof(LibSQLNative);

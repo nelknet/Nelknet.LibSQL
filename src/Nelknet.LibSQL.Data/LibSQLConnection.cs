@@ -4,6 +4,7 @@ using System;
 using System.Data;
 using System.Data.Common;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Nelknet.LibSQL.Bindings;
 using Nelknet.LibSQL.Data.Exceptions;
 
@@ -21,12 +22,29 @@ public sealed class LibSQLConnection : DbConnection
     private string _connectionString = string.Empty;
     private LibSQLConnectionStringBuilder? _connectionStringBuilder;
     internal LibSQLTransaction? _currentTransaction;
+    private LibSQLFunctionManager? _functionManager;
+    private bool _extendedResultCodes;
 
     // Connection state change event args for performance
     private static readonly StateChangeEventArgs FromClosedToOpenEventArgs = 
         new(ConnectionState.Closed, ConnectionState.Open);
     private static readonly StateChangeEventArgs FromOpenToClosedEventArgs = 
         new(ConnectionState.Open, ConnectionState.Closed);
+    
+    /// <summary>
+    /// Occurs when the connection receives a progress update during long-running operations.
+    /// </summary>
+    public event EventHandler<LibSQLProgressEventArgs>? Progress;
+    
+    /// <summary>
+    /// Occurs when the connection is about to execute a command.
+    /// </summary>
+    public event EventHandler<LibSQLCommandEventArgs>? CommandExecuting;
+    
+    /// <summary>
+    /// Occurs after the connection has executed a command.
+    /// </summary>
+    public event EventHandler<LibSQLCommandEventArgs>? CommandExecuted;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="LibSQLConnection"/> class.
@@ -80,7 +98,32 @@ public sealed class LibSQLConnection : DbConnection
     /// <summary>
     /// Gets the version of the libSQL server.
     /// </summary>
-    public override string ServerVersion => "libSQL"; // TODO: Get actual version from native library
+    public override string ServerVersion
+    {
+        get
+        {
+            try
+            {
+                // Get both libSQL and SQLite versions for comprehensive information
+                var libsqlVersion = LibSQLVersion.LibSQLVersionString;
+                var sqliteVersion = LibSQLVersion.SQLiteVersionString;
+                
+                // If we have a libSQL-specific version, use it with SQLite info
+                if (!string.IsNullOrEmpty(libsqlVersion) && libsqlVersion != sqliteVersion)
+                {
+                    return $"libSQL {libsqlVersion} (SQLite {sqliteVersion})";
+                }
+                
+                // Otherwise just return the SQLite version
+                return $"libSQL (SQLite {sqliteVersion})";
+            }
+            catch
+            {
+                // Fallback if version retrieval fails
+                return "libSQL";
+            }
+        }
+    }
 
     /// <summary>
     /// Gets the current state of the connection.
@@ -100,6 +143,39 @@ public sealed class LibSQLConnection : DbConnection
             }
             return _connectionStringBuilder;
         }
+    }
+    
+    /// <summary>
+    /// Returns schema information for the data source of this connection.
+    /// </summary>
+    /// <returns>A <see cref="DataTable"/> that contains schema information.</returns>
+    public override DataTable GetSchema()
+    {
+        return GetSchema(null, null);
+    }
+    
+    /// <summary>
+    /// Returns schema information for the data source of this connection using the specified string for the schema name.
+    /// </summary>
+    /// <param name="collectionName">Specifies the name of the schema to return.</param>
+    /// <returns>A <see cref="DataTable"/> that contains schema information.</returns>
+    public override DataTable GetSchema(string collectionName)
+    {
+        return GetSchema(collectionName, null);
+    }
+    
+    /// <summary>
+    /// Returns schema information for the data source of this connection using the specified string for the schema name and the specified string array for the restriction values.
+    /// </summary>
+    /// <param name="collectionName">Specifies the name of the schema to return.</param>
+    /// <param name="restrictionValues">Specifies a set of restriction values for the requested schema.</param>
+    /// <returns>A <see cref="DataTable"/> that contains schema information.</returns>
+    public override DataTable GetSchema(string? collectionName, string?[]? restrictionValues)
+    {
+        EnsureConnectionOpen();
+        
+        var schemaReader = new LibSQLSchemaReader(this);
+        return schemaReader.GetSchema(collectionName, restrictionValues) ?? new DataTable();
     }
 
     /// <summary>
@@ -178,6 +254,16 @@ public sealed class LibSQLConnection : DbConnection
 
                 _connectionHandle = new LibSQLConnectionHandle(connHandle);
                 _connectionState = ConnectionState.Open;
+                
+                // Initialize function manager
+                _functionManager = new LibSQLFunctionManager();
+                
+                // Enable extended result codes for better error reporting
+                if (_databaseHandle != null && !_databaseHandle.IsInvalid)
+                {
+                    LibSQLNative.sqlite3_extended_result_codes(_databaseHandle.DangerousGetHandle(), 1);
+                    _extendedResultCodes = true;
+                }
 
                 OnStateChange(FromClosedToOpenEventArgs);
             }
@@ -218,6 +304,14 @@ public sealed class LibSQLConnection : DbConnection
                     }
                 }
                 _currentTransaction = null;
+
+                // Clear and dispose function manager
+                if (_functionManager != null && _databaseHandle != null && !_databaseHandle.IsInvalid)
+                {
+                    _functionManager.Clear(_databaseHandle.DangerousGetHandle());
+                    _functionManager.Dispose();
+                    _functionManager = null;
+                }
 
                 _connectionHandle?.Dispose();
                 _connectionHandle = null;
@@ -399,4 +493,186 @@ public sealed class LibSQLConnection : DbConnection
             throw new InvalidOperationException($"{operation} requires an open connection.");
         }
     }
+    
+    #region Custom Functions and Aggregates
+    
+    /// <summary>
+    /// Registers a custom scalar function.
+    /// </summary>
+    /// <param name="function">The function to register</param>
+    public void RegisterFunction(LibSQLFunction function)
+    {
+        ArgumentNullException.ThrowIfNull(function);
+        EnsureConnectionOpen();
+        
+        if (_functionManager == null || _databaseHandle == null)
+            throw new InvalidOperationException("Connection is not properly initialized.");
+        
+        _functionManager.RegisterFunction(_databaseHandle.DangerousGetHandle(), function);
+    }
+    
+    /// <summary>
+    /// Registers a custom aggregate function.
+    /// </summary>
+    /// <typeparam name="TAggregate">The type of aggregate to register</typeparam>
+    public void RegisterAggregate<TAggregate>() where TAggregate : LibSQLAggregate, new()
+    {
+        EnsureConnectionOpen();
+        
+        if (_functionManager == null || _databaseHandle == null)
+            throw new InvalidOperationException("Connection is not properly initialized.");
+        
+        _functionManager.RegisterAggregate<TAggregate>(_databaseHandle.DangerousGetHandle());
+    }
+    
+    /// <summary>
+    /// Unregisters a custom function.
+    /// </summary>
+    /// <param name="name">The name of the function to unregister</param>
+    public void UnregisterFunction(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        EnsureConnectionOpen();
+        
+        if (_functionManager == null || _databaseHandle == null)
+            throw new InvalidOperationException("Connection is not properly initialized.");
+        
+        _functionManager.UnregisterFunction(_databaseHandle.DangerousGetHandle(), name);
+    }
+    
+    /// <summary>
+    /// Unregisters a custom aggregate.
+    /// </summary>
+    /// <param name="name">The name of the aggregate to unregister</param>
+    public void UnregisterAggregate(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        EnsureConnectionOpen();
+        
+        if (_functionManager == null || _databaseHandle == null)
+            throw new InvalidOperationException("Connection is not properly initialized.");
+        
+        _functionManager.UnregisterAggregate(_databaseHandle.DangerousGetHandle(), name);
+    }
+    
+    /// <summary>
+    /// Gets whether extended result codes are enabled.
+    /// </summary>
+    public bool ExtendedResultCodes => _extendedResultCodes;
+    
+    #endregion
+    
+    #region Backup/Restore
+    
+    /// <summary>
+    /// Backs up the current database to another database.
+    /// </summary>
+    /// <param name="destinationConnection">The destination connection</param>
+    /// <param name="destinationDatabaseName">The destination database name (usually "main")</param>
+    /// <param name="sourceDatabaseName">The source database name (usually "main")</param>
+    /// <param name="pagesPerStep">Number of pages to backup per step, -1 for all at once</param>
+    /// <param name="progress">Optional progress callback</param>
+    public void BackupDatabase(
+        LibSQLConnection destinationConnection, 
+        string destinationDatabaseName = "main",
+        string sourceDatabaseName = "main",
+        int pagesPerStep = -1,
+        Action<int, int>? progress = null)
+    {
+        ArgumentNullException.ThrowIfNull(destinationConnection);
+        EnsureConnectionOpen();
+        destinationConnection.EnsureConnectionOpen();
+        
+        if (_databaseHandle == null || destinationConnection._databaseHandle == null)
+            throw new InvalidOperationException("Connection is not properly initialized.");
+        
+        var backup = LibSQLNative.sqlite3_backup_init(
+            destinationConnection._databaseHandle.DangerousGetHandle(),
+            destinationDatabaseName,
+            _databaseHandle.DangerousGetHandle(),
+            sourceDatabaseName);
+        
+        if (backup == IntPtr.Zero)
+        {
+            var errorCode = LibSQLNative.sqlite3_errcode(destinationConnection._databaseHandle.DangerousGetHandle());
+            var errorMsg = GetLastError(destinationConnection._databaseHandle);
+            throw LibSQLException.FromErrorCode(errorCode, $"Failed to initialize backup: {errorMsg}");
+        }
+        
+        using var backupHandle = new LibSQLBackupHandle(backup);
+        
+        int result;
+        do
+        {
+            result = LibSQLNative.sqlite3_backup_step(backupHandle.DangerousGetHandle(), pagesPerStep);
+            
+            if (result == 0 || result == 5) // SQLITE_OK or SQLITE_BUSY
+            {
+                var remaining = LibSQLNative.sqlite3_backup_remaining(backupHandle.DangerousGetHandle());
+                var total = LibSQLNative.sqlite3_backup_pagecount(backupHandle.DangerousGetHandle());
+                var completed = total - remaining;
+                
+                // Call the provided progress callback
+                progress?.Invoke(completed, total);
+                
+                // Also raise the Progress event
+                OnProgress(completed, total, "Database backup in progress");
+            }
+        }
+        while (result == 0 || result == 5); // Continue while OK or BUSY
+        
+        if (result != 101) // SQLITE_DONE
+        {
+            var errorCode = LibSQLNative.sqlite3_errcode(_databaseHandle.DangerousGetHandle());
+            var errorMsg = GetLastError(_databaseHandle);
+            throw LibSQLException.FromErrorCode(errorCode, $"Backup failed: {errorMsg}");
+        }
+    }
+    
+    #endregion
+    
+    private string GetLastError(LibSQLDatabaseHandle? handle)
+    {
+        if (handle == null || handle.IsInvalid)
+            return "Unknown error";
+        
+        var errorPtr = LibSQLNative.sqlite3_errmsg(handle.DangerousGetHandle());
+        if (errorPtr == IntPtr.Zero)
+            return "Unknown error";
+        
+        return Marshal.PtrToStringAnsi(errorPtr) ?? "Unknown error";
+    }
+    
+    #region Event Handling
+    
+    /// <summary>
+    /// Raises the Progress event.
+    /// </summary>
+    internal void OnProgress(int current, int total, string? message = null)
+    {
+        Progress?.Invoke(this, new LibSQLProgressEventArgs(current, total, message));
+    }
+    
+    /// <summary>
+    /// Raises the CommandExecuting event.
+    /// </summary>
+    internal bool OnCommandExecuting(string commandText)
+    {
+        if (CommandExecuting == null)
+            return true;
+        
+        var args = new LibSQLCommandEventArgs(commandText);
+        CommandExecuting.Invoke(this, args);
+        return !args.Cancel;
+    }
+    
+    /// <summary>
+    /// Raises the CommandExecuted event.
+    /// </summary>
+    internal void OnCommandExecuted(string commandText, TimeSpan duration)
+    {
+        CommandExecuted?.Invoke(this, new LibSQLCommandEventArgs(commandText, duration));
+    }
+    
+    #endregion
 }

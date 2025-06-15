@@ -559,14 +559,14 @@ public sealed class LibSQLDataReader : DbDataReader
         }
 
         // Return value based on type
-        // libSQL/SQLite type constants: NULL=0, INT=1, FLOAT=2, TEXT=3, BLOB=4
+        // libSQL/SQLite type constants: INT=1, FLOAT=2, TEXT=3, BLOB=4, NULL=5
         return columnType switch
         {
-            0 => DBNull.Value, // NULL
             1 => GetInt64(ordinal), // INT - use long as the widest integer type
             2 => GetDouble(ordinal), // FLOAT
             3 => GetString(ordinal), // TEXT
             4 => GetBlobBytes(ordinal), // BLOB
+            5 => DBNull.Value, // NULL
             _ => throw new NotSupportedException($"Unknown column type: {columnType}")
         };
     }

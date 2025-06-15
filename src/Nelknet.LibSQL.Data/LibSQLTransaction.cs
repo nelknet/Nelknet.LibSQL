@@ -65,7 +65,7 @@ public sealed class LibSQLTransaction : DbTransaction
 
         try
         {
-            var result = LibSQLNative.libsql_commit_transaction(_connection!.Handle, out var errorMessage);
+            var result = LibSQLNative.libsql_execute(_connection!.Handle, "COMMIT", out var errorMessage);
             if (result != 0)
             {
                 var errorMsg = LibSQLHelper.GetErrorMessage(errorMessage);
@@ -93,7 +93,7 @@ public sealed class LibSQLTransaction : DbTransaction
 
         try
         {
-            var result = LibSQLNative.libsql_rollback_transaction(_connection!.Handle, out var errorMessage);
+            var result = LibSQLNative.libsql_execute(_connection!.Handle, "ROLLBACK", out var errorMessage);
             if (result != 0)
             {
                 var errorMsg = LibSQLHelper.GetErrorMessage(errorMessage);

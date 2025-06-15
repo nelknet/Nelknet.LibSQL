@@ -8,6 +8,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Nelknet.LibSQL.Bindings;
+using Nelknet.LibSQL.Data.Exceptions;
 
 namespace Nelknet.LibSQL.Data;
 
@@ -21,6 +22,8 @@ public sealed class LibSQLCommand : DbCommand
     private int _commandTimeout = 30;
     private LibSQLStatementHandle? _preparedStatement;
     private bool _isPrepared;
+    private bool _explainMode;
+    private ExplainVerbosity _explainVerbosity = ExplainVerbosity.Normal;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="LibSQLCommand"/> class.
@@ -168,15 +171,43 @@ public sealed class LibSQLCommand : DbCommand
 
         if (_isPrepared && _preparedStatement != null)
         {
+            // Reset the prepared statement first
+            var resetResult = LibSQLNative.libsql_reset_stmt(_preparedStatement, out var resetErrorMsg);
+            if (resetResult != 0)
+            {
+                var resetError = LibSQLHelper.GetErrorMessage(resetErrorMsg);
+                LibSQLNative.libsql_free_error_msg(resetErrorMsg);
+                throw new InvalidOperationException($"Failed to reset prepared statement: {resetError}");
+            }
+            
             // Bind parameters to prepared statement
             BindParameters(_preparedStatement);
             
             // Execute prepared statement
             result = LibSQLNative.libsql_execute_stmt(_preparedStatement, out errorMsg);
         }
+        else if (Parameters.Count > 0)
+        {
+            // We have parameters but no prepared statement - prepare it now
+            result = LibSQLNative.libsql_prepare(connectionHandle, CommandText, out var stmtHandle, out errorMsg);
+            if (result != 0)
+            {
+                var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
+                LibSQLNative.libsql_free_error_msg(errorMsg);
+                throw new InvalidOperationException($"Failed to prepare statement: {errorMessage}");
+            }
+            
+            using var statement = new LibSQLStatementHandle(stmtHandle);
+            
+            // Bind parameters
+            BindParameters(statement);
+            
+            // Execute the prepared statement
+            result = LibSQLNative.libsql_execute_stmt(statement, out errorMsg);
+        }
         else
         {
-            // Execute directly
+            // Execute directly - no parameters
             result = LibSQLNative.libsql_execute(connectionHandle, CommandText, out errorMsg);
         }
 
@@ -184,7 +215,10 @@ public sealed class LibSQLCommand : DbCommand
         {
             var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
             LibSQLNative.libsql_free_error_msg(errorMsg);
-            throw new InvalidOperationException($"Failed to execute command: {errorMessage}");
+            
+            // Use the error handler to create the appropriate exception type
+            // Note: We can't use the connectionHandle for error checking since it's not a SafeHandle
+            LibSQLErrorHandler.CheckResult(result, null, CommandText, errorMessage);
         }
 
         // Get the number of changes made
@@ -211,15 +245,43 @@ public sealed class LibSQLCommand : DbCommand
 
         if (_isPrepared && _preparedStatement != null)
         {
+            // Reset the prepared statement first
+            var resetResult = LibSQLNative.libsql_reset_stmt(_preparedStatement, out var resetErrorMsg);
+            if (resetResult != 0)
+            {
+                var resetError = LibSQLHelper.GetErrorMessage(resetErrorMsg);
+                LibSQLNative.libsql_free_error_msg(resetErrorMsg);
+                throw new InvalidOperationException($"Failed to reset prepared statement: {resetError}");
+            }
+            
             // Bind parameters to prepared statement
             BindParameters(_preparedStatement);
             
             // Query using prepared statement
             result = LibSQLNative.libsql_query_stmt(_preparedStatement, out rowsHandle, out errorMsg);
         }
+        else if (Parameters.Count > 0)
+        {
+            // We have parameters but no prepared statement - prepare it now
+            result = LibSQLNative.libsql_prepare(connectionHandle, CommandText, out var stmtHandle, out errorMsg);
+            if (result != 0)
+            {
+                var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
+                LibSQLNative.libsql_free_error_msg(errorMsg);
+                throw new InvalidOperationException($"Failed to prepare statement: {errorMessage}");
+            }
+            
+            using var statement = new LibSQLStatementHandle(stmtHandle);
+            
+            // Bind parameters
+            BindParameters(statement);
+            
+            // Query using the prepared statement
+            result = LibSQLNative.libsql_query_stmt(statement, out rowsHandle, out errorMsg);
+        }
         else
         {
-            // Query directly
+            // Query directly - no parameters
             result = LibSQLNative.libsql_query(connectionHandle, CommandText, out rowsHandle, out errorMsg);
         }
 
@@ -255,29 +317,77 @@ public sealed class LibSQLCommand : DbCommand
             {
                 using var row = new LibSQLRowHandle(rowHandle);
                 
-                // Get the value from the first column (index 0)
-                IntPtr valuePtr;
-                result = LibSQLNative.libsql_get_string(row, 0, out valuePtr, out errorMsg);
-                
+                // Get the column type first
+                result = LibSQLNative.libsql_column_type(rows, row, 0, out int columnType, out errorMsg);
                 if (result != 0)
                 {
                     var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
                     LibSQLNative.libsql_free_error_msg(errorMsg);
-                    throw new InvalidOperationException($"Failed to get scalar value: {errorMessage}");
+                    throw new InvalidOperationException($"Failed to get column type: {errorMessage}");
                 }
 
-                if (valuePtr == IntPtr.Zero)
+                // Get value based on column type
+                switch (columnType)
                 {
-                    return null;
-                }
+                    case 1: // INTEGER
+                        result = LibSQLNative.libsql_get_int(row, 0, out long intValue, out errorMsg);
+                        if (result != 0)
+                        {
+                            var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
+                            LibSQLNative.libsql_free_error_msg(errorMsg);
+                            throw new InvalidOperationException($"Failed to get integer value: {errorMessage}");
+                        }
+                        return intValue;
 
-                try
-                {
-                    return System.Runtime.InteropServices.Marshal.PtrToStringUTF8(valuePtr);
-                }
-                finally
-                {
-                    LibSQLNative.libsql_free_string(valuePtr);
+                    case 2: // FLOAT
+                        result = LibSQLNative.libsql_get_float(row, 0, out double floatValue, out errorMsg);
+                        if (result != 0)
+                        {
+                            var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
+                            LibSQLNative.libsql_free_error_msg(errorMsg);
+                            throw new InvalidOperationException($"Failed to get float value: {errorMessage}");
+                        }
+                        return floatValue;
+
+                    case 3: // TEXT
+                        IntPtr valuePtr;
+                        result = LibSQLNative.libsql_get_string(row, 0, out valuePtr, out errorMsg);
+                        if (result != 0)
+                        {
+                            var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
+                            LibSQLNative.libsql_free_error_msg(errorMsg);
+                            throw new InvalidOperationException($"Failed to get string value: {errorMessage}");
+                        }
+                        if (valuePtr == IntPtr.Zero)
+                        {
+                            return null;
+                        }
+                        try
+                        {
+                            return System.Runtime.InteropServices.Marshal.PtrToStringUTF8(valuePtr);
+                        }
+                        finally
+                        {
+                            LibSQLNative.libsql_free_string(valuePtr);
+                        }
+
+                    case 4: // BLOB
+                        result = LibSQLNative.libsql_get_blob(row, 0, out LibSQLBlob blob, out errorMsg);
+                        if (result != 0)
+                        {
+                            var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
+                            LibSQLNative.libsql_free_error_msg(errorMsg);
+                            throw new InvalidOperationException($"Failed to get blob value: {errorMessage}");
+                        }
+                        var blobData = blob.ToByteArray();
+                        LibSQLNative.libsql_free_blob(blob);
+                        return blobData;
+
+                    case 5: // NULL
+                        return null;
+
+                    default:
+                        throw new NotSupportedException($"Unknown column type: {columnType}");
                 }
             }
             finally
@@ -322,15 +432,43 @@ public sealed class LibSQLCommand : DbCommand
 
         if (_isPrepared && _preparedStatement != null)
         {
+            // Reset the prepared statement first
+            var resetResult = LibSQLNative.libsql_reset_stmt(_preparedStatement, out var resetErrorMsg);
+            if (resetResult != 0)
+            {
+                var resetError = LibSQLHelper.GetErrorMessage(resetErrorMsg);
+                LibSQLNative.libsql_free_error_msg(resetErrorMsg);
+                throw new InvalidOperationException($"Failed to reset prepared statement: {resetError}");
+            }
+            
             // Bind parameters to prepared statement
             BindParameters(_preparedStatement);
             
             // Query using prepared statement
             result = LibSQLNative.libsql_query_stmt(_preparedStatement, out rowsHandle, out errorMsg);
         }
+        else if (Parameters.Count > 0)
+        {
+            // We have parameters but no prepared statement - prepare it now
+            result = LibSQLNative.libsql_prepare(connectionHandle, CommandText, out var stmtHandle, out errorMsg);
+            if (result != 0)
+            {
+                var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
+                LibSQLNative.libsql_free_error_msg(errorMsg);
+                throw new InvalidOperationException($"Failed to prepare statement: {errorMessage}");
+            }
+            
+            using var statement = new LibSQLStatementHandle(stmtHandle);
+            
+            // Bind parameters
+            BindParameters(statement);
+            
+            // Query using the prepared statement
+            result = LibSQLNative.libsql_query_stmt(statement, out rowsHandle, out errorMsg);
+        }
         else
         {
-            // Query directly
+            // Query directly - no parameters
             result = LibSQLNative.libsql_query(connectionHandle, CommandText, out rowsHandle, out errorMsg);
         }
 
@@ -576,4 +714,135 @@ public sealed class LibSQLCommand : DbCommand
             }
         }
     }
+    
+    #region Query Plan Support
+    
+    /// <summary>
+    /// Gets or sets whether this command should return query plan information instead of executing.
+    /// </summary>
+    public bool ExplainMode
+    {
+        get => _explainMode;
+        set => _explainMode = value;
+    }
+    
+    /// <summary>
+    /// Gets or sets the verbosity level for EXPLAIN commands.
+    /// </summary>
+    public ExplainVerbosity ExplainVerbosity
+    {
+        get => _explainVerbosity;
+        set => _explainVerbosity = value;
+    }
+    
+    /// <summary>
+    /// Executes the command and returns the query plan.
+    /// </summary>
+    /// <returns>A DataTable containing the query plan information.</returns>
+    public DataTable GetQueryPlan()
+    {
+        EnsureConnectionOpen();
+        
+        var originalText = _commandText;
+        var originalExplainMode = _explainMode;
+        
+        try
+        {
+            // Prepend EXPLAIN or EXPLAIN QUERY PLAN to the command
+            var explainPrefix = _explainVerbosity switch
+            {
+                ExplainVerbosity.QueryPlan => "EXPLAIN QUERY PLAN ",
+                ExplainVerbosity.Detailed => "EXPLAIN ",
+                _ => "EXPLAIN QUERY PLAN "
+            };
+            
+            _commandText = explainPrefix + originalText;
+            _explainMode = true;
+            
+            // Execute and read the results into a DataTable
+            using var reader = ExecuteReader();
+            var table = new DataTable("QueryPlan");
+            
+            // Add columns
+            for (int i = 0; i < reader.FieldCount; i++)
+            {
+                table.Columns.Add(reader.GetName(i), typeof(string));
+            }
+            
+            // Add rows
+            while (reader.Read())
+            {
+                var row = table.NewRow();
+                for (int i = 0; i < reader.FieldCount; i++)
+                {
+                    row[i] = reader.IsDBNull(i) ? DBNull.Value : reader.GetValue(i);
+                }
+                table.Rows.Add(row);
+            }
+            
+            return table;
+        }
+        finally
+        {
+            _commandText = originalText;
+            _explainMode = originalExplainMode;
+        }
+    }
+    
+    /// <summary>
+    /// Asynchronously executes the command and returns the query plan.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A DataTable containing the query plan information.</returns>
+    public async Task<DataTable> GetQueryPlanAsync(CancellationToken cancellationToken = default)
+    {
+        EnsureConnectionOpen();
+        
+        var originalText = _commandText;
+        var originalExplainMode = _explainMode;
+        
+        try
+        {
+            // Prepend EXPLAIN or EXPLAIN QUERY PLAN to the command
+            var explainPrefix = _explainVerbosity switch
+            {
+                ExplainVerbosity.QueryPlan => "EXPLAIN QUERY PLAN ",
+                ExplainVerbosity.Detailed => "EXPLAIN ",
+                _ => "EXPLAIN QUERY PLAN "
+            };
+            
+            _commandText = explainPrefix + originalText;
+            _explainMode = true;
+            
+            // Execute and read the results into a DataTable
+            using var reader = await ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            var table = new DataTable("QueryPlan");
+            
+            // Add columns
+            for (int i = 0; i < reader.FieldCount; i++)
+            {
+                table.Columns.Add(reader.GetName(i), typeof(string));
+            }
+            
+            // Add rows
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                var row = table.NewRow();
+                for (int i = 0; i < reader.FieldCount; i++)
+                {
+                    row[i] = reader.IsDBNull(i) ? DBNull.Value : reader.GetValue(i);
+                }
+                table.Rows.Add(row);
+            }
+            
+            return table;
+        }
+        finally
+        {
+            _commandText = originalText;
+            _explainMode = originalExplainMode;
+        }
+    }
+    
+    #endregion
 }

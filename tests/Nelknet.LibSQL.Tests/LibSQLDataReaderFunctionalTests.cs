@@ -71,8 +71,10 @@ public class LibSQLDataReaderFunctionalTests
             // Test initial state
             Assert.False(reader.IsClosed);
             
-            // Test reading (this will fail without native library, but tests the structure)
-            Assert.False(reader.Read()); // No actual data without native library
+            // Test reading - SELECT 1 should return one row
+            Assert.True(reader.Read()); // Should have one row
+            Assert.Equal(1L, reader.GetInt64(0)); // libSQL returns 1 as int64
+            Assert.False(reader.Read()); // No more rows
             
             // Test closing
             reader.Close();

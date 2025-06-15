@@ -167,7 +167,7 @@ internal static partial class LibSQLNative
     
     #region Error Handling
     
-    [LibraryImport(LibraryName)]
+    [LibraryImport(LibraryName, EntryPoint = "libsql_free_string")]
     internal static partial void libsql_free_error_msg(IntPtr errMsg);
     
     /// <summary>
@@ -198,14 +198,8 @@ internal static partial class LibSQLNative
     
     #region Transaction Control
     
-    [LibraryImport(LibraryName, StringMarshalling = StringMarshalling.Utf8)]
-    internal static partial int libsql_begin_transaction(LibSQLConnectionHandle conn, out IntPtr outErrMsg);
-    
-    [LibraryImport(LibraryName, StringMarshalling = StringMarshalling.Utf8)]
-    internal static partial int libsql_commit_transaction(LibSQLConnectionHandle conn, out IntPtr outErrMsg);
-    
-    [LibraryImport(LibraryName, StringMarshalling = StringMarshalling.Utf8)]
-    internal static partial int libsql_rollback_transaction(LibSQLConnectionHandle conn, out IntPtr outErrMsg);
+    // Transactions in libSQL are handled via SQL commands (BEGIN, COMMIT, ROLLBACK)
+    // not via separate API functions
     
     #endregion
     
@@ -245,6 +239,179 @@ internal static partial class LibSQLNative
     /// <returns>The SQLite source identifier string.</returns>
     [LibraryImport(LibraryName, EntryPoint = "sqlite3_sourceid")]
     internal static partial IntPtr sqlite3_sourceid();
+    
+    #endregion
+    
+    #region Custom Functions and Aggregates
+    
+    /// <summary>
+    /// Creates or redefines a SQL function.
+    /// </summary>
+    /// <param name="db">Database connection</param>
+    /// <param name="zFunctionName">Name of the SQL function</param>
+    /// <param name="nArg">Number of arguments (-1 for any number)</param>
+    /// <param name="eTextRep">Text encoding (e.g., SQLITE_UTF8)</param>
+    /// <param name="pApp">Application data pointer</param>
+    /// <param name="xFunc">Function callback for scalar functions</param>
+    /// <param name="xStep">Step callback for aggregate functions</param>
+    /// <param name="xFinal">Final callback for aggregate functions</param>
+    /// <returns>Result code</returns>
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_create_function", StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial int sqlite3_create_function(
+        IntPtr db,
+        string zFunctionName,
+        int nArg,
+        int eTextRep,
+        IntPtr pApp,
+        IntPtr xFunc,  // void (*xFunc)(sqlite3_context*,int,sqlite3_value**)
+        IntPtr xStep,  // void (*xStep)(sqlite3_context*,int,sqlite3_value**)
+        IntPtr xFinal  // void (*xFinal)(sqlite3_context*)
+    );
+    
+    /// <summary>
+    /// Creates or redefines a SQL function with destructor callback.
+    /// </summary>
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_create_function_v2", StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial int sqlite3_create_function_v2(
+        IntPtr db,
+        string zFunctionName,
+        int nArg,
+        int eTextRep,
+        IntPtr pApp,
+        IntPtr xFunc,
+        IntPtr xStep,
+        IntPtr xFinal,
+        IntPtr xDestroy  // void(*xDestroy)(void*)
+    );
+    
+    // Function context methods
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_result_null")]
+    internal static partial void sqlite3_result_null(IntPtr context);
+    
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_result_int64")]
+    internal static partial void sqlite3_result_int64(IntPtr context, long value);
+    
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_result_double")]
+    internal static partial void sqlite3_result_double(IntPtr context, double value);
+    
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_result_text", StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial void sqlite3_result_text(IntPtr context, string value, int nBytes, IntPtr destructor);
+    
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_result_blob")]
+    internal static partial void sqlite3_result_blob(IntPtr context, IntPtr value, int nBytes, IntPtr destructor);
+    
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_result_error", StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial void sqlite3_result_error(IntPtr context, string errMsg, int nBytes);
+    
+    // Value access methods
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_value_type")]
+    internal static partial int sqlite3_value_type(IntPtr value);
+    
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_value_int64")]
+    internal static partial long sqlite3_value_int64(IntPtr value);
+    
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_value_double")]
+    internal static partial double sqlite3_value_double(IntPtr value);
+    
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_value_text")]
+    internal static partial IntPtr sqlite3_value_text(IntPtr value);
+    
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_value_blob")]
+    internal static partial IntPtr sqlite3_value_blob(IntPtr value);
+    
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_value_bytes")]
+    internal static partial int sqlite3_value_bytes(IntPtr value);
+    
+    // Aggregate context
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_aggregate_context")]
+    internal static partial IntPtr sqlite3_aggregate_context(IntPtr context, int nBytes);
+    
+    // User data
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_user_data")]
+    internal static partial IntPtr sqlite3_user_data(IntPtr context);
+    
+    // Text encoding constants
+    internal const int SQLITE_UTF8 = 1;
+    internal const int SQLITE_UTF16LE = 2;
+    internal const int SQLITE_UTF16BE = 3;
+    internal const int SQLITE_UTF16 = 4;
+    internal const int SQLITE_ANY = 5;
+    
+    // Function flags
+    internal const int SQLITE_DETERMINISTIC = 0x000000800;
+    internal const int SQLITE_DIRECTONLY = 0x000080000;
+    internal const int SQLITE_SUBTYPE = 0x000100000;
+    internal const int SQLITE_INNOCUOUS = 0x000200000;
+    internal const int SQLITE_RESULT_SUBTYPE = 0x001000000;
+    
+    // Special destructor values
+    internal static readonly IntPtr SQLITE_STATIC = IntPtr.Zero;
+    internal static readonly IntPtr SQLITE_TRANSIENT = new IntPtr(-1);
+    
+    #endregion
+    
+    #region Backup/Restore
+    
+    /// <summary>
+    /// Initialize a backup operation.
+    /// </summary>
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_backup_init", StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial IntPtr sqlite3_backup_init(
+        IntPtr pDest,
+        string zDestName,
+        IntPtr pSource,
+        string zSourceName
+    );
+    
+    /// <summary>
+    /// Perform a backup step.
+    /// </summary>
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_backup_step")]
+    internal static partial int sqlite3_backup_step(IntPtr backup, int nPage);
+    
+    /// <summary>
+    /// Finish a backup operation.
+    /// </summary>
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_backup_finish")]
+    internal static partial int sqlite3_backup_finish(IntPtr backup);
+    
+    /// <summary>
+    /// Get the number of pages remaining to be backed up.
+    /// </summary>
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_backup_remaining")]
+    internal static partial int sqlite3_backup_remaining(IntPtr backup);
+    
+    /// <summary>
+    /// Get the total number of pages in the source database.
+    /// </summary>
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_backup_pagecount")]
+    internal static partial int sqlite3_backup_pagecount(IntPtr backup);
+    
+    #endregion
+    
+    #region Extended Result Codes
+    
+    /// <summary>
+    /// Enable or disable extended result codes.
+    /// </summary>
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_extended_result_codes")]
+    internal static partial int sqlite3_extended_result_codes(IntPtr db, int onoff);
+    
+    #endregion
+    
+    #region Statement Status
+    
+    /// <summary>
+    /// Check if a prepared statement is an EXPLAIN statement.
+    /// </summary>
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_stmt_isexplain")]
+    internal static partial int sqlite3_stmt_isexplain(IntPtr stmt);
+    
+    /// <summary>
+    /// Change the EXPLAIN setting for a prepared statement.
+    /// </summary>
+    [LibraryImport(LibraryName, EntryPoint = "sqlite3_stmt_explain")]
+    internal static partial int sqlite3_stmt_explain(IntPtr stmt, int eMode);
     
     #endregion
 }

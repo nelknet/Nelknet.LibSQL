@@ -184,3 +184,26 @@ internal sealed class LibSQLStringHandle : SafeHandleZeroOrMinusOneIsInvalid
         return true;
     }
 }
+
+/// <summary>
+/// Safe handle for sqlite3_backup operations
+/// </summary>
+internal sealed class LibSQLBackupHandle : LibSQLSafeHandle
+{
+    internal LibSQLBackupHandle() : base()
+    {
+    }
+
+    internal LibSQLBackupHandle(IntPtr handle) : base(handle)
+    {
+    }
+
+    protected override bool ReleaseHandle()
+    {
+        if (!IsInvalid && !IsClosed)
+        {
+            LibSQLNative.sqlite3_backup_finish(handle);
+        }
+        return true;
+    }
+}

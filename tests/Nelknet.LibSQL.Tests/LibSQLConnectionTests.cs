@@ -117,11 +117,12 @@ public class LibSQLConnectionTests
     }
 
     [Fact]
-    public void Open_WithInvalidConnectionString_ShouldThrowArgumentException()
+    public void Open_WithInvalidConnectionString_ShouldThrowInvalidOperationException()
     {
         var connection = new LibSQLConnection();
         
-        Assert.Throws<ArgumentException>(() => connection.Open());
+        var exception = Assert.Throws<InvalidOperationException>(() => connection.Open());
+        Assert.Contains("Data source is required", exception.Message);
     }
 
     [Fact]

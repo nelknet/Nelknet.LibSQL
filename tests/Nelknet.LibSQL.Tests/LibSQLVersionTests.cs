@@ -6,7 +6,7 @@ namespace Nelknet.LibSQL.Tests;
 
 public class LibSQLVersionTests
 {
-    [Fact(Skip = "Requires native library")]
+    [Fact]
     public void LibSQLVersionString_ShouldReturnVersion()
     {
         // Act
@@ -18,7 +18,7 @@ public class LibSQLVersionTests
         Assert.NotEqual("Unknown", version);
     }
 
-    [Fact(Skip = "Requires native library")]
+    [Fact]
     public void SQLiteVersionString_ShouldReturnVersion()
     {
         // Act
@@ -31,7 +31,7 @@ public class LibSQLVersionTests
         Assert.StartsWith("3.", version); // SQLite 3.x
     }
 
-    [Fact(Skip = "Requires native library")]
+    [Fact]
     public void SQLiteVersionNumber_ShouldReturnValidNumber()
     {
         // Act
@@ -41,7 +41,7 @@ public class LibSQLVersionTests
         Assert.True(versionNumber > 3000000); // SQLite 3.0.0 or higher
     }
 
-    [Fact(Skip = "Requires native library")]
+    [Fact]
     public void SQLiteSourceId_ShouldReturnSourceId()
     {
         // Act
@@ -64,7 +64,7 @@ public class LibSQLVersionTests
         Assert.IsType<bool>(isLoaded);
     }
 
-    [Fact(Skip = "Requires native library")]
+    [Fact]
     public void GetVersionInfo_ShouldReturnFormattedInfo()
     {
         // Act
@@ -90,7 +90,7 @@ public class LibSQLVersionTests
         Assert.True(info.Contains("Version:") || info.Contains("Failed to retrieve"));
     }
 
-    [Fact(Skip = "Requires native library")]
+    [Fact]
     public void VersionProperties_ShouldBeCached()
     {
         // Act - Get versions twice
