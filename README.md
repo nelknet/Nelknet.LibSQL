@@ -239,6 +239,22 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [DuckDB.NET](https://github.com/Giorgi/DuckDB.NET) - Inspiration for native binding patterns
 - [Microsoft.Data.Sqlite](https://github.com/dotnet/efcore) - Reference for ADO.NET implementation
 
+## Documentation
+
+### Getting Started
+- [Getting Started Guide](docs/getting-started.md) - Quick introduction and basic usage
+- [Connection Strings](docs/connection-strings.md) - All connection string options explained
+- [Code Examples](docs/examples.md) - Practical examples for common scenarios
+
+### Advanced Topics
+- [Performance Tuning](docs/performance-tuning.md) - Optimization techniques and best practices
+- [Platform-Specific Notes](docs/platform-specific.md) - OS and architecture considerations
+- [API Reference](docs/api-reference.md) - Complete API documentation
+
+### Example Projects
+- [BasicExample](examples/BasicExample) - Comprehensive console application demonstrating all major features
+- [More Examples](examples) - Additional example projects
+
 ## Links
 
 - [libSQL Documentation](https://docs.turso.tech/libsql)
