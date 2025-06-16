@@ -314,6 +314,38 @@ public void BulkInsertTest()
 6. **Inefficient SQL queries** (missing indexes, SELECT *)
 7. **Parameter clearing in loops** with statement caching enabled
 
+## Embedded Replica Performance
+
+When using embedded replicas, consider these optimization strategies:
+
+### Sync Frequency
+- Sync only when necessary, not after every operation
+- Use manual sync control instead of automatic sync for better performance
+- Consider batching operations before syncing
+
+```csharp
+// Good - batch operations then sync
+using var connection = new LibSQLConnection(embeddedReplicaConnectionString);
+await connection.OpenAsync();
+
+// Disable automatic sync
+connection.AutoSync = false;
+
+// Perform many operations
+for (int i = 0; i < 1000; i++)
+{
+    // ... perform operations
+}
+
+// Single sync at the end
+await connection.SyncAsync();
+```
+
+### Local-First Operations
+- Read operations are always local and fast
+- Write operations can be batched before syncing
+- Use the embedded replica for read-heavy workloads
+
 ## Summary
 
 Key performance recommendations:
@@ -321,5 +353,6 @@ Key performance recommendations:
 - Use bulk insert for large data operations
 - Wrap multiple operations in transactions
 - Create appropriate indexes
+- For embedded replicas, batch operations and sync strategically
 - Monitor and profile your application
 - Follow platform-specific best practices

@@ -20,7 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Query plan access for performance analysis
 - Connection progress events for monitoring long operations
 - Command execution events (CommandExecuting, CommandExecuted)
-- Comprehensive test suite with 308 passing tests
+- **Embedded replica support** (Phase 20)
+  - Manual sync operations with `Sync()` and `SyncAsync()` methods
+  - Automatic sync with configurable intervals via `SyncInterval` connection string option
+  - Read-your-writes consistency configuration
+  - Offline mode for disconnected operation
+  - Sync event notifications (SyncStarted, SyncCompleted, SyncFailed)
+  - Connection string support for embedded replicas
+- Comprehensive test suite with 318 passing tests
 - NuGet package configuration with Source Link support
 - Symbol packages (.snupkg) for debugging support
 

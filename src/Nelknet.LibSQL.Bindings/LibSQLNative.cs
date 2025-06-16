@@ -37,6 +37,12 @@ internal static partial class LibSQLNative
     [LibraryImport(LibraryName, StringMarshalling = StringMarshalling.Utf8)]
     internal static partial int libsql_open_remote_with_webpki(string url, string authToken, out IntPtr outDb, out IntPtr outErrMsg);
     
+    [LibraryImport(LibraryName, StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial int libsql_open_sync(string dbPath, string primaryUrl, string authToken, byte readYourWrites, string? encryptionKey, out IntPtr outDb, out IntPtr outErrMsg);
+    
+    [LibraryImport(LibraryName, StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial int libsql_open_sync_with_webpki(string dbPath, string primaryUrl, string authToken, byte readYourWrites, string? encryptionKey, out IntPtr outDb, out IntPtr outErrMsg);
+    
     [LibraryImport(LibraryName)]
     internal static partial int libsql_open_sync_with_config(in LibSQLConfig config, out IntPtr outDb, out IntPtr outErrMsg);
     

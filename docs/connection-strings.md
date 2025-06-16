@@ -37,14 +37,21 @@ var connection = new LibSQLConnection(
 ```
 
 ### Embedded Replica Mode
-*(Not yet implemented)* - Connection string parsing is supported but the functionality is not yet implemented. Will support local replica with remote sync.
+Create a local SQLite database that automatically syncs with a remote libSQL primary database.
 
-**Current Status**: 
-- ✅ Connection string parameters (`SyncUrl`, `SyncAuthToken`) are parsed correctly
-- ✅ Native struct definitions are in place
-- ⚠️ Some native function bindings are declared but not all
-- ❌ `LibSQLConnection.Open()` throws `NotSupportedException` for embedded replica mode
-- ❌ Sync operations are not implemented
+```csharp
+// Basic embedded replica
+var connection = new LibSQLConnection(
+    "Data Source=local.db;SyncUrl=libsql://mydb.turso.io;AuthToken=your-token");
+
+// With automatic sync every minute
+var connection = new LibSQLConnection(
+    "Data Source=local.db;SyncUrl=libsql://mydb.turso.io;AuthToken=your-token;SyncInterval=60000");
+
+// With read-your-writes consistency
+var connection = new LibSQLConnection(
+    "Data Source=local.db;SyncUrl=libsql://mydb.turso.io;AuthToken=your-token;ReadYourWrites=true");
+```
 
 ## Connection String Properties
 
@@ -62,6 +69,16 @@ The following aliases are supported for common properties:
 
 - `Data Source`: `DataSource`, `Filename`, `Database`
 - `Auth Token`: `AuthToken`, `Token`
+
+### Embedded Replica Properties
+
+| Property | Description | Default | Example |
+|----------|-------------|---------|---------|
+| `SyncUrl` | URL of the primary database to sync with | None | `SyncUrl=libsql://mydb.turso.io` |
+| `SyncAuthToken` | Auth token for sync (defaults to AuthToken) | `AuthToken` value | `SyncAuthToken=eyJ0eXAi...` |
+| `ReadYourWrites` | Enable read-your-writes consistency | `true` | `ReadYourWrites=false` |
+| `SyncInterval` | Automatic sync interval in milliseconds | None (manual only) | `SyncInterval=60000` |
+| `Offline` | Start in offline mode (no sync) | `false` | `Offline=true` |
 
 ### Advanced Options
 
@@ -102,6 +119,25 @@ The following aliases are supported for common properties:
 
 // Using aliases
 "Database=mydb.turso.io;Token=your-token;Mode=Remote"
+```
+
+### Embedded Replica Examples
+
+```csharp
+// Basic embedded replica with manual sync
+"Data Source=local.db;SyncUrl=libsql://mydb.turso.io;AuthToken=your-token"
+
+// Auto-sync every 30 seconds
+"Data Source=local.db;SyncUrl=libsql://mydb.turso.io;AuthToken=your-token;SyncInterval=30000"
+
+// Offline-first with eventual sync
+"Data Source=local.db;SyncUrl=libsql://mydb.turso.io;AuthToken=your-token;Offline=true"
+
+// Different auth tokens for primary and sync
+"Data Source=local.db;SyncUrl=libsql://mydb.turso.io;AuthToken=read-token;SyncAuthToken=write-token"
+
+// Full configuration
+"Data Source=local.db;SyncUrl=libsql://mydb.turso.io;AuthToken=your-token;ReadYourWrites=true;SyncInterval=60000;Offline=false"
 ```
 
 ## Connection String Builder

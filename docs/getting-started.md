@@ -25,10 +25,15 @@ connection.Open();
 using var memConnection = new LibSQLConnection("Data Source=:memory:");
 memConnection.Open();
 
-// Remote database (Turso or libSQL server)
-using var remoteConnection = new LibSQLConnection(
-    "Data Source=mydb.turso.io;Auth Token=your-auth-token");
-remoteConnection.Open();
+// Embedded replica (local database with remote sync)
+using var replicaConnection = new LibSQLConnection(
+    "Data Source=replica.db;SyncUrl=libsql://mydb-user.turso.io;AuthToken=your-token");
+replicaConnection.Open();
+
+// Remote database (Turso or libSQL server) - Coming in Phase 21
+// using var remoteConnection = new LibSQLConnection(
+//     "Data Source=mydb.turso.io;Auth Token=your-auth-token");
+// remoteConnection.Open();
 ```
 
 ### Executing Commands
@@ -120,6 +125,35 @@ for (int i = 0; i < 10000; i++)
 }
 
 bulkInsert.Complete();
+```
+
+### Working with Embedded Replicas
+
+Embedded replicas allow you to have a local database that can sync with a remote libSQL server:
+
+```csharp
+// Create embedded replica connection
+using var connection = new LibSQLConnection(
+    "Data Source=local_replica.db;Mode=EmbeddedReplica;Url=libsql://mydb-user.turso.io;AuthToken=your-token");
+await connection.OpenAsync();
+
+// Sync with remote database (pull latest changes)
+await connection.SyncAsync();
+
+// Work with local data (fast!)
+using var cmd = connection.CreateCommand();
+cmd.CommandText = "SELECT COUNT(*) FROM users";
+var count = await cmd.ExecuteScalarAsync();
+Console.WriteLine($"Local users count: {count}");
+
+// Make local changes
+cmd.CommandText = "INSERT INTO users (name, email) VALUES (@name, @email)";
+cmd.Parameters.AddWithValue("@name", "Local User");
+cmd.Parameters.AddWithValue("@email", "local@example.com");
+await cmd.ExecuteNonQueryAsync();
+
+// Sync changes back to remote
+await connection.SyncAsync();
 ```
 
 ### Using DataAdapter

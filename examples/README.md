@@ -17,6 +17,13 @@ A comprehensive console application that demonstrates:
 - Error handling
 - Schema metadata retrieval
 
+### EmbeddedReplicaExample
+Demonstrates embedded replica functionality:
+- Setting up an embedded replica connection
+- Syncing with remote libSQL/Turso databases
+- Working with local data for performance
+- Pushing local changes back to remote
+
 ## Running Examples
 
 Each example is a standalone console application. To run an example:
@@ -60,9 +67,10 @@ To add a new example:
 
 ## Example Ideas for Future
 
-- **RemoteConnectionExample** - Connecting to remote libSQL/Turso databases
+- **RemoteConnectionExample** - Direct remote connections (Phase 21)
 - **PerformanceExample** - Benchmarking and performance optimization techniques
 - **AsyncExample** - Advanced async/await patterns
 - **DataAdapterExample** - Using LibSQLDataAdapter with DataSets
 - **DapperIntegrationExample** - Using Nelknet.LibSQL with Dapper ORM
 - **WebApiExample** - Using in ASP.NET Core applications
+- **MigrationExample** - Database schema migrations and versioning

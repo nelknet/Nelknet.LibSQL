@@ -260,11 +260,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Bulk insert operations
 - Connection pooling
 - Schema introspection
-- Comprehensive test suite (308+ tests)
+- **Embedded Replica Support** - Sync with remote libSQL servers ✨ NEW
+  - Manual and automatic sync operations
+  - Read-your-writes consistency
+  - Offline mode for disconnected operation
+  - Sync event notifications
+- Comprehensive test suite (318+ tests)
 - NuGet packages ready for publishing
 
 ### 🚧 In Progress / Planned
-- **Phase 20**: Embedded Replica Support - Sync with remote libSQL servers
 - **Phase 21**: Remote Connection Support - Direct HTTPS/libSQL protocol connections
 - **Phase 22**: Batch Operations - Execute multiple statements atomically
 - **Phase 23**: Interactive Transactions - Long-lived transactions with application logic
@@ -276,7 +280,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 |---------|----------------|---------------------|
 | Local databases | ✅ | ✅ |
 | Remote connections | ❌ | ✅ |
-| Embedded replicas | ❌ | ✅ |
+| Embedded replicas | ✅ | ✅ |
 | Batch operations | ❌ | ✅ |
 | Interactive transactions | ❌ | ✅ |
 | Encryption | ❌ | ✅ |

@@ -5,6 +5,8 @@ using System.Data;
 using System.Data.Common;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
 using Nelknet.LibSQL.Bindings;
 using Nelknet.LibSQL.Data.Exceptions;
 using Nelknet.LibSQL.Data.Internal;
@@ -25,6 +27,8 @@ public sealed class LibSQLConnection : DbConnection
     internal LibSQLTransaction? _currentTransaction;
     private LibSQLStatementCache? _statementCache;
     private bool _enableStatementCaching = false; // Disabled by default for compatibility
+    private Timer? _syncTimer;
+    private bool _isSyncing = false;
     // Commented out - libSQL doesn't support direct SQLite function registration
     // private LibSQLFunctionManager? _functionManager;
     // private bool _extendedResultCodes = false;
@@ -168,6 +172,33 @@ public sealed class LibSQLConnection : DbConnection
     /// Gets the statement cache for this connection (internal use).
     /// </summary>
     internal LibSQLStatementCache? StatementCache => _statementCache;
+    
+    /// <summary>
+    /// Gets or sets whether the connection is in offline mode (for embedded replicas).
+    /// </summary>
+    public bool OfflineMode
+    {
+        get => ConnectionStringBuilder.Offline;
+        set
+        {
+            ConnectionStringBuilder.Offline = value;
+            
+            // If we're switching offline mode and have automatic sync, update the timer
+            if (_syncTimer != null)
+            {
+                if (value)
+                {
+                    // Going offline - stop the timer
+                    _syncTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                }
+                else if (ConnectionStringBuilder.SyncInterval.HasValue)
+                {
+                    // Going online - restart the timer
+                    _syncTimer.Change(ConnectionStringBuilder.SyncInterval.Value, ConnectionStringBuilder.SyncInterval.Value);
+                }
+            }
+        }
+    }
 
     /// <summary>
     /// Gets the connection string builder.
@@ -253,9 +284,28 @@ public sealed class LibSQLConnection : DbConnection
                         break;
                         
                     case LibSQLConnectionMode.EmbeddedReplica:
-                        // For embedded replica, we need to use the sync configuration
-                        // This will be implemented when we add sync support
-                        throw new NotSupportedException("Embedded replica mode is not yet supported.");
+                        if (string.IsNullOrEmpty(builder.SyncUrl))
+                        {
+                            throw new InvalidOperationException("Sync URL is required for embedded replica connections.");
+                        }
+                        if (string.IsNullOrEmpty(builder.SyncAuthToken ?? builder.AuthToken))
+                        {
+                            throw new InvalidOperationException("Auth token is required for embedded replica connections.");
+                        }
+                        
+                        var authTokenToUse = builder.SyncAuthToken ?? builder.AuthToken;
+                        var readYourWrites = builder.ReadYourWrites ? (byte)1 : (byte)0;
+                        
+                        // Use WebPKI by default for embedded replicas
+                        result = LibSQLNative.libsql_open_sync_with_webpki(
+                            dataSource, 
+                            builder.SyncUrl, 
+                            authTokenToUse, 
+                            readYourWrites, 
+                            builder.EncryptionKey, 
+                            out dbHandle, 
+                            out errorMsg);
+                        break;
                         
                     case LibSQLConnectionMode.Local:
                     default:
@@ -310,6 +360,15 @@ public sealed class LibSQLConnection : DbConnection
                 //     LibSQLNative.sqlite3_extended_result_codes(_databaseHandle.DangerousGetHandle(), 1);
                 //     _extendedResultCodes = true;
                 // }
+                
+                // Set up automatic sync for embedded replicas
+                if (builder.Mode == LibSQLConnectionMode.EmbeddedReplica && 
+                    builder.SyncInterval.HasValue && 
+                    builder.SyncInterval.Value > 0 &&
+                    !builder.Offline)
+                {
+                    SetupAutomaticSync(builder.SyncInterval.Value);
+                }
 
                 OnStateChange(FromClosedToOpenEventArgs);
             }
@@ -350,6 +409,10 @@ public sealed class LibSQLConnection : DbConnection
                     }
                 }
                 _currentTransaction = null;
+                
+                // Stop and dispose sync timer
+                _syncTimer?.Dispose();
+                _syncTimer = null;
 
                 // Function manager disabled - libSQL doesn't support custom functions
                 // if (_functionManager != null && _databaseHandle != null && !_databaseHandle.IsInvalid)
@@ -601,6 +664,200 @@ public sealed class LibSQLConnection : DbConnection
         return Marshal.PtrToStringAnsi(errorPtr) ?? "Unknown error";
     }
     */
+    
+    #region Sync Operations
+    
+    /// <summary>
+    /// Synchronizes the embedded replica with the remote primary database.
+    /// </summary>
+    /// <returns>Sync statistics including frames synced.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the connection is not an embedded replica.</exception>
+    /// <exception cref="LibSQLException">Thrown when sync operation fails.</exception>
+    public LibSQLSyncResult Sync()
+    {
+        EnsureConnectionOpen();
+        
+        if (ConnectionStringBuilder.Mode != LibSQLConnectionMode.EmbeddedReplica)
+        {
+            throw new InvalidOperationException("Sync is only available for embedded replica connections.");
+        }
+        
+        if (_databaseHandle == null)
+        {
+            throw new InvalidOperationException("Database handle is not initialized.");
+        }
+        
+        if (OfflineMode)
+        {
+            // In offline mode, return empty result without syncing
+            return new LibSQLSyncResult
+            {
+                FrameNo = 0,
+                FramesSynced = 0,
+                Duration = TimeSpan.Zero
+            };
+        }
+        
+        // Raise SyncStarted event
+        OnSyncStarted();
+        
+        var startTime = DateTime.UtcNow;
+        
+        try
+        {
+            // Use sync2 to get detailed sync statistics
+            var result = LibSQLNative.libsql_sync2(_databaseHandle, out var replicated, out var errorMsg);
+            
+            if (result != 0)
+            {
+                var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
+                LibSQLNative.libsql_free_error_msg(errorMsg);
+                var ex = LibSQLException.FromErrorCode(result, $"Failed to sync database: {errorMessage}");
+                OnSyncFailed(ex);
+                throw ex;
+            }
+            
+            var syncResult = new LibSQLSyncResult
+            {
+                FrameNo = replicated.FrameNo,
+                FramesSynced = replicated.FramesSynced,
+                Duration = DateTime.UtcNow - startTime
+            };
+            
+            // Raise SyncCompleted event
+            OnSyncCompleted(syncResult);
+            
+            return syncResult;
+        }
+        catch (Exception ex) when (!(ex is LibSQLException))
+        {
+            OnSyncFailed(ex);
+            throw;
+        }
+    }
+    
+    /// <summary>
+    /// Asynchronously synchronizes the embedded replica with the remote primary database.
+    /// </summary>
+    /// <returns>A task that represents the asynchronous sync operation, containing sync statistics.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the connection is not an embedded replica.</exception>
+    /// <exception cref="LibSQLException">Thrown when sync operation fails.</exception>
+    public Task<LibSQLSyncResult> SyncAsync()
+    {
+        return Task.Run(() => Sync());
+    }
+    
+    /// <summary>
+    /// Asynchronously synchronizes the embedded replica with cancellation support.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task that represents the asynchronous sync operation, containing sync statistics.</returns>
+    public async Task<LibSQLSyncResult> SyncAsync(CancellationToken cancellationToken)
+    {
+        // Check cancellation before starting
+        cancellationToken.ThrowIfCancellationRequested();
+        
+        // Run sync on thread pool with cancellation support
+        using (cancellationToken.Register(() => { /* Could implement interrupt if libSQL supports it */ }))
+        {
+            return await Task.Run(() => Sync(), cancellationToken);
+        }
+    }
+    
+    #endregion
+    
+    #region Automatic Sync
+    
+    /// <summary>
+    /// Sets up automatic sync with the specified interval.
+    /// </summary>
+    /// <param name="intervalMs">The sync interval in milliseconds.</param>
+    private void SetupAutomaticSync(int intervalMs)
+    {
+        _syncTimer = new Timer(AutomaticSyncCallback, null, intervalMs, intervalMs);
+    }
+    
+    /// <summary>
+    /// Callback for automatic sync timer.
+    /// </summary>
+    private void AutomaticSyncCallback(object? state)
+    {
+        // Skip if already syncing or connection is not open
+        if (_isSyncing || _connectionState != ConnectionState.Open)
+            return;
+        
+        _isSyncing = true;
+        try
+        {
+            // Run sync asynchronously without blocking the timer
+            Task.Run(async () =>
+            {
+                try
+                {
+                    await SyncAsync();
+                }
+                catch (Exception ex)
+                {
+                    // Log error but don't crash the timer
+                    OnSyncFailed(ex);
+                }
+                finally
+                {
+                    _isSyncing = false;
+                }
+            });
+        }
+        catch
+        {
+            _isSyncing = false;
+            throw;
+        }
+    }
+    
+    #endregion
+    
+    #region Sync Events
+    
+    /// <summary>
+    /// Occurs when synchronization starts.
+    /// </summary>
+    public event EventHandler? SyncStarted;
+    
+    /// <summary>
+    /// Occurs when synchronization completes successfully.
+    /// </summary>
+    public event EventHandler<LibSQLSyncCompletedEventArgs>? SyncCompleted;
+    
+    /// <summary>
+    /// Occurs when synchronization fails.
+    /// </summary>
+    public event EventHandler<LibSQLSyncFailedEventArgs>? SyncFailed;
+    
+    /// <summary>
+    /// Raises the SyncStarted event.
+    /// </summary>
+    private void OnSyncStarted()
+    {
+        SyncStarted?.Invoke(this, EventArgs.Empty);
+    }
+    
+    /// <summary>
+    /// Raises the SyncCompleted event.
+    /// </summary>
+    private void OnSyncCompleted(LibSQLSyncResult result)
+    {
+        SyncCompleted?.Invoke(this, new LibSQLSyncCompletedEventArgs(result));
+    }
+    
+    /// <summary>
+    /// Raises the SyncFailed event.
+    /// </summary>
+    private void OnSyncFailed(Exception exception)
+    {
+        SyncFailed?.Invoke(this, new LibSQLSyncFailedEventArgs(exception));
+    }
+    
+    #endregion
     
     #region Event Handling
     

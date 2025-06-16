@@ -10,6 +10,7 @@ Initial alpha release of Nelknet.LibSQL, a native C# client library for libSQL t
 - **ADO.NET Compliance**: Full implementation of standard ADO.NET interfaces (DbConnection, DbCommand, DbDataReader, etc.)
 - **Cross-Platform Support**: Windows (x64/x86/ARM64), Linux (x64/ARM64), macOS (x64/ARM64)
 - **Async Support**: Comprehensive async/await support throughout the API
+- **Embedded Replicas**: Local database with sync capabilities to remote libSQL servers
 - **Bulk Operations**: High-performance bulk insert functionality
 - **Transaction Support**: Full transaction support with isolation levels
 - **Parameter Binding**: Named and positional parameter support
@@ -45,9 +46,17 @@ dotnet add package Nelknet.LibSQL.Data --version 0.1.0-alpha
 ```csharp
 using Nelknet.LibSQL.Data;
 
-// Basic connection and query
+// Local database
 using var connection = new LibSQLConnection("Data Source=local.db");
 await connection.OpenAsync();
+
+// Embedded replica (local with remote sync)
+using var replicaConnection = new LibSQLConnection(
+    "Data Source=replica.db;SyncUrl=libsql://mydb-user.turso.io;AuthToken=your-token");
+await replicaConnection.OpenAsync();
+
+// Sync with remote database
+await replicaConnection.SyncAsync();
 
 using var command = connection.CreateCommand();
 command.CommandText = "SELECT * FROM users WHERE age > @age";

@@ -33,7 +33,11 @@ public sealed class LibSQLConnectionStringBuilder : DbConnectionStringBuilder
         "SyncToken",
         "Read Your Writes",
         "ReadYourWrites",
-        "Mode"
+        "Mode",
+        "Sync Interval",
+        "SyncInterval",
+        "Offline",
+        "OfflineMode"
     };
 
     private const string InMemoryConnectionString = ":memory:";
@@ -45,6 +49,8 @@ public sealed class LibSQLConnectionStringBuilder : DbConnectionStringBuilder
     private string? _syncUrl;
     private string? _syncAuthToken;
     private bool _readYourWrites = true;
+    private int? _syncInterval;
+    private bool _offline = false;
     private LibSQLConnectionMode _mode = LibSQLConnectionMode.Local;
 
     /// <summary>
@@ -145,6 +151,32 @@ public sealed class LibSQLConnectionStringBuilder : DbConnectionStringBuilder
     }
 
     /// <summary>
+    /// Gets or sets the automatic sync interval in milliseconds for embedded replicas.
+    /// </summary>
+    public int? SyncInterval
+    {
+        get => _syncInterval;
+        set
+        {
+            _syncInterval = value;
+            base["Sync Interval"] = value;
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets whether the connection is in offline mode (no sync).
+    /// </summary>
+    public bool Offline
+    {
+        get => _offline;
+        set
+        {
+            _offline = value;
+            base["Offline"] = value;
+        }
+    }
+
+    /// <summary>
     /// Gets the connection mode based on the current configuration.
     /// </summary>
     public LibSQLConnectionMode Mode => _mode;
@@ -184,6 +216,12 @@ public sealed class LibSQLConnectionStringBuilder : DbConnectionStringBuilder
                     break;
                 case "Read Your Writes":
                     ReadYourWrites = Convert.ToBoolean(value);
+                    break;
+                case "Sync Interval":
+                    SyncInterval = value != null ? Convert.ToInt32(value) : null;
+                    break;
+                case "Offline":
+                    Offline = Convert.ToBoolean(value);
                     break;
                 default:
                     base[keyword] = value;
@@ -235,6 +273,8 @@ public sealed class LibSQLConnectionStringBuilder : DbConnectionStringBuilder
             "syncurl" => "Sync URL",
             "syncauthtoken" or "synctoken" => "Sync Auth Token",
             "readyourwrites" => "Read Your Writes",
+            "syncinterval" => "Sync Interval",
+            "offline" or "offlinemode" => "Offline",
             _ => keyword
         };
     }
@@ -276,6 +316,8 @@ public sealed class LibSQLConnectionStringBuilder : DbConnectionStringBuilder
         _syncUrl = null;
         _syncAuthToken = null;
         _readYourWrites = true;
+        _syncInterval = null;
+        _offline = false;
         _mode = LibSQLConnectionMode.Local;
     }
 
@@ -330,6 +372,12 @@ public sealed class LibSQLConnectionStringBuilder : DbConnectionStringBuilder
                 case "Read Your Writes":
                     _readYourWrites = true;
                     break;
+                case "Sync Interval":
+                    _syncInterval = null;
+                    break;
+                case "Offline":
+                    _offline = false;
+                    break;
             }
         }
 
@@ -376,6 +424,12 @@ public sealed class LibSQLConnectionStringBuilder : DbConnectionStringBuilder
             
         if (base.TryGetValue("Read Your Writes", out var readYourWrites))
             _readYourWrites = Convert.ToBoolean(readYourWrites);
+            
+        if (base.TryGetValue("Sync Interval", out var syncInterval))
+            _syncInterval = syncInterval != null ? Convert.ToInt32(syncInterval) : null;
+            
+        if (base.TryGetValue("Offline", out var offline))
+            _offline = Convert.ToBoolean(offline);
             
         UpdateMode();
     }

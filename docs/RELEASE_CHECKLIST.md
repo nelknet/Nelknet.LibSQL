@@ -31,7 +31,9 @@ Use this checklist before publishing a new version of Nelknet.LibSQL to NuGet.or
 - [ ] Dependencies are minimal and necessary
 
 ### Testing
+- [ ] All 328+ tests pass on all platforms
 - [ ] Integration tests pass on all platforms
+- [ ] Embedded replica functionality tested
 - [ ] Package installs correctly from local feed
 - [ ] Sample application works with new package
 - [ ] No regression in existing functionality
@@ -176,5 +178,5 @@ Track all releases here:
 
 | Version | Date | Type | Notes |
 |---------|------|------|-------|
-| 0.1.0-alpha | TBD | Pre-release | Initial alpha release |
+| 0.1.0-alpha | TBD | Pre-release | Initial alpha release with embedded replica support |
 | | | | |

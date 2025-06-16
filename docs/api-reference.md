@@ -18,15 +18,21 @@ public sealed class LibSQLConnection : DbConnection
 - `State` - Gets the current connection state
 - `EnableStatementCaching` - Enables/disables statement caching
 - `MaxCachedStatements` - Maximum number of cached statements
+- `OfflineMode` - Gets/sets offline mode for embedded replicas
 - `Open()` - Opens the connection
 - `Close()` - Closes the connection
 - `BeginTransaction()` - Starts a new transaction
 - `CreateCommand()` - Creates a new command
+- `Sync()` - Synchronizes embedded replica with primary (sync mode only)
+- `SyncAsync()` - Asynchronously synchronizes embedded replica
 
 **Events:**
 - `Progress` - Raised during long operations
 - `CommandExecuting` - Raised before command execution
 - `CommandExecuted` - Raised after command execution
+- `SyncStarted` - Raised when sync begins (embedded replica)
+- `SyncCompleted` - Raised when sync completes successfully
+- `SyncFailed` - Raised when sync fails
 
 ### LibSQLCommand
 
@@ -164,7 +170,7 @@ public enum LibSQLConnectionMode
 {
     Local,           // Local file or in-memory
     Remote,          // Remote server
-    EmbeddedReplica  // Local with sync (not implemented)
+    EmbeddedReplica  // Local with sync capabilities
 }
 ```
 
@@ -202,6 +208,43 @@ public enum ExplainVerbosity
     Detailed     // Detailed EXPLAIN
 }
 ```
+
+## Sync Classes (Embedded Replica)
+
+### LibSQLSyncResult
+
+Result of a sync operation.
+
+```csharp
+public class LibSQLSyncResult
+```
+
+**Properties:**
+- `FrameNo` - Current frame number after sync
+- `FramesSynced` - Number of frames synchronized
+- `Duration` - Time taken for sync operation
+
+### LibSQLSyncCompletedEventArgs
+
+Event args for successful sync.
+
+```csharp
+public class LibSQLSyncCompletedEventArgs : EventArgs
+```
+
+**Properties:**
+- `Result` - The sync result
+
+### LibSQLSyncFailedEventArgs
+
+Event args for failed sync.
+
+```csharp
+public class LibSQLSyncFailedEventArgs : EventArgs
+```
+
+**Properties:**
+- `Exception` - The exception that caused failure
 
 ## Exception Classes
 

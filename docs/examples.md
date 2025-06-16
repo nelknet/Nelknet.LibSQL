@@ -398,7 +398,7 @@ using var reader = cmd.ExecuteReader();
 
 ## Working with Remote Databases
 
-### Connecting to Turso
+### Working with Embedded Replicas
 
 ```csharp
 // Load credentials from environment
@@ -407,19 +407,48 @@ var token = Environment.GetEnvironmentVariable("TURSO_AUTH_TOKEN");
 
 var builder = new LibSQLConnectionStringBuilder
 {
-    DataSource = url,
-    Mode = LibSQLConnectionMode.Remote,
+    DataSource = "local_replica.db",
+    Mode = LibSQLConnectionMode.EmbeddedReplica,
+    Url = url,
     AuthToken = token
 };
 
 using var connection = new LibSQLConnection(builder.ConnectionString);
-connection.Open();
+await connection.OpenAsync();
 
-// Use connection normally
+// Sync with remote database
+await connection.SyncAsync();
+
+// Work with local data (fast!)
 using var cmd = connection.CreateCommand();
-cmd.CommandText = "SELECT datetime('now') as server_time";
-var serverTime = cmd.ExecuteScalar();
-Console.WriteLine($"Server time: {serverTime}");
+cmd.CommandText = "SELECT COUNT(*) FROM products";
+var count = await cmd.ExecuteScalarAsync();
+Console.WriteLine($"Local products: {count}");
+
+// Make local changes
+cmd.CommandText = "INSERT INTO orders (customer_id, total) VALUES (@id, @total)";
+cmd.Parameters.AddWithValue("@id", 123);
+cmd.Parameters.AddWithValue("@total", 99.99);
+await cmd.ExecuteNonQueryAsync();
+
+// Sync changes back to remote
+await connection.SyncAsync();
+Console.WriteLine("Changes synced to remote database");
+```
+
+### Remote Connections (Coming in Phase 21)
+
+```csharp
+// Direct remote connection (not yet implemented)
+// var builder = new LibSQLConnectionStringBuilder
+// {
+//     DataSource = url,
+//     Mode = LibSQLConnectionMode.Remote,
+//     AuthToken = token
+// };
+// 
+// using var connection = new LibSQLConnection(builder.ConnectionString);
+// connection.Open();
 ```
 
 ## Schema Management
