@@ -5,8 +5,6 @@ using System.Data;
 using System.Data.Common;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Threading;
-using System.Threading.Tasks;
 using Nelknet.LibSQL.Bindings;
 using Nelknet.LibSQL.Data.Exceptions;
 
@@ -534,77 +532,6 @@ public sealed class LibSQLCommand : DbCommand
         return new LibSQLParameter();
     }
 
-    #region Async Methods
-
-    /// <summary>
-    /// Asynchronously executes the command and returns the number of rows affected.
-    /// </summary>
-    /// <param name="cancellationToken">A token to cancel the asynchronous operation.</param>
-    /// <returns>A task representing the asynchronous operation. The result contains the number of rows affected.</returns>
-    public override Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken = default)
-    {
-        // libSQL doesn't currently support true async operations at the native level
-        // For now, we'll run the synchronous version on a task with timeout support
-        var timeoutToken = CommandTimeout > 0 ? 
-            new CancellationTokenSource(TimeSpan.FromSeconds(CommandTimeout)).Token :
-            CancellationToken.None;
-        
-        var combinedToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutToken).Token;
-        
-        return Task.Run(() =>
-        {
-            combinedToken.ThrowIfCancellationRequested();
-            return ExecuteNonQuery();
-        }, combinedToken);
-    }
-
-    /// <summary>
-    /// Asynchronously executes the command and returns the first column of the first row in the result set.
-    /// </summary>
-    /// <param name="cancellationToken">A token to cancel the asynchronous operation.</param>
-    /// <returns>A task representing the asynchronous operation. The result contains the first column of the first row in the result set.</returns>
-    public override Task<object?> ExecuteScalarAsync(CancellationToken cancellationToken = default)
-    {
-        // libSQL doesn't currently support true async operations at the native level
-        // For now, we'll run the synchronous version on a task with timeout support
-        var timeoutToken = CommandTimeout > 0 ? 
-            new CancellationTokenSource(TimeSpan.FromSeconds(CommandTimeout)).Token :
-            CancellationToken.None;
-        
-        var combinedToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutToken).Token;
-        
-        return Task.Run(() =>
-        {
-            combinedToken.ThrowIfCancellationRequested();
-            return ExecuteScalar();
-        }, combinedToken);
-    }
-
-    /// <summary>
-    /// Asynchronously executes the command and returns a <see cref="DbDataReader"/>.
-    /// </summary>
-    /// <param name="behavior">One of the <see cref="CommandBehavior"/> values.</param>
-    /// <param name="cancellationToken">A token to cancel the asynchronous operation.</param>
-    /// <returns>A task representing the asynchronous operation. The result contains a <see cref="DbDataReader"/> object.</returns>
-    protected override Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior, CancellationToken cancellationToken)
-    {
-        // libSQL doesn't currently support true async operations at the native level
-        // For now, we'll run the synchronous version on a task with timeout support
-        var timeoutToken = CommandTimeout > 0 ? 
-            new CancellationTokenSource(TimeSpan.FromSeconds(CommandTimeout)).Token :
-            CancellationToken.None;
-        
-        var combinedToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutToken).Token;
-        
-        return Task.Run<DbDataReader>(() =>
-        {
-            combinedToken.ThrowIfCancellationRequested();
-            return ExecuteReader(behavior);
-        }, combinedToken);
-    }
-
-    #endregion
-
     /// <summary>
     /// Releases the unmanaged resources used by the <see cref="LibSQLCommand"/> and optionally releases the managed resources.
     /// </summary>
@@ -771,61 +698,6 @@ public sealed class LibSQLCommand : DbCommand
             
             // Add rows
             while (reader.Read())
-            {
-                var row = table.NewRow();
-                for (int i = 0; i < reader.FieldCount; i++)
-                {
-                    row[i] = reader.IsDBNull(i) ? DBNull.Value : reader.GetValue(i);
-                }
-                table.Rows.Add(row);
-            }
-            
-            return table;
-        }
-        finally
-        {
-            _commandText = originalText;
-            _explainMode = originalExplainMode;
-        }
-    }
-    
-    /// <summary>
-    /// Asynchronously executes the command and returns the query plan.
-    /// </summary>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>A DataTable containing the query plan information.</returns>
-    public async Task<DataTable> GetQueryPlanAsync(CancellationToken cancellationToken = default)
-    {
-        EnsureConnectionOpen();
-        
-        var originalText = _commandText;
-        var originalExplainMode = _explainMode;
-        
-        try
-        {
-            // Prepend EXPLAIN or EXPLAIN QUERY PLAN to the command
-            var explainPrefix = _explainVerbosity switch
-            {
-                ExplainVerbosity.QueryPlan => "EXPLAIN QUERY PLAN ",
-                ExplainVerbosity.Detailed => "EXPLAIN ",
-                _ => "EXPLAIN QUERY PLAN "
-            };
-            
-            _commandText = explainPrefix + originalText;
-            _explainMode = true;
-            
-            // Execute and read the results into a DataTable
-            using var reader = await ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-            var table = new DataTable("QueryPlan");
-            
-            // Add columns
-            for (int i = 0; i < reader.FieldCount; i++)
-            {
-                table.Columns.Add(reader.GetName(i), typeof(string));
-            }
-            
-            // Add rows
-            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
                 var row = table.NewRow();
                 for (int i = 0; i < reader.FieldCount; i++)

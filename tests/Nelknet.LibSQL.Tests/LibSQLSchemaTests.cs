@@ -49,7 +49,22 @@ public class LibSQLSchemaTests : IDisposable
             cmd.CommandText = "CREATE UNIQUE INDEX idx_customers_email ON customers(email)";
             cmd.ExecuteNonQuery();
             
-            // Note: Views and triggers are not supported in libSQL
+            // Create a view
+            cmd.CommandText = @"
+                CREATE VIEW customer_orders AS 
+                SELECT c.name, c.email, o.order_date, o.total
+                FROM customers c
+                JOIN orders o ON c.id = o.customer_id";
+            cmd.ExecuteNonQuery();
+            
+            // Create a trigger
+            cmd.CommandText = @"
+                CREATE TRIGGER order_update_timestamp
+                AFTER UPDATE ON orders
+                BEGIN
+                    UPDATE orders SET order_date = CURRENT_TIMESTAMP WHERE id = NEW.id;
+                END";
+            cmd.ExecuteNonQuery();
         }
     }
     
@@ -155,7 +170,7 @@ public class LibSQLSchemaTests : IDisposable
         }
     }
     
-    [Fact(Skip = "libSQL does not support views")]
+    [Fact]
     public void GetSchema_Views_ReturnsAllViews()
     {
         // Act
@@ -218,7 +233,7 @@ public class LibSQLSchemaTests : IDisposable
         Assert.Equal(new[] { "idx_orders_customer", "idx_orders_date" }, indexNames.ToArray());
     }
     
-    [Fact(Skip = "libSQL does not support triggers")]
+    [Fact]
     public void GetSchema_Triggers_ReturnsAllTriggers()
     {
         // Act
@@ -229,8 +244,8 @@ public class LibSQLSchemaTests : IDisposable
         Assert.Single(triggers.Rows);
         
         var triggerRow = triggers.Rows[0];
-        Assert.Equal("update_customer_timestamp", triggerRow["TRIGGER_NAME"]);
-        Assert.Equal("customers", triggerRow["TABLE_NAME"]);
+        Assert.Equal("order_update_timestamp", triggerRow["TRIGGER_NAME"]);
+        Assert.Equal("orders", triggerRow["TABLE_NAME"]);
         Assert.Equal("AFTER", triggerRow["TRIGGER_TYPE"]);
         Assert.Equal("UPDATE", triggerRow["TRIGGERING_EVENT"]);
         Assert.NotNull(triggerRow["TRIGGER_DEFINITION"]);
