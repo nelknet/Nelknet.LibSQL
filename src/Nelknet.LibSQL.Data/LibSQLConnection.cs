@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Nelknet.LibSQL.Bindings;
 using Nelknet.LibSQL.Data.Exceptions;
+using Nelknet.LibSQL.Data.Internal;
 
 namespace Nelknet.LibSQL.Data;
 
@@ -22,6 +23,8 @@ public sealed class LibSQLConnection : DbConnection
     private string _connectionString = string.Empty;
     private LibSQLConnectionStringBuilder? _connectionStringBuilder;
     internal LibSQLTransaction? _currentTransaction;
+    private LibSQLStatementCache? _statementCache;
+    private bool _enableStatementCaching = false; // Disabled by default for compatibility
     // Commented out - libSQL doesn't support direct SQLite function registration
     // private LibSQLFunctionManager? _functionManager;
     // private bool _extendedResultCodes = false;
@@ -130,6 +133,41 @@ public sealed class LibSQLConnection : DbConnection
     /// Gets the current state of the connection.
     /// </summary>
     public override ConnectionState State => _connectionState;
+
+    /// <summary>
+    /// Gets or sets whether to enable statement caching for improved performance.
+    /// </summary>
+    /// <remarks>
+    /// When enabled, prepared statements are cached and reused across command executions.
+    /// This can significantly improve performance for frequently executed queries.
+    /// Default is false to ensure compatibility with patterns like parameter clearing in loops.
+    /// Enable this when you know your usage patterns are compatible with statement caching.
+    /// </remarks>
+    public bool EnableStatementCaching
+    {
+        get => _enableStatementCaching;
+        set
+        {
+            _enableStatementCaching = value;
+            if (!value && _statementCache != null)
+            {
+                _statementCache.Clear();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the maximum number of statements to cache.
+    /// </summary>
+    /// <remarks>
+    /// Only takes effect when the connection is opened. Default is 100.
+    /// </remarks>
+    public int MaxCachedStatements { get; set; } = 100;
+
+    /// <summary>
+    /// Gets the statement cache for this connection (internal use).
+    /// </summary>
+    internal LibSQLStatementCache? StatementCache => _statementCache;
 
     /// <summary>
     /// Gets the connection string builder.
@@ -256,6 +294,12 @@ public sealed class LibSQLConnection : DbConnection
                 _connectionHandle = new LibSQLConnectionHandle(connHandle);
                 _connectionState = ConnectionState.Open;
                 
+                // Initialize statement cache if enabled
+                if (_enableStatementCaching)
+                {
+                    _statementCache = new LibSQLStatementCache(MaxCachedStatements);
+                }
+                
                 // Initialize function manager (lazy initialization - only when needed)
                 // _functionManager = new LibSQLFunctionManager();
                 
@@ -314,6 +358,10 @@ public sealed class LibSQLConnection : DbConnection
                 //     _functionManager.Dispose();
                 //     _functionManager = null;
                 // }
+
+                // Dispose statement cache
+                _statementCache?.Dispose();
+                _statementCache = null;
 
                 _connectionHandle?.Dispose();
                 _connectionHandle = null;

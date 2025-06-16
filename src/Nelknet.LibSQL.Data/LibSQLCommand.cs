@@ -22,6 +22,7 @@ public sealed class LibSQLCommand : DbCommand
     private bool _isPrepared;
     private bool _explainMode;
     private ExplainVerbosity _explainVerbosity = ExplainVerbosity.Normal;
+    private bool _enableStatementCaching = true;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="LibSQLCommand"/> class.
@@ -135,6 +136,19 @@ public sealed class LibSQLCommand : DbCommand
     /// Gets or sets whether the command object should be visible in a customized interface control.
     /// </summary>
     public override bool DesignTimeVisible { get; set; }
+    
+    /// <summary>
+    /// Gets or sets whether statement caching is enabled for this command.
+    /// </summary>
+    /// <remarks>
+    /// When true (default), prepared statements may be cached and reused for better performance.
+    /// Set to false for commands that are executed in loops with different parameters.
+    /// </remarks>
+    public bool EnableStatementCaching
+    {
+        get => _enableStatementCaching;
+        set => _enableStatementCaching = value;
+    }
 
     /// <summary>
     /// Gets or sets how command results are applied to the DataRow when used by the Update method of a DbDataAdapter.
@@ -186,22 +200,25 @@ public sealed class LibSQLCommand : DbCommand
         }
         else if (Parameters.Count > 0)
         {
-            // We have parameters but no prepared statement - prepare it now
-            result = LibSQLNative.libsql_prepare(connectionHandle, CommandText, out var stmtHandle, out errorMsg);
-            if (result != 0)
+            // We have parameters but no prepared statement - use helper method
+            var statement = GetOrPrepareStatement(connectionHandle, out var usingCachedStatement);
+            
+            try
             {
-                var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
-                LibSQLNative.libsql_free_error_msg(errorMsg);
-                throw new InvalidOperationException($"Failed to prepare statement: {errorMessage}");
+                // Bind parameters
+                BindParameters(statement);
+                
+                // Execute the prepared statement
+                result = LibSQLNative.libsql_execute_stmt(statement, out errorMsg);
             }
-            
-            using var statement = new LibSQLStatementHandle(stmtHandle);
-            
-            // Bind parameters
-            BindParameters(statement);
-            
-            // Execute the prepared statement
-            result = LibSQLNative.libsql_execute_stmt(statement, out errorMsg);
+            finally
+            {
+                // Only dispose if not cached
+                if (!usingCachedStatement)
+                {
+                    statement?.Dispose();
+                }
+            }
         }
         else
         {
@@ -260,22 +277,25 @@ public sealed class LibSQLCommand : DbCommand
         }
         else if (Parameters.Count > 0)
         {
-            // We have parameters but no prepared statement - prepare it now
-            result = LibSQLNative.libsql_prepare(connectionHandle, CommandText, out var stmtHandle, out errorMsg);
-            if (result != 0)
+            // We have parameters but no prepared statement - use helper method
+            var statement = GetOrPrepareStatement(connectionHandle, out var usingCachedStatement);
+            
+            try
             {
-                var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
-                LibSQLNative.libsql_free_error_msg(errorMsg);
-                throw new InvalidOperationException($"Failed to prepare statement: {errorMessage}");
+                // Bind parameters
+                BindParameters(statement);
+                
+                // Query using the prepared statement
+                result = LibSQLNative.libsql_query_stmt(statement, out rowsHandle, out errorMsg);
             }
-            
-            using var statement = new LibSQLStatementHandle(stmtHandle);
-            
-            // Bind parameters
-            BindParameters(statement);
-            
-            // Query using the prepared statement
-            result = LibSQLNative.libsql_query_stmt(statement, out rowsHandle, out errorMsg);
+            finally
+            {
+                // Only dispose if not cached
+                if (!usingCachedStatement)
+                {
+                    statement?.Dispose();
+                }
+            }
         }
         else
         {
@@ -447,22 +467,25 @@ public sealed class LibSQLCommand : DbCommand
         }
         else if (Parameters.Count > 0)
         {
-            // We have parameters but no prepared statement - prepare it now
-            result = LibSQLNative.libsql_prepare(connectionHandle, CommandText, out var stmtHandle, out errorMsg);
-            if (result != 0)
+            // We have parameters but no prepared statement - use helper method
+            var statement = GetOrPrepareStatement(connectionHandle, out var usingCachedStatement);
+            
+            try
             {
-                var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
-                LibSQLNative.libsql_free_error_msg(errorMsg);
-                throw new InvalidOperationException($"Failed to prepare statement: {errorMessage}");
+                // Bind parameters
+                BindParameters(statement);
+                
+                // Query using the prepared statement
+                result = LibSQLNative.libsql_query_stmt(statement, out rowsHandle, out errorMsg);
             }
-            
-            using var statement = new LibSQLStatementHandle(stmtHandle);
-            
-            // Bind parameters
-            BindParameters(statement);
-            
-            // Query using the prepared statement
-            result = LibSQLNative.libsql_query_stmt(statement, out rowsHandle, out errorMsg);
+            finally
+            {
+                // Only dispose if not cached
+                if (!usingCachedStatement)
+                {
+                    statement?.Dispose();
+                }
+            }
         }
         else
         {
@@ -640,6 +663,64 @@ public sealed class LibSQLCommand : DbCommand
                 throw new InvalidOperationException($"Failed to bind parameter {i + 1}: {errorMessage}");
             }
         }
+    }
+    
+    /// <summary>
+    /// Gets or prepares a statement, using the cache if enabled.
+    /// </summary>
+    /// <param name="connectionHandle">The connection handle.</param>
+    /// <param name="usingCachedStatement">Whether the returned statement is from the cache.</param>
+    /// <returns>The prepared statement handle.</returns>
+    private LibSQLStatementHandle GetOrPrepareStatement(LibSQLConnectionHandle connectionHandle, out bool usingCachedStatement)
+    {
+        LibSQLStatementHandle? statement = null;
+        usingCachedStatement = false;
+        
+        // Don't cache statements with positional parameters (?) as they're often used
+        // for bulk operations where the same statement is executed many times
+        bool hasPositionalParameters = CommandText.Contains("?") && !CommandText.Contains("@");
+        
+        // Try to get from cache if enabled at both connection and command level, and not using positional parameters
+        if (_enableStatementCaching && Connection!.EnableStatementCaching && Connection.StatementCache != null && !hasPositionalParameters)
+        {
+            usingCachedStatement = Connection.StatementCache.TryGetStatement(CommandText, out statement);
+        }
+        
+        if (!usingCachedStatement)
+        {
+            // Prepare new statement
+            IntPtr errorMsg;
+            var result = LibSQLNative.libsql_prepare(connectionHandle, CommandText, out var stmtHandle, out errorMsg);
+            if (result != 0)
+            {
+                var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
+                LibSQLNative.libsql_free_error_msg(errorMsg);
+                throw new InvalidOperationException($"Failed to prepare statement: {errorMessage}");
+            }
+            
+            statement = new LibSQLStatementHandle(stmtHandle);
+            
+            // Add to cache if enabled
+            if (Connection.EnableStatementCaching && Connection.StatementCache != null)
+            {
+                Connection.StatementCache.AddStatement(CommandText, statement);
+                usingCachedStatement = true; // Don't dispose since it's now cached
+            }
+        }
+        else if (statement != null)
+        {
+            // Reset cached statement before reuse
+            IntPtr resetErrorMsg;
+            var resetResult = LibSQLNative.libsql_reset_stmt(statement, out resetErrorMsg);
+            if (resetResult != 0)
+            {
+                var resetError = LibSQLHelper.GetErrorMessage(resetErrorMsg);
+                LibSQLNative.libsql_free_error_msg(resetErrorMsg);
+                throw new InvalidOperationException($"Failed to reset cached statement: {resetError}");
+            }
+        }
+        
+        return statement!;
     }
     
     #region Query Plan Support
