@@ -173,15 +173,25 @@ This library uses libSQL's experimental C API (`libsql_*` functions) rather than
 
 3. **Maintain consistency**: Using a single API throughout the library avoids potential conflicts between different memory management and state handling approaches.
 
-### Trade-offs
+### Trade-offs and Limitations
 
-By using the experimental API, certain SQLite-specific features are not available:
-- Custom SQL functions (requires `sqlite3_create_function`)
-- SQLite backup API (`sqlite3_backup_*`)
-- Direct access to SQLite's extended result codes
-- Views and triggers (not supported in current libSQL versions)
+This library, like other official libSQL clients (Python, Go, etc.), focuses on core database functionality and libSQL-specific features rather than exposing the full SQLite API. The following SQLite features are intentionally not supported:
 
-If you need these features, consider using Microsoft.Data.Sqlite or System.Data.SQLite instead.
+- **Custom SQL functions** (`sqlite3_create_function`)
+- **SQLite backup API** (`sqlite3_backup_*`)
+- **Extended result codes** (`sqlite3_extended_result_codes`)
+- **Blob I/O** (`sqlite3_blob_*`)
+- **Load extensions** (`sqlite3_load_extension`)
+- **Authorization callbacks** (`sqlite3_set_authorizer`)
+- **Progress handlers** (`sqlite3_progress_handler`)
+
+Additionally, libSQL has some behavioral differences from SQLite:
+- **Multi-statement commands**: Only the first statement is executed when multiple statements are provided in a single command
+- **Views and triggers**: Fully supported (despite initial documentation suggesting otherwise)
+
+This design philosophy is consistent across all official libSQL clients - even the Python client, which has direct access to sqlite3* handles, explicitly marks these features as "Unimplemented". The focus is on providing reliable, distributed database functionality rather than being a complete SQLite replacement.
+
+If you need these advanced SQLite features, consider using Microsoft.Data.Sqlite or System.Data.SQLite instead.
 
 ### ADO.NET Implementation
 
