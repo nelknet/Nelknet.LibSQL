@@ -37,7 +37,14 @@ var connection = new LibSQLConnection(
 ```
 
 ### Embedded Replica Mode
-*(Not yet implemented)* - Will support local replica with remote sync.
+*(Not yet implemented)* - Connection string parsing is supported but the functionality is not yet implemented. Will support local replica with remote sync.
+
+**Current Status**: 
+- ✅ Connection string parameters (`SyncUrl`, `SyncAuthToken`) are parsed correctly
+- ✅ Native struct definitions are in place
+- ⚠️ Some native function bindings are declared but not all
+- ❌ `LibSQLConnection.Open()` throws `NotSupportedException` for embedded replica mode
+- ❌ Sync operations are not implemented
 
 ## Connection String Properties
 

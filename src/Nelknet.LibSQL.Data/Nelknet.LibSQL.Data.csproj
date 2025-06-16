@@ -13,6 +13,12 @@
     <ProjectReference Include="..\Nelknet.LibSQL.Bindings\Nelknet.LibSQL.Bindings.csproj" />
   </ItemGroup>
 
+  <!-- Package assets -->
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\assets\icon.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
   <!-- Download native libraries for Full package -->
   <Target Name="DownloadAllNativeLibraries" BeforeTargets="GenerateAdditionalSources" Condition="'$(BuildType)' == 'Full'">
     <!-- Windows -->

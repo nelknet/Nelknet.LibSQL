@@ -2,7 +2,8 @@
 
 A native .NET client library for [libSQL](https://github.com/tursodatabase/libsql) databases, providing a complete ADO.NET implementation for seamless integration with existing .NET applications.
 
-[![NuGet](https://img.shields.io/nuget/v/Nelknet.LibSQL.svg)](https://www.nuget.org/packages/Nelknet.LibSQL/)
+[![NuGet](https://img.shields.io/nuget/v/Nelknet.LibSQL.Data.svg)](https://www.nuget.org/packages/Nelknet.LibSQL.Data/)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/Nelknet.LibSQL.Data.svg)](https://www.nuget.org/packages/Nelknet.LibSQL.Data/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ## Overview
@@ -23,14 +24,19 @@ Nelknet.LibSQL is a C# client library that provides native bindings to libSQL, a
 Install via NuGet Package Manager:
 
 ```bash
-dotnet add package Nelknet.LibSQL
+dotnet add package Nelknet.LibSQL.Data
 ```
 
 Or via Package Manager Console:
 
 ```powershell
-Install-Package Nelknet.LibSQL
+Install-Package Nelknet.LibSQL.Data
 ```
+
+> **Note**: The package is currently in alpha. To install pre-release versions:
+> ```bash
+> dotnet add package Nelknet.LibSQL.Data --prerelease
+> ```
 
 ## Quick Start
 
@@ -185,12 +191,6 @@ This library, like other official libSQL clients (Python, Go, etc.), focuses on 
 - **Authorization callbacks** (`sqlite3_set_authorizer`)
 - **Progress handlers** (`sqlite3_progress_handler`)
 
-Additionally, libSQL has some behavioral differences from SQLite:
-- **Multi-statement commands**: Only the first statement is executed when multiple statements are provided in a single command
-- **Views and triggers**: Fully supported (despite initial documentation suggesting otherwise)
-
-This design philosophy is consistent across all official libSQL clients - even the Python client, which has direct access to sqlite3* handles, explicitly marks these features as "Unimplemented". The focus is on providing reliable, distributed database functionality rather than being a complete SQLite replacement.
-
 If you need these advanced SQLite features, consider using Microsoft.Data.Sqlite or System.Data.SQLite instead.
 
 ### ADO.NET Implementation
@@ -225,10 +225,6 @@ Nelknet.LibSQL/
   - Linux x64/ARM64
   - macOS x64/ARM64
 
-## Contributing
-
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
@@ -248,12 +244,44 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ### Advanced Topics
 - [Performance Tuning](docs/performance-tuning.md) - Optimization techniques and best practices
-- [Platform-Specific Notes](docs/platform-specific.md) - OS and architecture considerations
 - [API Reference](docs/api-reference.md) - Complete API documentation
 
 ### Example Projects
 - [BasicExample](examples/BasicExample) - Comprehensive console application demonstrating all major features
 - [More Examples](examples) - Additional example projects
+
+## Current Status & Roadmap
+
+### ✅ Completed Features
+- Full ADO.NET implementation (Connection, Command, DataReader, etc.)
+- Local file database support
+- Transaction support
+- Parameter binding (named and positional)
+- Bulk insert operations
+- Connection pooling
+- Schema introspection
+- Comprehensive test suite (308+ tests)
+- NuGet packages ready for publishing
+
+### 🚧 In Progress / Planned
+- **Phase 20**: Embedded Replica Support - Sync with remote libSQL servers
+- **Phase 21**: Remote Connection Support - Direct HTTPS/libSQL protocol connections
+- **Phase 22**: Batch Operations - Execute multiple statements atomically
+- **Phase 23**: Interactive Transactions - Long-lived transactions with application logic
+- **Phase 24**: Additional Features - Encryption, in-memory databases, migrations
+
+### Feature Comparison
+
+| Feature | Nelknet.LibSQL | TS/Python/Go Clients |
+|---------|----------------|---------------------|
+| Local databases | ✅ | ✅ |
+| Remote connections | ❌ | ✅ |
+| Embedded replicas | ❌ | ✅ |
+| Batch operations | ❌ | ✅ |
+| Interactive transactions | ❌ | ✅ |
+| Encryption | ❌ | ✅ |
+| ADO.NET compliance | ✅ | N/A |
+| Bulk operations | ✅ | ✅ |
 
 ## Links
 

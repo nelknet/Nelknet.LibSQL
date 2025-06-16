@@ -1,0 +1,43 @@
+# EditorConfig is awesome: https://EditorConfig.org
+
+# top-most EditorConfig file
+root = true
+
+# All files
+[*]
+indent_style = space
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# C# files
+[*.cs]
+indent_size = 4
+
+# Code style rules
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+
+# Package validation
+dotnet_diagnostic.NETSDK1023.severity = error  # PackageIcon should be a file
+dotnet_diagnostic.NU5104.severity = error      # A stable release of a package should not have a prerelease dependency
+dotnet_diagnostic.NU5105.severity = error      # The package version uses SemVer 2.0.0 or later
+dotnet_diagnostic.NU5125.severity = error      # The <licenseUrl> element is deprecated
+dotnet_diagnostic.NU5131.severity = error      # The <iconUrl> element is deprecated
+dotnet_diagnostic.NU5048.severity = error      # The 'PackageIcon' and/or 'PackageReadmeFile' does not exist
+
+# XML project files
+[*.{csproj,vbproj,vcxproj,vcxproj.filters,proj,projitems,shproj}]
+indent_size = 2
+
+# JSON files
+[*.json]
+indent_size = 2
+
+# YAML files
+[*.{yml,yaml}]
+indent_size = 2
+
+# Markdown files
+[*.md]
+trim_trailing_whitespace = false

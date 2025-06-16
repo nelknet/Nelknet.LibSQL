@@ -192,6 +192,7 @@ public class LibSQLBulkInsert : IDisposable
     /// Writes multiple rows to the bulk insert operation asynchronously.
     /// </summary>
     /// <param name="rows">The rows to insert.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     public async Task WriteRowsAsync(IEnumerable<object?[]> rows, CancellationToken cancellationToken = default)
     {
         if (rows == null)
@@ -225,6 +226,7 @@ public class LibSQLBulkInsert : IDisposable
     /// Writes rows from a data reader asynchronously.
     /// </summary>
     /// <param name="reader">The data reader to read from.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     public async Task WriteFromReaderAsync(DbDataReader reader, CancellationToken cancellationToken = default)
     {
         if (reader == null)

@@ -2,6 +2,9 @@
   <PropertyGroup>
     <!-- Common properties for all projects -->
     <TargetFramework>net8.0</TargetFramework>
+    
+    <!-- Disable package generation for example projects -->
+    <IsPackable Condition="$(MSBuildProjectDirectory.Contains('examples'))">false</IsPackable>
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -17,9 +20,23 @@
     <PackageProjectUrl>https://github.com/nelknet/Nelknet.LibSQL</PackageProjectUrl>
     <RepositoryUrl>https://github.com/nelknet/Nelknet.LibSQL</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
+    <PackageTags>libsql;sqlite;database;ado.net;turso;sql;embedded-database;cross-platform</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     
     <!-- Versioning -->
     <VersionPrefix>0.1.0</VersionPrefix>
     <VersionSuffix>alpha</VersionSuffix>
+    
+    <!-- Build configuration -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    
+    <!-- For CI builds, ensure reproducible builds -->
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    
+    <!-- Publishing configuration -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <DebugType>embedded</DebugType>
   </PropertyGroup>
 </Project>
