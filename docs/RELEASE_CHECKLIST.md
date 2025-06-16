@@ -31,7 +31,7 @@ Use this checklist before publishing a new version of Nelknet.LibSQL to NuGet.or
 - [ ] Dependencies are minimal and necessary
 
 ### Testing
-- [ ] All 328+ tests pass on all platforms
+- [ ] All 318+ tests pass on all platforms
 - [ ] Integration tests pass on all platforms
 - [ ] Embedded replica functionality tested
 - [ ] Package installs correctly from local feed

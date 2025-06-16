@@ -134,7 +134,7 @@ Embedded replicas allow you to have a local database that can sync with a remote
 ```csharp
 // Create embedded replica connection
 using var connection = new LibSQLConnection(
-    "Data Source=local_replica.db;Mode=EmbeddedReplica;Url=libsql://mydb-user.turso.io;AuthToken=your-token");
+    "Data Source=local_replica.db;SyncUrl=libsql://mydb-user.turso.io;AuthToken=your-token");
 await connection.OpenAsync();
 
 // Sync with remote database (pull latest changes)
