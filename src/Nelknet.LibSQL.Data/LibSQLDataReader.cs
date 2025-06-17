@@ -1,6 +1,7 @@
 #nullable disable warnings
 
 using Nelknet.LibSQL.Bindings;
+using Nelknet.LibSQL.Data.Http;
 using System;
 using System.Collections;
 using System.Data;
@@ -15,6 +16,7 @@ namespace Nelknet.LibSQL.Data;
 public sealed class LibSQLDataReader : DbDataReader
 {
     private readonly LibSQLRowsHandle? _rowsHandle;
+    private readonly LibSQLHttpDataReader? _httpDataReader;
     private readonly CommandBehavior _behavior;
     private LibSQLRowHandle? _currentRow;
     private bool _disposed;
@@ -22,6 +24,7 @@ public sealed class LibSQLDataReader : DbDataReader
     private int _fieldCount = -1;
     private string[]? _columnNames;
     private bool _hasInitializedMetadata;
+    private bool _isHttpReader;
     /// <summary>
     /// Initializes a new instance of the <see cref="LibSQLDataReader"/> class.
     /// This constructor creates a closed reader for testing purposes.
@@ -42,6 +45,20 @@ public sealed class LibSQLDataReader : DbDataReader
         _rowsHandle = rowsHandle ?? throw new ArgumentNullException(nameof(rowsHandle));
         _behavior = behavior;
         _closed = false;
+        _isHttpReader = false;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="LibSQLDataReader"/> class that wraps an HTTP data reader.
+    /// </summary>
+    /// <param name="httpDataReader">The HTTP data reader to wrap.</param>
+    /// <param name="behavior">The command behavior that controls the reader.</param>
+    internal LibSQLDataReader(LibSQLHttpDataReader httpDataReader, CommandBehavior behavior = CommandBehavior.Default)
+    {
+        _httpDataReader = httpDataReader ?? throw new ArgumentNullException(nameof(httpDataReader));
+        _behavior = behavior;
+        _closed = false;
+        _isHttpReader = true;
     }
 
     /// <summary>
@@ -58,6 +75,10 @@ public sealed class LibSQLDataReader : DbDataReader
         {
             if (_disposed)
                 throw new ObjectDisposedException(nameof(LibSQLDataReader));
+            
+            if (_isHttpReader && _httpDataReader != null)
+                return _httpDataReader.FieldCount;
+                
             if (_closed || _rowsHandle == null)
                 return 0;
 
@@ -75,6 +96,10 @@ public sealed class LibSQLDataReader : DbDataReader
         {
             if (_disposed)
                 throw new ObjectDisposedException(nameof(LibSQLDataReader));
+                
+            if (_isHttpReader && _httpDataReader != null)
+                return _httpDataReader.HasRows;
+                
             if (_closed || _rowsHandle == null)
                 return false;
 
@@ -116,6 +141,12 @@ public sealed class LibSQLDataReader : DbDataReader
         if (!_closed)
         {
             _closed = true;
+            
+            if (_isHttpReader && _httpDataReader != null)
+            {
+                _httpDataReader.Close();
+                return;
+            }
             
             // Clean up current row if we have one
             _currentRow?.Dispose();
@@ -311,6 +342,10 @@ public sealed class LibSQLDataReader : DbDataReader
     {
         if (_disposed)
             throw new ObjectDisposedException(nameof(LibSQLDataReader));
+            
+        if (_isHttpReader && _httpDataReader != null)
+            return _httpDataReader.GetDouble(ordinal);
+            
         if (_closed || _rowsHandle == null || _currentRow == null)
             throw new InvalidOperationException("No current row available. Call Read() first.");
 
@@ -440,6 +475,10 @@ public sealed class LibSQLDataReader : DbDataReader
     {
         if (_disposed)
             throw new ObjectDisposedException(nameof(LibSQLDataReader));
+            
+        if (_isHttpReader && _httpDataReader != null)
+            return _httpDataReader.GetInt64(ordinal);
+            
         if (_closed || _rowsHandle == null || _currentRow == null)
             throw new InvalidOperationException("No current row available. Call Read() first.");
 
@@ -465,6 +504,10 @@ public sealed class LibSQLDataReader : DbDataReader
     {
         if (_disposed)
             throw new ObjectDisposedException(nameof(LibSQLDataReader));
+            
+        if (_isHttpReader && _httpDataReader != null)
+            return _httpDataReader.GetName(ordinal);
+            
         if (_closed || _rowsHandle == null)
             throw new InvalidOperationException("Reader is closed.");
 
@@ -483,6 +526,10 @@ public sealed class LibSQLDataReader : DbDataReader
     {
         if (_disposed)
             throw new ObjectDisposedException(nameof(LibSQLDataReader));
+            
+        if (_isHttpReader && _httpDataReader != null)
+            return _httpDataReader.GetOrdinal(name);
+            
         if (_closed || _rowsHandle == null)
             throw new InvalidOperationException("Reader is closed.");
         if (string.IsNullOrEmpty(name))
@@ -510,6 +557,10 @@ public sealed class LibSQLDataReader : DbDataReader
     {
         if (_disposed)
             throw new ObjectDisposedException(nameof(LibSQLDataReader));
+            
+        if (_isHttpReader && _httpDataReader != null)
+            return _httpDataReader.GetString(ordinal);
+            
         if (_closed || _rowsHandle == null || _currentRow == null)
             throw new InvalidOperationException("No current row available. Call Read() first.");
 
@@ -544,6 +595,10 @@ public sealed class LibSQLDataReader : DbDataReader
     {
         if (_disposed)
             throw new ObjectDisposedException(nameof(LibSQLDataReader));
+            
+        if (_isHttpReader && _httpDataReader != null)
+            return _httpDataReader.GetValue(ordinal);
+            
         if (_closed || _rowsHandle == null || _currentRow == null)
             throw new InvalidOperationException("No current row available. Call Read() first.");
 
@@ -599,6 +654,10 @@ public sealed class LibSQLDataReader : DbDataReader
     {
         if (_disposed)
             throw new ObjectDisposedException(nameof(LibSQLDataReader));
+            
+        if (_isHttpReader && _httpDataReader != null)
+            return _httpDataReader.IsDBNull(ordinal);
+            
         if (_closed || _rowsHandle == null || _currentRow == null)
             throw new InvalidOperationException("No current row available. Call Read() first.");
 
@@ -755,6 +814,10 @@ public sealed class LibSQLDataReader : DbDataReader
     {
         if (_disposed)
             throw new ObjectDisposedException(nameof(LibSQLDataReader));
+            
+        if (_isHttpReader && _httpDataReader != null)
+            return _httpDataReader.Read();
+            
         if (_closed || _rowsHandle == null)
             return false;
 
@@ -882,6 +945,10 @@ public sealed class LibSQLDataReader : DbDataReader
             if (disposing)
             {
                 Close();
+                if (_isHttpReader && _httpDataReader != null)
+                {
+                    _httpDataReader.Dispose();
+                }
             }
             _disposed = true;
         }

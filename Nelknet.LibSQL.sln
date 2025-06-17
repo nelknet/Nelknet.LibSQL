@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BasicExample", "examples\Ba
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EmbeddedReplicaExample", "examples\EmbeddedReplicaExample\EmbeddedReplicaExample.csproj", "{93313064-CBAF-460B-97EE-438F8413E2B8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RemoteConnectionExample", "examples\RemoteConnectionExample\RemoteConnectionExample.csproj", "{991B2CA2-0AA3-4306-8E12-25F098ACF983}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -87,6 +89,18 @@ Global
 		{93313064-CBAF-460B-97EE-438F8413E2B8}.Release|x64.Build.0 = Release|Any CPU
 		{93313064-CBAF-460B-97EE-438F8413E2B8}.Release|x86.ActiveCfg = Release|Any CPU
 		{93313064-CBAF-460B-97EE-438F8413E2B8}.Release|x86.Build.0 = Release|Any CPU
+		{991B2CA2-0AA3-4306-8E12-25F098ACF983}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{991B2CA2-0AA3-4306-8E12-25F098ACF983}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{991B2CA2-0AA3-4306-8E12-25F098ACF983}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{991B2CA2-0AA3-4306-8E12-25F098ACF983}.Debug|x64.Build.0 = Debug|Any CPU
+		{991B2CA2-0AA3-4306-8E12-25F098ACF983}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{991B2CA2-0AA3-4306-8E12-25F098ACF983}.Debug|x86.Build.0 = Debug|Any CPU
+		{991B2CA2-0AA3-4306-8E12-25F098ACF983}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{991B2CA2-0AA3-4306-8E12-25F098ACF983}.Release|Any CPU.Build.0 = Release|Any CPU
+		{991B2CA2-0AA3-4306-8E12-25F098ACF983}.Release|x64.ActiveCfg = Release|Any CPU
+		{991B2CA2-0AA3-4306-8E12-25F098ACF983}.Release|x64.Build.0 = Release|Any CPU
+		{991B2CA2-0AA3-4306-8E12-25F098ACF983}.Release|x86.ActiveCfg = Release|Any CPU
+		{991B2CA2-0AA3-4306-8E12-25F098ACF983}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -97,5 +111,6 @@ Global
 		{D303BD4B-0200-4621-ACA8-E5631C83B070} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{8C102D11-744C-40EB-B7FE-202DA7C497FD} = {B36A84DF-456D-A817-6EDD-3EC3E7F6E11F}
 		{93313064-CBAF-460B-97EE-438F8413E2B8} = {B36A84DF-456D-A817-6EDD-3EC3E7F6E11F}
+		{991B2CA2-0AA3-4306-8E12-25F098ACF983} = {B36A84DF-456D-A817-6EDD-3EC3E7F6E11F}
 	EndGlobalSection
 EndGlobal

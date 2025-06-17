@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Nelknet.LibSQL.Bindings;
 using Nelknet.LibSQL.Data.Exceptions;
 using Nelknet.LibSQL.Data.Internal;
+using Nelknet.LibSQL.Data.Http;
 
 namespace Nelknet.LibSQL.Data;
 
@@ -21,6 +22,7 @@ public sealed class LibSQLConnection : DbConnection
     private readonly object _lockObject = new();
     private LibSQLDatabaseHandle? _databaseHandle;
     private LibSQLConnectionHandle? _connectionHandle;
+    private LibSQLHttpClient? _httpClient;
     private ConnectionState _connectionState = ConnectionState.Closed;
     private string _connectionString = string.Empty;
     private LibSQLConnectionStringBuilder? _connectionStringBuilder;
@@ -29,6 +31,7 @@ public sealed class LibSQLConnection : DbConnection
     private bool _enableStatementCaching = false; // Disabled by default for compatibility
     private Timer? _syncTimer;
     private bool _isSyncing = false;
+    private bool _isHttpConnection = false;
     // Commented out - libSQL doesn't support direct SQLite function registration
     // private LibSQLFunctionManager? _functionManager;
     // private bool _extendedResultCodes = false;
@@ -201,6 +204,16 @@ public sealed class LibSQLConnection : DbConnection
     }
 
     /// <summary>
+    /// Gets whether this connection is using HTTP transport.
+    /// </summary>
+    internal bool IsHttpConnection => _isHttpConnection;
+    
+    /// <summary>
+    /// Gets the HTTP client for remote connections.
+    /// </summary>
+    internal LibSQLHttpClient? HttpClient => _httpClient;
+
+    /// <summary>
     /// Gets the connection string builder.
     /// </summary>
     private LibSQLConnectionStringBuilder ConnectionStringBuilder
@@ -278,10 +291,46 @@ public sealed class LibSQLConnection : DbConnection
                             throw new InvalidOperationException("Auth token is required for remote connections.");
                         }
                         
-                        // For now, always use WebPKI for remote connections
-                        result = LibSQLNative.libsql_open_remote_with_webpki(
-                            dataSource, builder.AuthToken, out dbHandle, out errorMsg);
-                        break;
+                        // Use HTTP-based remote connections
+                        _httpClient = new LibSQLHttpClient(dataSource, builder.AuthToken);
+                        _isHttpConnection = true;
+                        
+                        // Test the connection
+                        try
+                        {
+                            var testTask = _httpClient.TestConnectionAsync();
+                            if (!testTask.Wait(TimeSpan.FromSeconds(10)) || !testTask.Result)
+                            {
+                                _httpClient.Dispose();
+                                _httpClient = null;
+                                _isHttpConnection = false;
+                                throw new LibSQLConnectionException("Failed to connect to remote libSQL server", 0, dataSource);
+                            }
+                        }
+                        catch (AggregateException ex) when (ex.InnerException != null)
+                        {
+                            _httpClient?.Dispose();
+                            _httpClient = null;
+                            _isHttpConnection = false;
+                            throw new LibSQLConnectionException("Failed to connect to remote libSQL server", ex.InnerException);
+                        }
+                        catch (Exception ex)
+                        {
+                            _httpClient?.Dispose();
+                            _httpClient = null;
+                            _isHttpConnection = false;
+                            throw new LibSQLConnectionException("Failed to connect to remote libSQL server", ex);
+                        }
+                        
+                        // Skip native handle creation for HTTP connections
+                        _connectionState = ConnectionState.Open;
+                        OnStateChange(FromClosedToOpenEventArgs);
+                        return;
+                        
+                        // Legacy native remote connection code (commented out)
+                        // result = LibSQLNative.libsql_open_remote_with_webpki(
+                        //     dataSource, builder.AuthToken, out dbHandle, out errorMsg);
+                        // break;
                         
                     case LibSQLConnectionMode.EmbeddedReplica:
                         if (string.IsNullOrEmpty(builder.SyncUrl))
@@ -309,7 +358,35 @@ public sealed class LibSQLConnection : DbConnection
                         
                     case LibSQLConnectionMode.Local:
                     default:
-                        if (dataSource == ":memory:" || dataSource.StartsWith(":memory:?"))
+                        if (!string.IsNullOrEmpty(builder.EncryptionKey))
+                        {
+                            // Use the config-based API for encrypted databases
+                            var config = new LibSQLConfig
+                            {
+                                DbPath = Marshal.StringToCoTaskMemUTF8(dataSource),
+                                PrimaryUrl = IntPtr.Zero,
+                                AuthToken = IntPtr.Zero,
+                                ReadYourWrites = 0,
+                                EncryptionKey = Marshal.StringToCoTaskMemUTF8(builder.EncryptionKey),
+                                SyncInterval = 0,
+                                WithWebpki = 0,
+                                Offline = 1
+                            };
+                            
+                            try
+                            {
+                                result = LibSQLNative.libsql_open_sync_with_config(in config, out dbHandle, out errorMsg);
+                            }
+                            finally
+                            {
+                                // Clean up unmanaged memory
+                                if (config.DbPath != IntPtr.Zero)
+                                    Marshal.FreeCoTaskMem(config.DbPath);
+                                if (config.EncryptionKey != IntPtr.Zero)
+                                    Marshal.FreeCoTaskMem(config.EncryptionKey);
+                            }
+                        }
+                        else if (dataSource == ":memory:" || dataSource.StartsWith(":memory:?"))
                         {
                             result = LibSQLNative.libsql_open_ext(dataSource, out dbHandle, out errorMsg);
                         }
@@ -426,6 +503,14 @@ public sealed class LibSQLConnection : DbConnection
                 _statementCache?.Dispose();
                 _statementCache = null;
 
+                // Dispose HTTP client for remote connections
+                if (_isHttpConnection)
+                {
+                    _httpClient?.Dispose();
+                    _httpClient = null;
+                    _isHttpConnection = false;
+                }
+
                 _connectionHandle?.Dispose();
                 _connectionHandle = null;
 
@@ -459,6 +544,16 @@ public sealed class LibSQLConnection : DbConnection
     /// <returns>A <see cref="LibSQLCommand"/> object.</returns>
     public new LibSQLCommand CreateCommand()
     {
+        if (_isHttpConnection && _httpClient != null)
+        {
+            // For HTTP connections, we need to wrap the HTTP command in a LibSQLCommand
+            // For now, return a regular LibSQLCommand - we'll modify it to delegate to HTTP
+            return new LibSQLCommand
+            {
+                Connection = this
+            };
+        }
+        
         return new LibSQLCommand
         {
             Connection = this
@@ -509,13 +604,25 @@ public sealed class LibSQLConnection : DbConnection
         {
             // Execute the BEGIN statement
             var beginStatement = transaction.GetBeginStatement();
-            var result = LibSQLNative.libsql_execute(_connectionHandle!, beginStatement, out var errorMsg);
             
-            if (result != 0)
+            if (_isHttpConnection)
             {
-                var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
-                LibSQLNative.libsql_free_error_msg(errorMsg);
-                throw LibSQLException.FromErrorCode(result, $"Failed to begin transaction: {errorMessage}", beginStatement);
+                // For HTTP connections, use SQL commands
+                using var command = CreateCommand();
+                command.CommandText = beginStatement;
+                command.ExecuteNonQuery();
+            }
+            else
+            {
+                // For native connections, use libSQL API
+                var result = LibSQLNative.libsql_execute(_connectionHandle!, beginStatement, out var errorMsg);
+                
+                if (result != 0)
+                {
+                    var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
+                    LibSQLNative.libsql_free_error_msg(errorMsg);
+                    throw LibSQLException.FromErrorCode(result, $"Failed to begin transaction: {errorMessage}", beginStatement);
+                }
             }
 
             _currentTransaction = transaction;

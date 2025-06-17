@@ -65,12 +65,23 @@ public sealed class LibSQLTransaction : DbTransaction
 
         try
         {
-            var result = LibSQLNative.libsql_execute(_connection!.Handle, "COMMIT", out var errorMessage);
-            if (result != 0)
+            if (_connection.IsHttpConnection)
             {
-                var errorMsg = LibSQLHelper.GetErrorMessage(errorMessage);
-                LibSQLNative.libsql_free_error_msg(errorMessage);
-                throw new LibSQLException($"Failed to commit transaction: {errorMsg}");
+                // For HTTP connections, use SQL commands
+                using var command = _connection.CreateCommand();
+                command.CommandText = "COMMIT";
+                command.ExecuteNonQuery();
+            }
+            else
+            {
+                // For native connections, use libSQL API
+                var result = LibSQLNative.libsql_execute(_connection!.Handle, "COMMIT", out var errorMessage);
+                if (result != 0)
+                {
+                    var errorMsg = LibSQLHelper.GetErrorMessage(errorMessage);
+                    LibSQLNative.libsql_free_error_msg(errorMessage);
+                    throw new LibSQLException($"Failed to commit transaction: {errorMsg}");
+                }
             }
 
             _completed = true;
@@ -93,12 +104,23 @@ public sealed class LibSQLTransaction : DbTransaction
 
         try
         {
-            var result = LibSQLNative.libsql_execute(_connection!.Handle, "ROLLBACK", out var errorMessage);
-            if (result != 0)
+            if (_connection.IsHttpConnection)
             {
-                var errorMsg = LibSQLHelper.GetErrorMessage(errorMessage);
-                LibSQLNative.libsql_free_error_msg(errorMessage);
-                throw new LibSQLException($"Failed to rollback transaction: {errorMsg}");
+                // For HTTP connections, use SQL commands
+                using var command = _connection.CreateCommand();
+                command.CommandText = "ROLLBACK";
+                command.ExecuteNonQuery();
+            }
+            else
+            {
+                // For native connections, use libSQL API
+                var result = LibSQLNative.libsql_execute(_connection!.Handle, "ROLLBACK", out var errorMessage);
+                if (result != 0)
+                {
+                    var errorMsg = LibSQLHelper.GetErrorMessage(errorMessage);
+                    LibSQLNative.libsql_free_error_msg(errorMessage);
+                    throw new LibSQLException($"Failed to rollback transaction: {errorMsg}");
+                }
             }
 
             _completed = true;

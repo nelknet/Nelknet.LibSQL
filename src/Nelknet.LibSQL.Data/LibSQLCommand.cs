@@ -5,8 +5,11 @@ using System.Data;
 using System.Data.Common;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
 using Nelknet.LibSQL.Bindings;
 using Nelknet.LibSQL.Data.Exceptions;
+using Nelknet.LibSQL.Data.Http;
 
 namespace Nelknet.LibSQL.Data;
 
@@ -23,6 +26,7 @@ public sealed class LibSQLCommand : DbCommand
     private bool _explainMode;
     private ExplainVerbosity _explainVerbosity = ExplainVerbosity.Normal;
     private bool _enableStatementCaching = true;
+    private LibSQLHttpCommand? _httpCommand;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="LibSQLCommand"/> class.
@@ -63,6 +67,12 @@ public sealed class LibSQLCommand : DbCommand
                 _commandText = value;
                 // Invalidate prepared statement when command text changes
                 ReleasePreparedStatement();
+                
+                // Sync with HTTP command
+                if (_httpCommand != null)
+                {
+                    _httpCommand.CommandText = value ?? string.Empty;
+                }
             }
         }
     }
@@ -73,7 +83,16 @@ public sealed class LibSQLCommand : DbCommand
     public override int CommandTimeout
     {
         get => _commandTimeout;
-        set => _commandTimeout = value >= 0 ? value : throw new ArgumentOutOfRangeException(nameof(value));
+        set
+        {
+            _commandTimeout = value >= 0 ? value : throw new ArgumentOutOfRangeException(nameof(value));
+            
+            // Sync with HTTP command
+            if (_httpCommand != null)
+            {
+                _httpCommand.CommandTimeout = _commandTimeout;
+            }
+        }
     }
 
     /// <summary>
@@ -104,6 +123,18 @@ public sealed class LibSQLCommand : DbCommand
                 _connection = value;
                 // Invalidate prepared statement when connection changes
                 ReleasePreparedStatement();
+                
+                // Initialize HTTP command if needed
+                if (_connection?.IsHttpConnection == true && _connection.HttpClient != null)
+                {
+                    _httpCommand?.Dispose();
+                    _httpCommand = new LibSQLHttpCommand(_connection.HttpClient);
+                }
+                else
+                {
+                    _httpCommand?.Dispose();
+                    _httpCommand = null;
+                }
             }
         }
     }
@@ -175,6 +206,13 @@ public sealed class LibSQLCommand : DbCommand
         if (string.IsNullOrWhiteSpace(CommandText))
         {
             throw new InvalidOperationException("CommandText property has not been properly initialized.");
+        }
+
+        // Delegate to HTTP command for remote connections
+        if (_httpCommand != null)
+        {
+            SyncParametersToHttp();
+            return _httpCommand.ExecuteNonQuery();
         }
 
         var connectionHandle = Connection!.ConnectionHandle!;
@@ -251,6 +289,13 @@ public sealed class LibSQLCommand : DbCommand
         if (string.IsNullOrWhiteSpace(CommandText))
         {
             throw new InvalidOperationException("CommandText property has not been properly initialized.");
+        }
+
+        // Delegate to HTTP command for remote connections
+        if (_httpCommand != null)
+        {
+            SyncParametersToHttp();
+            return _httpCommand.ExecuteScalar();
         }
 
         var connectionHandle = Connection!.ConnectionHandle!;
@@ -443,6 +488,15 @@ public sealed class LibSQLCommand : DbCommand
             throw new InvalidOperationException("CommandText property has not been properly initialized.");
         }
 
+        // Delegate to HTTP command for remote connections
+        if (_httpCommand != null)
+        {
+            SyncParametersToHttp();
+            var httpReader = (LibSQLHttpDataReader)_httpCommand.ExecuteReader();
+            // Wrap the HTTP reader in a LibSQLDataReader
+            return new LibSQLDataReader(httpReader);
+        }
+
         var connectionHandle = Connection!.ConnectionHandle!;
         IntPtr rowsHandle;
         IntPtr errorMsg;
@@ -564,6 +618,8 @@ public sealed class LibSQLCommand : DbCommand
         if (disposing)
         {
             ReleasePreparedStatement();
+            _httpCommand?.Dispose();
+            _httpCommand = null;
         }
         base.Dispose(disposing);
     }
@@ -662,6 +718,31 @@ public sealed class LibSQLCommand : DbCommand
                 LibSQLNative.libsql_free_error_msg(errorMsg);
                 throw new InvalidOperationException($"Failed to bind parameter {i + 1}: {errorMessage}");
             }
+        }
+    }
+    
+    /// <summary>
+    /// Synchronizes parameters from this command to the HTTP command.
+    /// </summary>
+    private void SyncParametersToHttp()
+    {
+        if (_httpCommand == null) return;
+        
+        // Clear existing parameters
+        _httpCommand.Parameters.Clear();
+        
+        // Copy all parameters
+        foreach (LibSQLParameter param in Parameters)
+        {
+            var httpParam = new LibSQLParameter(param.ParameterName, param.DbType)
+            {
+                Value = param.Value,
+                Direction = param.Direction,
+                Size = param.Size,
+                Precision = param.Precision,
+                Scale = param.Scale
+            };
+            _httpCommand.Parameters.Add(httpParam);
         }
     }
     
