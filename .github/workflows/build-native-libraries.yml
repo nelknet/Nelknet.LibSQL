@@ -53,10 +53,16 @@ jobs:
       with:
         targets: ${{ matrix.target }}
     
+    - name: Configure Git for Windows
+      if: matrix.os == 'windows-latest'
+      run: |
+        git config --global http.sslBackend schannel
+        git config --global http.sslVerify true
+    
     - name: Build libSQL (Windows)
       if: matrix.os == 'windows-latest'
       working-directory: libsql/bindings/c
-      shell: msys2 {0}
+      # Use regular shell, not MSYS2, for cargo build to avoid SSL issues
       run: cargo build --release --target ${{ matrix.target }}
     
     - name: Build libSQL (Unix)
