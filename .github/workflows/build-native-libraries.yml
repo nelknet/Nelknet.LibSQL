@@ -44,7 +44,7 @@ jobs:
       if: matrix.is_cross == true
       run: |
         sudo apt-get update
-        sudo apt-get install -y mingw-w64
+        sudo apt-get install -y mingw-w64 cmake
     
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@stable
@@ -103,7 +103,13 @@ jobs:
         rustup target list --installed
         echo ""
         # Build with vendored SQLite to ensure all symbols are included
-        LIBSQL_BUNDLED=1 cargo build --release --target ${{ matrix.target }} --verbose
+        # For Windows cross-compilation, we need additional environment variables
+        if [ "${{ matrix.target }}" = "x86_64-pc-windows-gnu" ]; then
+          export CC_x86_64_pc_windows_gnu=x86_64-w64-mingw32-gcc
+          export AR_x86_64_pc_windows_gnu=x86_64-w64-mingw32-ar
+          export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
+        fi
+        LIBSQLITE3_FLAGS="-DSQLITE_ENABLE_COLUMN_METADATA" LIBSQL_BUNDLED=1 cargo build --release --target ${{ matrix.target }} --verbose
     
     - name: Create shared library (Linux)
       if: matrix.os == 'ubuntu-latest' && matrix.target == 'x86_64-unknown-linux-gnu'
@@ -127,17 +133,21 @@ jobs:
         
         # Extract the vendored SQLite library
         echo "=== Extracting vendored SQLite library ==="
-        if [ -f "./build/libsql-ffi-9a49ef0ef90397da/out/build/libsqlite3mc_static.a" ]; then
-          echo "Found vendored SQLite library, extracting..."
-          ar -x "./build/libsql-ffi-9a49ef0ef90397da/out/build/libsqlite3mc_static.a"
+        SQLITE_LIB=$(find ./build -name "libsqlite3mc_static.a" -type f | head -1)
+        if [ -n "$SQLITE_LIB" ]; then
+          echo "Found SQLite library at $SQLITE_LIB, extracting..."
+          ar -x "$SQLITE_LIB"
         else
-          # Find the SQLite library in build directory
-          SQLITE_LIB=$(find ./build -name "libsqlite3*.a" -type f | grep -v dll.a | head -1)
-          if [ -n "$SQLITE_LIB" ]; then
-            echo "Found SQLite library at $SQLITE_LIB, extracting..."
-            ar -x "$SQLITE_LIB"
-          fi
+          echo "WARNING: SQLite library not found, DLL may have undefined symbols"
         fi
+        
+        # Check what object files we have
+        echo "=== Object files extracted ==="
+        ls -la *.o | head -10
+        
+        # Check for SQLite symbols in the object files
+        echo "=== Checking for SQLite symbols ==="
+        nm *.o | grep -c "sqlite3_" || echo "No SQLite symbols found in object files"
         
         echo "=== Creating DLL ==="
         x86_64-w64-mingw32-gcc -shared -o libsql.dll *.o \
