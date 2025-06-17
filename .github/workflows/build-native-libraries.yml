@@ -149,10 +149,19 @@ jobs:
         echo "=== Checking for SQLite symbols ==="
         nm *.o | grep -c "sqlite3_" || echo "No SQLite symbols found in object files"
         
-        # Look for any .obj files from SQLite (sometimes named differently)
-        if [ -f sqlite3mc.c.obj ]; then
+        # Check if sqlite3mc.c.o is in the current directory
+        if [ -f sqlite3mc.c.o ]; then
+          echo "Found sqlite3mc.c.o in current directory"
+        elif [ -f ../sqlite3mc.c.o ]; then
+          echo "Found sqlite3mc.c.o in parent directory, copying..."
+          cp ../sqlite3mc.c.o .
+        elif [ -f sqlite3mc.c.obj ]; then
           echo "Found sqlite3mc.c.obj, renaming to .o"
           mv sqlite3mc.c.obj sqlite3mc.o
+        else
+          echo "WARNING: Could not find sqlite3mc object file!"
+          echo "Looking for any sqlite3 object files..."
+          find .. -name "sqlite3*" -type f | head -10
         fi
         
         echo "=== Creating DLL ==="
