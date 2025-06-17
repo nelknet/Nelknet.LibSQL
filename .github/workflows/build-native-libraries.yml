@@ -48,12 +48,42 @@ jobs:
     
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: ${{ matrix.target }}
+    
+    - name: Add Rust target and verify installation
+      run: |
+        echo "=== Current Rust installation ==="
+        rustup show
+        echo ""
+        echo "=== Available targets ==="
+        rustup target list | grep -E "(installed|${{ matrix.target }})"
+        echo ""
+        echo "=== Adding target ${{ matrix.target }} ==="
+        rustup target add ${{ matrix.target }}
+        echo ""
+        echo "=== Verify target was added ==="
+        rustup target list --installed
+        echo ""
+        echo "=== Rust toolchain info ==="
+        rustc --version
+        cargo --version
+        echo ""
+        echo "=== Check for MinGW (Windows cross-compilation) ==="
+        which x86_64-w64-mingw32-gcc || echo "MinGW gcc not found"
+        x86_64-w64-mingw32-gcc --version || echo "MinGW gcc version check failed"
+        echo ""
+        echo "=== Environment variables ==="
+        env | grep -E "(RUST|CARGO|CC|AR|TARGET)" | sort
     
     - name: Build libSQL
       working-directory: libsql/bindings/c
-      run: cargo build --release --target ${{ matrix.target }}
+      run: |
+        echo "=== Building for target: ${{ matrix.target }} ==="
+        echo "=== Current directory: $(pwd) ==="
+        echo "=== Cargo configuration ==="
+        cat ~/.cargo/config.toml 2>/dev/null || echo "No global cargo config"
+        cat .cargo/config.toml 2>/dev/null || echo "No local cargo config"
+        echo ""
+        cargo build --release --target ${{ matrix.target }} --verbose
     
     - name: Create shared library (Linux)
       if: matrix.os == 'ubuntu-latest' && matrix.target == 'x86_64-unknown-linux-gnu'
