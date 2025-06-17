@@ -120,21 +120,24 @@ jobs:
         cd libsql/target/${{ matrix.target }}/release
         
         echo "=== Listing all static libraries ==="
-        find . -name "*.a" -type f | head -20
+        find . -name "*.a" -type f | grep -v dll.a | head -20
         
         echo "=== Extracting libsql_experimental.a ==="
         ar -x libsql_experimental.a
         
-        # Extract SQLite-related libraries from deps
-        echo "=== Looking for SQLite libraries in deps ==="
-        for lib in deps/*.a; do
-          echo "Checking $lib..."
-          # Check if library contains sqlite symbols
-          if nm "$lib" 2>/dev/null | grep -q "sqlite3_"; then
-            echo "Found SQLite symbols in $lib, extracting..."
-            ar -x "$lib"
+        # Extract the vendored SQLite library
+        echo "=== Extracting vendored SQLite library ==="
+        if [ -f "./build/libsql-ffi-9a49ef0ef90397da/out/build/libsqlite3mc_static.a" ]; then
+          echo "Found vendored SQLite library, extracting..."
+          ar -x "./build/libsql-ffi-9a49ef0ef90397da/out/build/libsqlite3mc_static.a"
+        else
+          # Find the SQLite library in build directory
+          SQLITE_LIB=$(find ./build -name "libsqlite3*.a" -type f | grep -v dll.a | head -1)
+          if [ -n "$SQLITE_LIB" ]; then
+            echo "Found SQLite library at $SQLITE_LIB, extracting..."
+            ar -x "$SQLITE_LIB"
           fi
-        done
+        fi
         
         echo "=== Creating DLL ==="
         x86_64-w64-mingw32-gcc -shared -o libsql.dll *.o \
