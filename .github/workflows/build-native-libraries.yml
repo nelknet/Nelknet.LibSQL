@@ -18,7 +18,7 @@ jobs:
             output: linux-x64
             ext: so
           - os: windows-latest
-            target: x86_64-pc-windows-msvc
+            target: x86_64-pc-windows-gnu
             output: win-x64
             ext: dll
           - os: macos-latest
@@ -44,6 +44,12 @@ jobs:
       with:
         targets: ${{ matrix.target }}
     
+    - name: Setup MinGW (Windows)
+      if: matrix.os == 'windows-latest'
+      uses: egor-tensin/setup-mingw@v2
+      with:
+        platform: x64
+    
     - name: Build libSQL
       working-directory: libsql/bindings/c
       run: cargo build --release --target ${{ matrix.target }}
@@ -59,20 +65,18 @@ jobs:
     
     - name: Create shared library (Windows)
       if: matrix.os == 'windows-latest'
-      shell: cmd
+      shell: bash
       run: |
-        cd libsql\target\${{ matrix.target }}\release
-        REM Find Visual Studio
-        for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath`) do set VS_PATH=%%i
-        call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
-        
-        REM Extract objects and create DLL
-        lib /list libsql_experimental.a > objects.txt
-        for /f %%i in (objects.txt) do lib /extract:%%i libsql_experimental.a
-        link /dll /out:libsql.dll *.obj advapi32.lib bcrypt.lib kernel32.lib userenv.lib ws2_32.lib ntdll.lib crypt32.lib secur32.lib ole32.lib oleaut32.lib uuid.lib ncrypt.lib msvcrt.lib
-        
-        mkdir "${{ github.workspace }}\artifacts\${{ matrix.output }}\native"
-        copy libsql.dll "${{ github.workspace }}\artifacts\${{ matrix.output }}\native\"
+        cd libsql/target/${{ matrix.target }}/release
+        # For GNU target, we have libsql_experimental.a
+        ar -x libsql_experimental.a
+        # Create DLL using GNU toolchain
+        gcc -shared -o libsql.dll *.o \
+          -lws2_32 -ladvapi32 -luserenv -lbcrypt -lntdll \
+          -lcrypt32 -lsecur32 -lkernel32 -lole32 -loleaut32 \
+          -luuid -lncrypt -static-libgcc
+        mkdir -p "${{ github.workspace }}/artifacts/${{ matrix.output }}/native"
+        cp libsql.dll "${{ github.workspace }}/artifacts/${{ matrix.output }}/native/"
     
     - name: Create shared library (macOS)
       if: matrix.os == 'macos-latest'
