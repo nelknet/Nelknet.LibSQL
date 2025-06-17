@@ -145,9 +145,22 @@ jobs:
         run: |
           # Copy all libraries to the correct location
           mkdir -p src/Nelknet.LibSQL.Bindings/runtimes
-          cp -r artifacts/libsql-linux-x64/runtimes/* src/Nelknet.LibSQL.Bindings/runtimes/
-          cp -r artifacts/libsql-win-x64/runtimes/* src/Nelknet.LibSQL.Bindings/runtimes/
-          cp -r artifacts/libsql-osx-arm64/runtimes/* src/Nelknet.LibSQL.Bindings/runtimes/
+          
+          # Debug: Show artifact structure
+          echo "Artifact structure:"
+          find artifacts -type f -name "libsql.*"
+          
+          # Copy Linux library
+          mkdir -p src/Nelknet.LibSQL.Bindings/runtimes/linux-x64/native
+          cp artifacts/libsql-linux-x64/*.so src/Nelknet.LibSQL.Bindings/runtimes/linux-x64/native/ || true
+          
+          # Copy Windows library
+          mkdir -p src/Nelknet.LibSQL.Bindings/runtimes/win-x64/native
+          cp artifacts/libsql-win-x64/*.dll src/Nelknet.LibSQL.Bindings/runtimes/win-x64/native/ || true
+          
+          # Copy macOS library
+          mkdir -p src/Nelknet.LibSQL.Bindings/runtimes/osx-arm64/native
+          cp artifacts/libsql-osx-arm64/*.dylib src/Nelknet.LibSQL.Bindings/runtimes/osx-arm64/native/ || true
           
           # Also copy the header file from libSQL
           mkdir -p temp
