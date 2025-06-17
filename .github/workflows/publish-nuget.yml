@@ -1,0 +1,53 @@
+name: Publish NuGet
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g. 1.0.5)'
+        required: true
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+    
+    - name: Determine version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+        else
+          # Extract version from tag
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Pack
+      run: |
+        dotnet pack src/Nelknet.LibSQL.Bindings/Nelknet.LibSQL.Bindings.csproj \
+          --configuration Release \
+          -p:PackageVersion=${{ steps.version.outputs.VERSION }} \
+          --output ./artifacts
+        
+        dotnet pack src/Nelknet.LibSQL.Data/Nelknet.LibSQL.Data.csproj \
+          --configuration Release \
+          -p:PackageVersion=${{ steps.version.outputs.VERSION }} \
+          --output ./artifacts
+    
+    - name: Push to NuGet
+      run: |
+        dotnet nuget push ./artifacts/*.nupkg \
+          --api-key ${{ secrets.NUGET_API_KEY }} \
+          --source https://api.nuget.org/v3/index.json \
+          --skip-duplicate
