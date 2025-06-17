@@ -39,17 +39,23 @@ jobs:
         ref: ${{ github.event.inputs.libsql_ref }}
         path: libsql
     
+    - name: Setup MSYS2 for Windows
+      if: matrix.os == 'windows-latest'
+      uses: msys2/setup-msys2@v2
+      with:
+        update: true
+        install: mingw-w64-x86_64-toolchain mingw-w64-x86_64-rust gcc make base-devel
+        msystem: mingw64
+        path-type: inherit
+    
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@stable
       with:
         targets: ${{ matrix.target }}
     
-    - name: Add GNU target for Windows
-      if: matrix.os == 'windows-latest'
-      run: rustup target add x86_64-pc-windows-gnu
-    
     - name: Build libSQL
       working-directory: libsql/bindings/c
+      shell: ${{ matrix.os == 'windows-latest' && 'msys2 {0}' || 'bash' }}
       run: cargo build --release --target ${{ matrix.target }}
     
     - name: Create shared library (Linux)
@@ -63,20 +69,22 @@ jobs:
     
     - name: Create shared library (Windows)
       if: matrix.os == 'windows-latest'
-      shell: cmd
+      shell: msys2 {0}
       run: |
-        cd libsql\target\${{ matrix.target }}\release
-        
-        REM MinGW should be available on GitHub runners
-        echo Creating DLL with MinGW from GNU target static library
+        cd libsql/target/${{ matrix.target }}/release
+        # Extract object files and create DLL
         ar -x libsql_experimental.a
-        gcc -shared -o libsql.dll *.o -Wl,--export-all-symbols -lws2_32 -ladvapi32 -luserenv -lbcrypt -lntdll -lcrypt32 -lsecur32 -lkernel32 -lole32 -loleaut32 -luuid -lncrypt -static-libgcc
+        gcc -shared -o libsql.dll *.o \
+          -Wl,--export-all-symbols \
+          -lws2_32 -ladvapi32 -luserenv -lbcrypt -lntdll -lcrypt32 \
+          -lsecur32 -lkernel32 -lole32 -loleaut32 -luuid -lncrypt \
+          -static-libgcc
         
-        REM Clean up object files
-        del *.o
+        # Clean up object files
+        rm *.o
         
-        mkdir "${{ github.workspace }}\artifacts\${{ matrix.output }}\native"
-        copy libsql.dll "${{ github.workspace }}\artifacts\${{ matrix.output }}\native\"
+        mkdir -p ${{ github.workspace }}/artifacts/${{ matrix.output }}/native
+        cp libsql.dll ${{ github.workspace }}/artifacts/${{ matrix.output }}/native/
     
     - name: Create shared library (macOS)
       if: matrix.os == 'macos-latest'
