@@ -79,16 +79,14 @@ jobs:
       run: |
         cd libsql/target/${{ matrix.target }}/release
         ar -x libsql_experimental.a
-        # Create exports file with all libsql symbols
-        nm libsql_experimental.a | grep " T _libsql" | awk '{print substr($3, 2)}' > exports.txt
-        # Build with explicit symbol exports
+        # Build dynamic library
         clang -dynamiclib -o libsql.dylib *.o \
           -framework Security -framework CoreFoundation \
-          -lSystem -lc -lm \
-          -exported_symbols_list exports.txt
-        # Verify symbols are exported correctly
-        echo "Exported symbols:"
-        nm -gU libsql.dylib | grep " T libsql" | head -5
+          -lSystem -lc -lm
+        # Verify library was created
+        echo "Library created:"
+        ls -lh libsql.dylib
+        file libsql.dylib
         mkdir -p ${{ github.workspace }}/artifacts/${{ matrix.output }}/native
         cp libsql.dylib ${{ github.workspace }}/artifacts/${{ matrix.output }}/native/
     
