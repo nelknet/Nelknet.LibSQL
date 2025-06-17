@@ -149,6 +149,12 @@ jobs:
         echo "=== Checking for SQLite symbols ==="
         nm *.o | grep -c "sqlite3_" || echo "No SQLite symbols found in object files"
         
+        # Look for any .obj files from SQLite (sometimes named differently)
+        if [ -f sqlite3mc.c.obj ]; then
+          echo "Found sqlite3mc.c.obj, renaming to .o"
+          mv sqlite3mc.c.obj sqlite3mc.o
+        fi
+        
         echo "=== Creating DLL ==="
         x86_64-w64-mingw32-gcc -shared -o libsql.dll *.o \
           -Wl,--export-all-symbols \
