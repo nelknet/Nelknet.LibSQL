@@ -87,6 +87,9 @@ jobs:
         echo name = "libsql" >> Cargo.toml
         echo. >> Cargo.toml
         echo [dependencies] >> Cargo.toml
+        echo. >> Cargo.toml
+        echo [workspace] >> Cargo.toml
+        echo. >> Cargo.toml
         
         REM Create build.rs
         echo fn main() { > build.rs
