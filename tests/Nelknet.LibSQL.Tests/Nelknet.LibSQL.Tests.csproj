@@ -5,6 +5,7 @@
     <IsTestProject>true</IsTestProject>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,5 +22,12 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Nelknet.LibSQL.Data\Nelknet.LibSQL.Data.csproj" />
   </ItemGroup>
+
+  <!-- Workaround for CI: Copy native library to output directory root for Linux -->
+  <Target Name="CopyNativeLibraryForLinux" AfterTargets="Build" Condition="'$(OS)' != 'Windows_NT' AND Exists('$(OutputPath)runtimes/linux-x64/native/libsql.so')">
+    <Copy SourceFiles="$(OutputPath)runtimes/linux-x64/native/libsql.so" 
+          DestinationFolder="$(OutputPath)" 
+          SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>
