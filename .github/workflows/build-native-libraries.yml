@@ -102,7 +102,8 @@ jobs:
         echo "=== Verifying Rust target is still installed ==="
         rustup target list --installed
         echo ""
-        cargo build --release --target ${{ matrix.target }} --verbose
+        # Build with vendored SQLite to ensure all symbols are included
+        LIBSQL_BUNDLED=1 cargo build --release --target ${{ matrix.target }} --verbose
     
     - name: Create shared library (Linux)
       if: matrix.os == 'ubuntu-latest' && matrix.target == 'x86_64-unknown-linux-gnu'
@@ -117,13 +118,21 @@ jobs:
       if: matrix.target == 'x86_64-pc-windows-gnu'
       run: |
         cd libsql/target/${{ matrix.target }}/release
-        # Extract object files and create DLL using MinGW
+        
+        echo "=== Extracting static library ==="
         ar -x libsql_experimental.a
+        
+        echo "=== Creating DLL ==="
         x86_64-w64-mingw32-gcc -shared -o libsql.dll *.o \
           -Wl,--export-all-symbols \
           -lws2_32 -ladvapi32 -luserenv -lbcrypt -lntdll -lcrypt32 \
           -lsecur32 -lkernel32 -lole32 -loleaut32 -luuid -lncrypt \
           -static-libgcc
+        
+        # Verify DLL was created and check size
+        echo "=== Verifying DLL ==="
+        ls -lh libsql.dll
+        file libsql.dll
         
         # Clean up object files
         rm *.o
