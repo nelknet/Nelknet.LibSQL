@@ -230,7 +230,7 @@ jobs:
 
       - name: Create Pull Request
         if: github.event_name == 'workflow_dispatch'
-        uses: peter-evans/create-pull-request@v5
+        uses: peter-evans/create-pull-request@v7
         with:
           commit-message: "Update libSQL native libraries to ${{ github.event.inputs.libsql_tag }}"
           title: "Update libSQL native libraries to ${{ github.event.inputs.libsql_tag }}"
