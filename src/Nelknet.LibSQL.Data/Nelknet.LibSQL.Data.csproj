@@ -19,63 +19,11 @@
     <None Include="..\..\assets\icon.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 
-  <!-- Download native libraries for Full package -->
-  <Target Name="DownloadAllNativeLibraries" BeforeTargets="GenerateAdditionalSources" Condition="'$(BuildType)' == 'Full'">
-    <!-- Windows -->
-    <MSBuild Projects="$(MSBuildProjectFile)" Targets="DownloadNativeLibraryForRid" Properties="Rid=win-x64" />
-    <MSBuild Projects="$(MSBuildProjectFile)" Targets="DownloadNativeLibraryForRid" Properties="Rid=win-x86" />
-    <MSBuild Projects="$(MSBuildProjectFile)" Targets="DownloadNativeLibraryForRid" Properties="Rid=win-arm64" Condition="'$(SkipArm)' != 'true'" />
-    
-    <!-- Linux -->
-    <MSBuild Projects="$(MSBuildProjectFile)" Targets="DownloadNativeLibraryForRid" Properties="Rid=linux-x64" />
-    <MSBuild Projects="$(MSBuildProjectFile)" Targets="DownloadNativeLibraryForRid" Properties="Rid=linux-arm64" Condition="'$(SkipArm)' != 'true'" />
-    <MSBuild Projects="$(MSBuildProjectFile)" Targets="DownloadNativeLibraryForRid" Properties="Rid=linux-arm" Condition="'$(SkipArm)' != 'true'" />
-    
-    <!-- macOS -->
-    <MSBuild Projects="$(MSBuildProjectFile)" Targets="DownloadNativeLibraryForRid" Properties="Rid=osx-x64" />
-    <MSBuild Projects="$(MSBuildProjectFile)" Targets="DownloadNativeLibraryForRid" Properties="Rid=osx-arm64" />
-  </Target>
-
-  <!-- Import the download target -->
-  <Import Project="..\..\build\DownloadNativeLibs.targets" />
-  
-  <!-- Target to download for a specific RID -->
-  <Target Name="DownloadNativeLibraryForRid">
-    <PropertyGroup>
-      <!-- 
-        NOTE: As of Phase 12 implementation, libSQL does not provide pre-built binaries.
-        These URLs are placeholders for future use when libSQL starts providing official releases.
-        
-        Current options:
-        1. Build libSQL from source: https://github.com/tursodatabase/libsql
-        2. Use SQLite3 libraries for testing (libSQL is SQLite3-compatible)
-        3. Extract from libsql-js Node.js bindings (these are .node files, not raw libraries)
-      -->
-      <LibSQLBaseUrl>https://github.com/tursodatabase/libsql/releases/download/v$(LibSQLVersion)</LibSQLBaseUrl>
-      <LibSQLReleaseUrl Condition="'$(Rid)' == 'win-x64'">$(LibSQLBaseUrl)/libsql-windows-x64.zip</LibSQLReleaseUrl>
-      <LibSQLReleaseUrl Condition="'$(Rid)' == 'win-x86'">$(LibSQLBaseUrl)/libsql-windows-x86.zip</LibSQLReleaseUrl>
-      <LibSQLReleaseUrl Condition="'$(Rid)' == 'win-arm64'">$(LibSQLBaseUrl)/libsql-windows-arm64.zip</LibSQLReleaseUrl>
-      <LibSQLReleaseUrl Condition="'$(Rid)' == 'linux-x64'">$(LibSQLBaseUrl)/libsql-linux-x64.tar.gz</LibSQLReleaseUrl>
-      <LibSQLReleaseUrl Condition="'$(Rid)' == 'linux-arm64'">$(LibSQLBaseUrl)/libsql-linux-arm64.tar.gz</LibSQLReleaseUrl>
-      <LibSQLReleaseUrl Condition="'$(Rid)' == 'linux-arm'">$(LibSQLBaseUrl)/libsql-linux-arm.tar.gz</LibSQLReleaseUrl>
-      <LibSQLReleaseUrl Condition="'$(Rid)' == 'osx-x64'">$(LibSQLBaseUrl)/libsql-darwin-x64.tar.gz</LibSQLReleaseUrl>
-      <LibSQLReleaseUrl Condition="'$(Rid)' == 'osx-arm64'">$(LibSQLBaseUrl)/libsql-darwin-arm64.tar.gz</LibSQLReleaseUrl>
-    </PropertyGroup>
-    
-    <CallTarget Targets="DownloadNativeLibrary" />
-  </Target>
+  <!-- Native libraries should be pre-built and committed to the repository -->
+  <!-- See scripts/build-native-libs.sh for building native libraries -->
 
   <!-- Include native libraries in the package -->
   <ItemGroup Condition="'$(BuildType)' == 'Full'">
-    <!-- From MSBuild download -->
-    <None Include="obj\runtimes\**\*.dll;obj\runtimes\**\*.so;obj\runtimes\**\*.dylib" Condition="Exists('obj\runtimes')">
-      <Visible>false</Visible>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Pack>true</Pack>
-      <PackagePath>runtimes</PackagePath>
-      <Link>runtimes\%(RecursiveDir)%(FileName)%(Extension)</Link>
-    </None>
-    
     <!-- From pre-built binaries in Bindings project -->
     <None Include="..\Nelknet.LibSQL.Bindings\runtimes\**\*.dll;..\Nelknet.LibSQL.Bindings\runtimes\**\*.so;..\Nelknet.LibSQL.Bindings\runtimes\**\*.dylib" Condition="Exists('..\Nelknet.LibSQL.Bindings\runtimes')">
       <Visible>false</Visible>
@@ -100,9 +48,5 @@
     <PackageReference Include="System.Text.Json" />
   </ItemGroup>
 
-  <!-- Clean downloaded files -->
-  <Target Name="CleanDownloadedNativeLibraries" AfterTargets="Clean">
-    <RemoveDir Directories="$(MSBuildProjectDirectory)\obj\runtimes" />
-  </Target>
 
 </Project>
