@@ -8,6 +8,10 @@ on:
         required: true
         default: 'main'
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   # Build on native architecture for each OS
   build-linux:
