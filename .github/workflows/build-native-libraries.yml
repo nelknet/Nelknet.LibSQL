@@ -149,6 +149,15 @@ jobs:
         echo "=== Checking for SQLite symbols ==="
         nm *.o | grep -c "sqlite3_" || echo "No SQLite symbols found in object files"
         
+        # Check which files have sqlite3_config specifically
+        echo "=== Looking for sqlite3_config symbol ==="
+        for f in *.o; do
+          if nm "$f" 2>/dev/null | grep -q "sqlite3_config"; then
+            echo "Found sqlite3_config in: $f"
+            nm "$f" | grep "sqlite3_config"
+          fi
+        done
+        
         # Check if sqlite3mc.c.o is in the current directory
         if [ -f sqlite3mc.c.o ]; then
           echo "Found sqlite3mc.c.o in current directory"
@@ -165,7 +174,9 @@ jobs:
         fi
         
         echo "=== Creating DLL ==="
-        x86_64-w64-mingw32-gcc -shared -o libsql.dll *.o \
+        # Try to create the DLL with whole-archive to ensure all symbols are included
+        x86_64-w64-mingw32-gcc -shared -o libsql.dll \
+          -Wl,--whole-archive *.o -Wl,--no-whole-archive \
           -Wl,--export-all-symbols \
           -lws2_32 -ladvapi32 -luserenv -lbcrypt -lntdll -lcrypt32 \
           -lsecur32 -lkernel32 -lole32 -loleaut32 -luuid -lncrypt \

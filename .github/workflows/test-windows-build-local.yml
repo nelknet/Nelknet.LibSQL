@@ -1,0 +1,95 @@
+name: Test Windows Build Local
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-windows:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Install MinGW and cmake
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y mingw-w64 cmake
+    
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+    
+    - name: Add Windows target
+      run: rustup target add x86_64-pc-windows-gnu
+    
+    - name: Clone and build libSQL
+      run: |
+        # Clone libSQL
+        git clone --depth 1 https://github.com/tursodatabase/libsql.git temp/libsql
+        cd temp/libsql/bindings/c
+        
+        # Remove rust-toolchain.toml to avoid version conflicts
+        rm -f ../../rust-toolchain.toml rust-toolchain.toml
+        
+        # Set cross-compilation environment
+        export CC_x86_64_pc_windows_gnu=x86_64-w64-mingw32-gcc
+        export AR_x86_64_pc_windows_gnu=x86_64-w64-mingw32-ar
+        export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
+        
+        # Build with bundled SQLite
+        LIBSQLITE3_FLAGS="-DSQLITE_ENABLE_COLUMN_METADATA" LIBSQL_BUNDLED=1 \
+          cargo build --release --target x86_64-pc-windows-gnu
+    
+    - name: Create Windows DLL
+      run: |
+        cd temp/libsql/target/x86_64-pc-windows-gnu/release
+        
+        echo "=== Current directory: $(pwd) ==="
+        echo "=== Listing all files ==="
+        ls -la
+        
+        echo "=== Listing all static libraries ==="
+        find . -name "*.a" -type f | head -20
+        
+        echo "=== Extracting libsql_experimental.a ==="
+        ar -x libsql_experimental.a
+        
+        echo "=== Looking for SQLite library ==="
+        SQLITE_LIB=$(find ./build -name "libsqlite3mc_static.a" -type f | head -1)
+        if [ -n "$SQLITE_LIB" ]; then
+          echo "Found SQLite library at $SQLITE_LIB"
+          ar -x "$SQLITE_LIB"
+        fi
+        
+        echo "=== Checking for sqlite3mc.c.o ==="
+        if [ -f sqlite3mc.c.o ]; then
+          echo "Found sqlite3mc.c.o in current directory"
+        elif [ -f ../sqlite3mc.c.o ]; then
+          echo "Found sqlite3mc.c.o in parent directory"
+          cp ../sqlite3mc.c.o .
+        else
+          echo "WARNING: sqlite3mc.c.o not found!"
+          echo "Searching for it..."
+          find ../.. -name "sqlite3mc.c.o" -type f 2>/dev/null | head -5
+        fi
+        
+        echo "=== Object files (.o) ==="
+        ls -la *.o 2>/dev/null | head -10 || echo "No .o files found"
+        
+        echo "=== Checking SQLite symbols ==="
+        nm *.o 2>/dev/null | grep -c "sqlite3_" || echo "No SQLite symbols found"
+        
+        echo "=== Creating DLL ==="
+        x86_64-w64-mingw32-gcc -shared -o libsql.dll *.o \
+          -Wl,--export-all-symbols \
+          -lws2_32 -ladvapi32 -luserenv -lbcrypt -lntdll -lcrypt32 \
+          -lsecur32 -lkernel32 -lole32 -loleaut32 -luuid -lncrypt \
+          -static-libgcc || echo "DLL creation failed"
+        
+        if [ -f libsql.dll ]; then
+          echo "=== DLL created successfully ==="
+          ls -lh libsql.dll
+          file libsql.dll
+        else
+          echo "=== DLL creation failed ==="
+        fi
