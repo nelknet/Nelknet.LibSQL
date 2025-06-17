@@ -25,22 +25,9 @@
   <!-- Include native libraries in the package -->
   <ItemGroup Condition="'$(BuildType)' == 'Full'">
     <!-- From pre-built binaries in Bindings project -->
-    <None Include="..\Nelknet.LibSQL.Bindings\runtimes\**\*.dll;..\Nelknet.LibSQL.Bindings\runtimes\**\*.so;..\Nelknet.LibSQL.Bindings\runtimes\**\*.dylib" Condition="Exists('..\Nelknet.LibSQL.Bindings\runtimes')">
-      <Visible>false</Visible>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    <None Include="..\Nelknet.LibSQL.Bindings\runtimes\**\*">
       <Pack>true</Pack>
-      <PackagePath>runtimes</PackagePath>
-      <Link>runtimes\%(RecursiveDir)%(FileName)%(Extension)</Link>
-    </None>
-  </ItemGroup>
-
-  <!-- Always copy native libraries for development (not just for Full builds) -->
-  <ItemGroup>
-    <!-- From pre-built binaries in Bindings project - for development -->
-    <None Include="..\Nelknet.LibSQL.Bindings\runtimes\**\*.dll;..\Nelknet.LibSQL.Bindings\runtimes\**\*.so;..\Nelknet.LibSQL.Bindings\runtimes\**\*.dylib" Condition="Exists('..\Nelknet.LibSQL.Bindings\runtimes')">
-      <Visible>false</Visible>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Link>runtimes\%(RecursiveDir)%(FileName)%(Extension)</Link>
+      <PackagePath>runtimes\%(RecursiveDir)</PackagePath>
     </None>
   </ItemGroup>
   <ItemGroup>

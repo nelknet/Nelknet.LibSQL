@@ -23,17 +23,14 @@
   </ItemGroup>
 
   <!-- Native libraries should be pre-built and committed to the repository -->
-  <!-- Include native libraries in the package -->
+  <!-- Include native libraries in the package and copy to output -->
   <ItemGroup>
-    <None Include="runtimes\**\*" Pack="true" PackagePath="runtimes\%(RecursiveDir)" />
-  </ItemGroup>
-  
-  <!-- Ensure native libraries are copied to output directory for local development -->
-  <ItemGroup>
-    <Content Include="runtimes\**\*.dll;runtimes\**\*.so;runtimes\**\*.dylib">
+    <None Include="runtimes\**\*">
+      <Pack>true</Pack>
+      <PackagePath>runtimes\%(RecursiveDir)</PackagePath>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Link>%(RecursiveDir)%(FileName)%(Extension)</Link>
-    </Content>
+      <Link>runtimes\%(RecursiveDir)%(FileName)%(Extension)</Link>
+    </None>
   </ItemGroup>
 
 </Project>
