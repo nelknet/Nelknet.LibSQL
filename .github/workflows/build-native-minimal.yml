@@ -1,4 +1,4 @@
-name: Build Native Libraries (Minimal)
+name: Build Native Libraries
 
 on:
   workflow_dispatch:
@@ -65,28 +65,26 @@ jobs:
         working-directory: libsql/bindings/c
         run: cargo build --release
 
-      - name: Create DLL
-        shell: pwsh
+      - name: Setup VS Dev Environment and Create DLL
+        shell: cmd
         run: |
-          # Create output directory
-          New-Item -ItemType Directory -Force -Path "runtimes\win-x64\native"
+          REM Find Visual Studio installation
+          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath`) do set VS_PATH=%%i
           
-          # Extract objects and create DLL
+          REM Setup VS environment
+          call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
+          
+          REM Create output directory
+          if not exist "runtimes\win-x64\native" mkdir "runtimes\win-x64\native"
+          
+          REM Extract objects and create DLL
           cd libsql\target\release
-          lib /list libsql_experimental.lib | Out-File -FilePath objects.txt
-          
-          # Extract each object file
-          Get-Content objects.txt | ForEach-Object {
-            if ($_ -match '\.o$') {
-              lib /extract:$_ libsql_experimental.lib
-            }
-          }
-          
-          # Link into DLL
+          lib /list libsql_experimental.lib > objects.txt
+          for /f %%i in (objects.txt) do lib /extract:%%i libsql_experimental.lib
           link /dll /out:libsql.dll *.obj advapi32.lib bcrypt.lib kernel32.lib userenv.lib ws2_32.lib msvcrt.lib
           
-          # Copy to output
-          Copy-Item libsql.dll ..\..\..\runtimes\win-x64\native\
+          REM Copy to output
+          copy libsql.dll ..\..\..\runtimes\win-x64\native\
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
