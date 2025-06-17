@@ -68,18 +68,24 @@ jobs:
         for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath`) do set VS_PATH=%%i
         call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
         
-        REM Extract all object files from the static library
-        lib /NOLOGO /LIST sql_experimental.lib > lib_contents.txt
-        lib /NOLOGO /EXTRACT:sql_experimental.lib sql_experimental.lib
+        REM Create a stub C file for DLL entry point
+        echo #include ^<windows.h^> > dllmain.c
+        echo BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) { >> dllmain.c
+        echo     return TRUE; >> dllmain.c
+        echo } >> dllmain.c
         
-        REM Create a DEF file to export all symbols
+        REM Compile the stub
+        cl /c dllmain.c
+        
+        REM Create a module definition file with exports
         echo EXPORTS > libsql.def
-        REM Use dumpbin to find all exported symbols
-        dumpbin /SYMBOLS sql_experimental.lib | findstr "External" | findstr "libsql_\|sqlite3_" > symbols.txt
-        for /F "tokens=8" %%i in (symbols.txt) do echo   %%i >> libsql.def
+        REM Extract symbol names from the static library
+        dumpbin /LINKERMEMBER:1 sql_experimental.lib | findstr /C:"libsql_" /C:"sqlite3_" > temp_symbols.txt
+        REM Process the symbols to create proper export entries
+        for /F "tokens=2" %%i in (temp_symbols.txt) do echo   %%i >> libsql.def
         
-        REM Link into a DLL with all symbols exported
-        link /DLL /DEF:libsql.def /OUT:libsql.dll /MACHINE:X64 sql_experimental.lib ^
+        REM Link the DLL with the static library
+        link /DLL /DEF:libsql.def /OUT:libsql.dll /MACHINE:X64 dllmain.obj sql_experimental.lib ^
           ws2_32.lib advapi32.lib userenv.lib bcrypt.lib ntdll.lib crypt32.lib ^
           secur32.lib kernel32.lib ole32.lib oleaut32.lib uuid.lib ncrypt.lib
         
