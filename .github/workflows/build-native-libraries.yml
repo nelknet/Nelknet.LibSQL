@@ -83,6 +83,25 @@ jobs:
         cat ~/.cargo/config.toml 2>/dev/null || echo "No global cargo config"
         cat .cargo/config.toml 2>/dev/null || echo "No local cargo config"
         echo ""
+        echo "=== Checking for rust-toolchain.toml ==="
+        if [ -f "rust-toolchain.toml" ]; then
+          echo "Found rust-toolchain.toml:"
+          cat rust-toolchain.toml
+          echo ""
+          echo "Temporarily renaming to prevent version override..."
+          mv rust-toolchain.toml rust-toolchain.toml.bak
+        fi
+        if [ -f "../../rust-toolchain.toml" ]; then
+          echo "Found rust-toolchain.toml in parent:"
+          cat ../../rust-toolchain.toml
+          echo ""
+          echo "Temporarily renaming to prevent version override..."
+          mv ../../rust-toolchain.toml ../../rust-toolchain.toml.bak
+        fi
+        echo ""
+        echo "=== Verifying Rust target is still installed ==="
+        rustup target list --installed
+        echo ""
         cargo build --release --target ${{ matrix.target }} --verbose
     
     - name: Create shared library (Linux)
