@@ -68,58 +68,20 @@ jobs:
         for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath`) do set VS_PATH=%%i
         call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
         
-        REM Check what files we have
-        echo Available files:
-        dir *.lib *.a 2>nul
+        REM Extract all object files from the static library
+        lib /NOLOGO /LIST sql_experimental.lib > lib_contents.txt
+        lib /NOLOGO /EXTRACT:sql_experimental.lib sql_experimental.lib
         
-        REM Create a simple Rust cdylib that links the static library
-        mkdir dll_wrapper
-        cd dll_wrapper
+        REM Create a DEF file to export all symbols
+        echo EXPORTS > libsql.def
+        REM Use dumpbin to find all exported symbols
+        dumpbin /SYMBOLS sql_experimental.lib | findstr "External" | findstr "libsql_\|sqlite3_" > symbols.txt
+        for /F "tokens=8" %%i in (symbols.txt) do echo   %%i >> libsql.def
         
-        REM Create Cargo.toml
-        echo [package] > Cargo.toml
-        echo name = "libsql_dll" >> Cargo.toml
-        echo version = "0.1.0" >> Cargo.toml
-        echo edition = "2021" >> Cargo.toml
-        echo. >> Cargo.toml
-        echo [lib] >> Cargo.toml
-        echo crate-type = ["cdylib"] >> Cargo.toml
-        echo name = "libsql" >> Cargo.toml
-        echo. >> Cargo.toml
-        echo [dependencies] >> Cargo.toml
-        echo. >> Cargo.toml
-        echo [workspace] >> Cargo.toml
-        echo. >> Cargo.toml
-        
-        REM Create build.rs
-        echo fn main() { > build.rs
-        echo     println!("cargo:rustc-link-search=native=.."); >> build.rs
-        echo     println!("cargo:rustc-link-lib=static=sql_experimental"); >> build.rs
-        echo     println!("cargo:rustc-link-lib=dylib=ws2_32"); >> build.rs
-        echo     println!("cargo:rustc-link-lib=dylib=advapi32"); >> build.rs
-        echo     println!("cargo:rustc-link-lib=dylib=userenv"); >> build.rs
-        echo     println!("cargo:rustc-link-lib=dylib=bcrypt"); >> build.rs
-        echo     println!("cargo:rustc-link-lib=dylib=ntdll"); >> build.rs
-        echo     println!("cargo:rustc-link-lib=dylib=crypt32"); >> build.rs
-        echo     println!("cargo:rustc-link-lib=dylib=secur32"); >> build.rs
-        echo     println!("cargo:rustc-link-lib=dylib=kernel32"); >> build.rs
-        echo     println!("cargo:rustc-link-lib=dylib=ole32"); >> build.rs
-        echo     println!("cargo:rustc-link-lib=dylib=oleaut32"); >> build.rs
-        echo     println!("cargo:rustc-link-lib=dylib=uuid"); >> build.rs
-        echo     println!("cargo:rustc-link-lib=dylib=ncrypt"); >> build.rs
-        echo } >> build.rs
-        
-        REM Create minimal lib.rs
-        mkdir src
-        echo // Empty - symbols come from static lib > src\lib.rs
-        echo #![allow(non_snake_case)] >> src\lib.rs
-        
-        REM Build the DLL
-        cargo build --release --target ${{ matrix.target }}
-        
-        REM Copy the DLL
-        copy target\${{ matrix.target }}\release\libsql.dll ..\..\libsql.dll
-        cd ..\..
+        REM Link into a DLL with all symbols exported
+        link /DLL /DEF:libsql.def /OUT:libsql.dll /MACHINE:X64 sql_experimental.lib ^
+          ws2_32.lib advapi32.lib userenv.lib bcrypt.lib ntdll.lib crypt32.lib ^
+          secur32.lib kernel32.lib ole32.lib oleaut32.lib uuid.lib ncrypt.lib
         
         mkdir "${{ github.workspace }}\artifacts\${{ matrix.output }}\native"
         copy libsql.dll "${{ github.workspace }}\artifacts\${{ matrix.output }}\native\"
