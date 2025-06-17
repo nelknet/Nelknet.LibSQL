@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       libsql_tag:
-        description: 'libSQL repository tag to build (e.g. libsql-0.6.2)'
+        description: 'libSQL repository tag to build (e.g. main, libsql-server-v0.24.32)'
         required: true
-        default: 'libsql-0.6.2'
+        default: 'main'
   push:
     branches: [ main ]
     paths:
@@ -27,7 +27,7 @@ jobs:
 
       - name: Set libSQL tag
         run: |
-          TAG=${{ github.event.inputs.libsql_tag || 'libsql-0.6.2' }}
+          TAG=${{ github.event.inputs.libsql_tag || 'main' }}
           echo "LIBSQL_TAG=$TAG" >> $GITHUB_ENV
 
       - name: Checkout libSQL
@@ -83,7 +83,7 @@ jobs:
 
       - name: Set libSQL tag
         run: |
-          TAG=${{ github.event.inputs.libsql_tag || 'libsql-0.6.2' }}
+          TAG=${{ github.event.inputs.libsql_tag || 'main' }}
           echo "LIBSQL_TAG=$TAG" >> $GITHUB_ENV
 
       - name: Checkout libSQL
@@ -139,7 +139,7 @@ jobs:
 
       - name: Set libSQL tag
         run: |
-          $TAG = "${{ github.event.inputs.libsql_tag || 'libsql-0.6.2' }}"
+          $TAG = "${{ github.event.inputs.libsql_tag || 'main' }}"
           echo "LIBSQL_TAG=$TAG" >> $env:GITHUB_ENV
 
       - name: Checkout libSQL
@@ -164,8 +164,8 @@ jobs:
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
           mkdir obj
           cd obj
-          lib /list ..\libsql\target\${{ matrix.target.rust }}\release\sql_experimental.lib > objects.txt
-          for /f %%i in (objects.txt) do lib /extract:%%i ..\libsql\target\${{ matrix.target.rust }}\release\sql_experimental.lib
+          lib /list ..\libsql\target\${{ matrix.target.rust }}\release\libsql_experimental.lib > objects.txt
+          for /f %%i in (objects.txt) do lib /extract:%%i ..\libsql\target\${{ matrix.target.rust }}\release\libsql_experimental.lib
           link /dll /out:libsql.dll *.o advapi32.lib bcrypt.lib kernel32.lib userenv.lib ws2_32.lib msvcrt.lib
 
       - name: Prepare output
@@ -202,7 +202,7 @@ jobs:
           done
           
           # Create version file
-          echo "${{ github.event.inputs.libsql_tag || 'libsql-0.6.2' }}" > src/Nelknet.LibSQL.Bindings/runtimes/LIBSQL_VERSION
+          echo "${{ github.event.inputs.libsql_tag || 'main' }}" > src/Nelknet.LibSQL.Bindings/runtimes/LIBSQL_VERSION
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
