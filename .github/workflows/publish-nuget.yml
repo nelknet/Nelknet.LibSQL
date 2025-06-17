@@ -1,0 +1,65 @@
+name: Publish to NuGet
+
+on:
+  push:
+    tags:
+      - 'v*' # Trigger on version tags like v0.1.0
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+    
+    - name: Restore dependencies
+      run: dotnet restore
+    
+    - name: Build
+      run: dotnet build --configuration Release --no-restore
+    
+    - name: Run tests
+      run: dotnet test --configuration Release --no-build --verbosity normal
+    
+    - name: Pack NuGet packages
+      run: |
+        # Pack Bindings package
+        dotnet pack src/Nelknet.LibSQL.Bindings/Nelknet.LibSQL.Bindings.csproj \
+          --configuration Release \
+          --no-build \
+          --output ./nupkgs
+        
+        # Pack Data package (without native libraries)
+        dotnet pack src/Nelknet.LibSQL.Data/Nelknet.LibSQL.Data.csproj \
+          --configuration Release \
+          --no-build \
+          --output ./nupkgs
+        
+        # Pack Data.Full package (with native libraries)
+        dotnet pack src/Nelknet.LibSQL.Data/Nelknet.LibSQL.Data.csproj \
+          --configuration Release \
+          --no-build \
+          -p:BuildType=Full \
+          --output ./nupkgs
+    
+    - name: List packages
+      run: ls -la ./nupkgs/
+    
+    - name: Push to NuGet
+      run: |
+        # Push all packages to NuGet
+        for package in ./nupkgs/*.nupkg; do
+          echo "Pushing $package to NuGet..."
+          dotnet nuget push "$package" \
+            --api-key ${{ secrets.NUGET_API_KEY }} \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+        done
+      env:
+        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}

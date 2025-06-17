@@ -6,6 +6,12 @@
 # dotenv files
 .env
 
+# NuGet API keys - NEVER COMMIT!
+*api-key*
+*API-KEY*
+.nuget-key
+nuget-api-key.txt
+
 # User-specific files
 *.rsuser
 *.suo
