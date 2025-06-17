@@ -505,4 +505,4 @@ temp/
 src/Nelknet.LibSQL.Bindings/libsql.h
 
 # Native library binaries (will be built or downloaded)
-src/Nelknet.LibSQL.Bindings/runtimes/
+# src/Nelknet.LibSQL.Bindings/runtimes/
