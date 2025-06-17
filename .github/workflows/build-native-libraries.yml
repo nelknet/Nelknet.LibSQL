@@ -44,7 +44,7 @@ jobs:
       uses: msys2/setup-msys2@v2
       with:
         update: true
-        install: mingw-w64-x86_64-toolchain mingw-w64-x86_64-rust gcc make base-devel
+        install: mingw-w64-x86_64-toolchain gcc make base-devel
         msystem: mingw64
         path-type: inherit
     
@@ -53,12 +53,13 @@ jobs:
       with:
         targets: ${{ matrix.target }}
     
-    - name: Configure Git and Cargo for Windows
+    - name: Setup Windows GNU toolchain
       if: matrix.os == 'windows-latest'
       run: |
-        git config --global http.sslBackend schannel
-        git config --global http.sslVerify true
-        # Force cargo to use system git instead of built-in libgit2
+        # Install the GNU target and toolchain
+        rustup target add x86_64-pc-windows-gnu
+        rustup toolchain install stable-x86_64-pc-windows-gnu
+        # Configure cargo for Windows
         mkdir -p .cargo
         echo "[net]" >> .cargo/config.toml
         echo "git-fetch-with-cli = true" >> .cargo/config.toml
@@ -66,7 +67,9 @@ jobs:
     - name: Build libSQL (Windows)
       if: matrix.os == 'windows-latest'
       working-directory: libsql/bindings/c
-      # Use regular shell, not MSYS2, for cargo build to avoid SSL issues
+      env:
+        CC: gcc
+        AR: ar
       run: cargo build --release --target ${{ matrix.target }}
     
     - name: Build libSQL (Unix)
