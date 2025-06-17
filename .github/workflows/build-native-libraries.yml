@@ -18,7 +18,7 @@ jobs:
             output: linux-x64
             ext: so
           - os: windows-latest
-            target: x86_64-pc-windows-gnu
+            target: x86_64-pc-windows-msvc
             output: win-x64
             ext: dll
           - os: macos-latest
@@ -44,11 +44,6 @@ jobs:
       with:
         targets: ${{ matrix.target }}
     
-    - name: Setup MinGW (Windows)
-      if: matrix.os == 'windows-latest'
-      uses: egor-tensin/setup-mingw@v2
-      with:
-        platform: x64
     
     - name: Build libSQL
       working-directory: libsql/bindings/c
@@ -65,18 +60,66 @@ jobs:
     
     - name: Create shared library (Windows)
       if: matrix.os == 'windows-latest'
-      shell: bash
+      shell: cmd
       run: |
-        cd libsql/target/${{ matrix.target }}/release
-        # For GNU target, we have libsql_experimental.a
-        ar -x libsql_experimental.a
-        # Create DLL using GNU toolchain
-        gcc -shared -o libsql.dll *.o \
-          -lws2_32 -ladvapi32 -luserenv -lbcrypt -lntdll \
-          -lcrypt32 -lsecur32 -lkernel32 -lole32 -loleaut32 \
-          -luuid -lncrypt -static-libgcc
-        mkdir -p "${{ github.workspace }}/artifacts/${{ matrix.output }}/native"
-        cp libsql.dll "${{ github.workspace }}/artifacts/${{ matrix.output }}/native/"
+        cd libsql\target\${{ matrix.target }}\release
+        
+        REM Find Visual Studio
+        for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath`) do set VS_PATH=%%i
+        call "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
+        
+        REM Check what files we have
+        echo Available files:
+        dir *.lib *.a 2>nul
+        
+        REM Create a simple Rust cdylib that links the static library
+        mkdir dll_wrapper
+        cd dll_wrapper
+        
+        REM Create Cargo.toml
+        echo [package] > Cargo.toml
+        echo name = "libsql_dll" >> Cargo.toml
+        echo version = "0.1.0" >> Cargo.toml
+        echo edition = "2021" >> Cargo.toml
+        echo. >> Cargo.toml
+        echo [lib] >> Cargo.toml
+        echo crate-type = ["cdylib"] >> Cargo.toml
+        echo name = "libsql" >> Cargo.toml
+        echo. >> Cargo.toml
+        echo [dependencies] >> Cargo.toml
+        
+        REM Create build.rs
+        echo fn main() { > build.rs
+        echo     println!("cargo:rustc-link-search=native=.."); >> build.rs
+        echo     println!("cargo:rustc-link-lib=static=sql_experimental"); >> build.rs
+        echo     println!("cargo:rustc-link-lib=dylib=ws2_32"); >> build.rs
+        echo     println!("cargo:rustc-link-lib=dylib=advapi32"); >> build.rs
+        echo     println!("cargo:rustc-link-lib=dylib=userenv"); >> build.rs
+        echo     println!("cargo:rustc-link-lib=dylib=bcrypt"); >> build.rs
+        echo     println!("cargo:rustc-link-lib=dylib=ntdll"); >> build.rs
+        echo     println!("cargo:rustc-link-lib=dylib=crypt32"); >> build.rs
+        echo     println!("cargo:rustc-link-lib=dylib=secur32"); >> build.rs
+        echo     println!("cargo:rustc-link-lib=dylib=kernel32"); >> build.rs
+        echo     println!("cargo:rustc-link-lib=dylib=ole32"); >> build.rs
+        echo     println!("cargo:rustc-link-lib=dylib=oleaut32"); >> build.rs
+        echo     println!("cargo:rustc-link-lib=dylib=uuid"); >> build.rs
+        echo     println!("cargo:rustc-link-lib=dylib=ncrypt"); >> build.rs
+        echo } >> build.rs
+        
+        REM Create minimal lib.rs
+        mkdir src
+        echo // Empty - symbols come from static lib > src\lib.rs
+        echo #![allow(non_snake_case)] >> src\lib.rs
+        
+        REM Build the DLL
+        cargo build --release --target ${{ matrix.target }}
+        
+        REM Copy the DLL
+        copy target\${{ matrix.target }}\release\libsql.dll ..\..\libsql.dll
+        cd ..\..
+        
+        mkdir "${{ github.workspace }}\artifacts\${{ matrix.output }}\native"
+        copy libsql.dll "${{ github.workspace }}\artifacts\${{ matrix.output }}\native\"
     
     - name: Create shared library (macOS)
       if: matrix.os == 'macos-latest'
