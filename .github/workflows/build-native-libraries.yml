@@ -49,67 +49,24 @@ jobs:
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@stable
     
-    - name: Add Rust target and verify installation
-      run: |
-        echo "=== Current Rust installation ==="
-        rustup show
-        echo ""
-        echo "=== Available targets ==="
-        rustup target list | grep -E "(installed|${{ matrix.target }})"
-        echo ""
-        echo "=== Adding target ${{ matrix.target }} ==="
-        rustup target add ${{ matrix.target }}
-        echo ""
-        echo "=== Verify target was added ==="
-        rustup target list --installed
-        echo ""
-        echo "=== Rust toolchain info ==="
-        rustc --version
-        cargo --version
-        echo ""
-        echo "=== Check for MinGW (Windows cross-compilation) ==="
-        which x86_64-w64-mingw32-gcc || echo "MinGW gcc not found"
-        x86_64-w64-mingw32-gcc --version || echo "MinGW gcc version check failed"
-        echo ""
-        echo "=== Environment variables ==="
-        env | grep -E "(RUST|CARGO|CC|AR|TARGET)" | sort
+    - name: Add Rust target
+      run: rustup target add ${{ matrix.target }}
     
     - name: Build libSQL
       working-directory: libsql/bindings/c
       run: |
-        echo "=== Building for target: ${{ matrix.target }} ==="
-        echo "=== Current directory: $(pwd) ==="
-        echo "=== Cargo configuration ==="
-        cat ~/.cargo/config.toml 2>/dev/null || echo "No global cargo config"
-        cat .cargo/config.toml 2>/dev/null || echo "No local cargo config"
-        echo ""
-        echo "=== Checking for rust-toolchain.toml ==="
-        if [ -f "rust-toolchain.toml" ]; then
-          echo "Found rust-toolchain.toml:"
-          cat rust-toolchain.toml
-          echo ""
-          echo "Temporarily renaming to prevent version override..."
-          mv rust-toolchain.toml rust-toolchain.toml.bak
-        fi
-        if [ -f "../../rust-toolchain.toml" ]; then
-          echo "Found rust-toolchain.toml in parent:"
-          cat ../../rust-toolchain.toml
-          echo ""
-          echo "Temporarily renaming to prevent version override..."
-          mv ../../rust-toolchain.toml ../../rust-toolchain.toml.bak
-        fi
-        echo ""
-        echo "=== Verifying Rust target is still installed ==="
-        rustup target list --installed
-        echo ""
-        # Build with vendored SQLite to ensure all symbols are included
-        # For Windows cross-compilation, we need additional environment variables
+        # Remove rust-toolchain.toml files to prevent version conflicts
+        rm -f rust-toolchain.toml ../../rust-toolchain.toml
+        
+        # For Windows cross-compilation, set environment variables
         if [ "${{ matrix.target }}" = "x86_64-pc-windows-gnu" ]; then
           export CC_x86_64_pc_windows_gnu=x86_64-w64-mingw32-gcc
           export AR_x86_64_pc_windows_gnu=x86_64-w64-mingw32-ar
           export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
         fi
-        LIBSQLITE3_FLAGS="-DSQLITE_ENABLE_COLUMN_METADATA" LIBSQL_BUNDLED=1 cargo build --release --target ${{ matrix.target }} --verbose
+        
+        # Build with vendored SQLite
+        LIBSQLITE3_FLAGS="-DSQLITE_ENABLE_COLUMN_METADATA" LIBSQL_BUNDLED=1 cargo build --release --target ${{ matrix.target }}
     
     - name: Create shared library (Linux)
       if: matrix.os == 'ubuntu-latest' && matrix.target == 'x86_64-unknown-linux-gnu'
@@ -125,56 +82,21 @@ jobs:
       run: |
         cd libsql/target/${{ matrix.target }}/release
         
-        echo "=== Listing all static libraries ==="
-        find . -name "*.a" -type f | grep -v dll.a | head -20
-        
-        echo "=== Extracting libsql_experimental.a ==="
+        # Extract main library
         ar -x libsql_experimental.a
         
-        # Extract the vendored SQLite library
-        echo "=== Extracting vendored SQLite library ==="
+        # Extract vendored SQLite library
         SQLITE_LIB=$(find ./build -name "libsqlite3mc_static.a" -type f | head -1)
         if [ -n "$SQLITE_LIB" ]; then
-          echo "Found SQLite library at $SQLITE_LIB, extracting..."
           ar -x "$SQLITE_LIB"
-        else
-          echo "WARNING: SQLite library not found, DLL may have undefined symbols"
         fi
         
-        # Check what object files we have
-        echo "=== Object files extracted ==="
-        ls -la *.o | head -10
-        
-        # Check for SQLite symbols in the object files
-        echo "=== Checking for SQLite symbols ==="
-        nm *.o | grep -c "sqlite3_" || echo "No SQLite symbols found in object files"
-        
-        # Check which files have sqlite3_config specifically
-        echo "=== Looking for sqlite3_config symbol ==="
-        for f in *.o; do
-          if nm "$f" 2>/dev/null | grep -q "sqlite3_config"; then
-            echo "Found sqlite3_config in: $f"
-            nm "$f" | grep "sqlite3_config"
-          fi
-        done
-        
-        # Check if sqlite3mc.c.o is in the current directory
-        if [ -f sqlite3mc.c.o ]; then
-          echo "Found sqlite3mc.c.o in current directory"
-        elif [ -f ../sqlite3mc.c.o ]; then
-          echo "Found sqlite3mc.c.o in parent directory, copying..."
-          cp ../sqlite3mc.c.o .
-        elif [ -f sqlite3mc.c.obj ]; then
-          echo "Found sqlite3mc.c.obj, renaming to .o"
-          mv sqlite3mc.c.obj sqlite3mc.o
-        else
-          echo "WARNING: Could not find sqlite3mc object file!"
-          echo "Looking for any sqlite3 object files..."
-          find .. -name "sqlite3*" -type f | head -10
+        # Handle sqlite3mc object file naming
+        if [ -f sqlite3mc.c.obj ]; then
+          mv sqlite3mc.c.obj sqlite3mc.c.o
         fi
         
-        echo "=== Creating DLL ==="
-        # Try to create the DLL with whole-archive to ensure all symbols are included
+        # Create DLL with all symbols
         x86_64-w64-mingw32-gcc -shared -o libsql.dll \
           -Wl,--whole-archive *.o -Wl,--no-whole-archive \
           -Wl,--export-all-symbols \
@@ -182,14 +104,8 @@ jobs:
           -lsecur32 -lkernel32 -lole32 -loleaut32 -luuid -lncrypt \
           -static-libgcc
         
-        # Verify DLL was created and check size
-        echo "=== Verifying DLL ==="
+        # Verify and copy
         ls -lh libsql.dll
-        file libsql.dll
-        
-        # Clean up object files
-        rm *.o
-        
         mkdir -p ${{ github.workspace }}/artifacts/${{ matrix.output }}/native
         cp libsql.dll ${{ github.workspace }}/artifacts/${{ matrix.output }}/native/
     
@@ -198,14 +114,10 @@ jobs:
       run: |
         cd libsql/target/${{ matrix.target }}/release
         ar -x libsql_experimental.a
-        # Build dynamic library
         clang -dynamiclib -o libsql.dylib *.o \
           -framework Security -framework CoreFoundation \
           -lSystem -lc -lm
-        # Verify library was created
-        echo "Library created:"
         ls -lh libsql.dylib
-        file libsql.dylib
         mkdir -p ${{ github.workspace }}/artifacts/${{ matrix.output }}/native
         cp libsql.dylib ${{ github.workspace }}/artifacts/${{ matrix.output }}/native/
     
