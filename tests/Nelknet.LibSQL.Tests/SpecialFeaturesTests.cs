@@ -192,17 +192,33 @@ public class SpecialFeaturesTests : IDisposable
             // This happens when libSQL ignores the URI parameters
             workedAsRegularMemory = true;
         }
-        catch (LibSQLConnectionException ex) when (ex.ErrorCode == 14)
+        catch (LibSQLConnectionException ex)
         {
-            // Expected on Windows - fails during Open()
-            Assert.False(openSucceeded, "Should fail during Open() on Windows");
-            gotExpectedError = true;
+            // Expected on Windows - fails during Open() with error code 14 (CANTOPEN)
+            if (ex.ErrorCode == 14)
+            {
+                Assert.False(openSucceeded, "Should fail during Open() on Windows");
+                gotExpectedError = true;
+            }
+            else
+            {
+                // Log unexpected error code for debugging
+                throw new Exception($"Unexpected LibSQLConnectionException with error code {ex.ErrorCode}: {ex.Message}", ex);
+            }
         }
-        catch (LibSQLException ex) when (ex.ErrorCode == 2)
+        catch (LibSQLException ex)
         {
             // Expected on some platforms - opens but fails during command execution
-            Assert.True(openSucceeded, "Should open successfully but fail during execution");
-            gotExpectedError = true;
+            if (ex.ErrorCode == 2)
+            {
+                Assert.True(openSucceeded, "Should open successfully but fail during execution");
+                gotExpectedError = true;
+            }
+            else
+            {
+                // Log unexpected error code for debugging
+                throw new Exception($"Unexpected LibSQLException with error code {ex.ErrorCode}: {ex.Message}", ex);
+            }
         }
         
         // Either we got an expected error OR it worked as a regular memory database
