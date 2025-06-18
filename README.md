@@ -302,6 +302,14 @@ catch (LibSQLException ex)
 }
 ```
 
+## Code Quality
+
+The project uses the following analyzers to maintain code quality:
+- **IDisposableAnalyzers** - Ensures proper disposal patterns and catches resource leaks
+- **Meziantou.Analyzer** - Comprehensive code quality checks including performance and correctness
+
+These analyzers help catch potential issues at compile time. Configuration is in `.editorconfig`.
+
 ## Architecture
 
 ```
