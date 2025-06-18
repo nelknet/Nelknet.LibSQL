@@ -407,6 +407,16 @@ public sealed class LibSQLConnection : DbConnection
                                     Marshal.FreeCoTaskMem(config.EncryptionKey);
                             }
                         }
+                        else if (dataSource == ":memory:" || dataSource.StartsWith(":memory:?", StringComparison.Ordinal))
+                        {
+                            // Use libsql_open_ext for :memory: databases (currently just calls libsql_open_file internally)
+                            // Note: libSQL doesn't parse URI parameters like ?cache=shared - they're passed as-is to SQLite
+                            // This can cause platform-specific behavior where :memory:?cache=shared may:
+                            // - Work as a regular :memory: database (parameters ignored)
+                            // - Fail with CANTOPEN error (Windows)
+                            // - Fail with internal error during operations (macOS/Linux)
+                            result = LibSQLNative.libsql_open_ext(dataSource, out dbHandle, out errorMsg);
+                        }
                         else
                         {
                             result = LibSQLNative.libsql_open_file(dataSource, out dbHandle, out errorMsg);
