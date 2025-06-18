@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Xunit;
 using Nelknet.LibSQL.Data;
 using Nelknet.LibSQL.Data.Http;
+using Nelknet.LibSQL.Data.Exceptions;
 
 namespace Nelknet.LibSQL.Tests;
 
@@ -48,16 +49,19 @@ public class HttpConnectionTests
     }
 
     /// <summary>
-    /// Tests that remote connections require an auth token.
+    /// Tests that remote connections can be created without auth token.
+    /// Connection will fail if the server requires auth, but the client
+    /// no longer enforces auth token requirement.
     /// </summary>
     [Fact]
-    public void RemoteConnection_RequiresAuthToken()
+    public void RemoteConnection_AllowsOptionalAuthToken()
     {
         var connectionString = "Data Source=https://example.turso.io";
         using var connection = new LibSQLConnection(connectionString);
 
-        var exception = Assert.Throws<InvalidOperationException>(() => connection.Open());
-        Assert.Contains("Auth token is required", exception.Message);
+        // Connection creation should succeed, but Open() will fail due to network/auth
+        var exception = Assert.Throws<LibSQLConnectionException>(() => connection.Open());
+        Assert.Contains("Failed to connect", exception.Message);
     }
 
     /// <summary>
