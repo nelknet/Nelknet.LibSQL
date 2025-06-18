@@ -400,7 +400,7 @@ class Program
         var indexes = connection.GetSchema("Indexes");
         foreach (DataRow index in indexes.Rows)
         {
-            if (!index["INDEX_NAME"].ToString()?.StartsWith("sqlite_") ?? false)
+            if (!index["INDEX_NAME"].ToString()?.StartsWith("sqlite_", StringComparison.Ordinal) ?? false)
             {
                 Console.WriteLine($"  - {index["INDEX_NAME"]} on {index["TABLE_NAME"]}.{index["COLUMN_NAME"]}");
             }

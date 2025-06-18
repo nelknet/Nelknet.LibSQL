@@ -604,7 +604,9 @@ public sealed class LibSQLCommand : DbCommand
     /// Creates a new instance of a <see cref="LibSQLParameter"/> object.
     /// </summary>
     /// <returns>A <see cref="LibSQLParameter"/> object.</returns>
+#pragma warning disable CA1822 // Mark members as static - Cannot be static due to base class
     public new LibSQLParameter CreateParameter()
+#pragma warning restore CA1822
     {
         return new LibSQLParameter();
     }

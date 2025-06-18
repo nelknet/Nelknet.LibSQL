@@ -1,0 +1,41 @@
+# Disable analyzers that aren't relevant for test code
+[*.cs]
+# CA2007: ConfigureAwait is not needed in tests
+dotnet_diagnostic.CA2007.severity = none
+
+# RCS1090: ConfigureAwait is not needed in tests
+dotnet_diagnostic.RCS1090.severity = none
+
+# CA1707: Underscores in test method names are standard practice
+dotnet_diagnostic.CA1707.severity = none
+
+# CA1305: IFormatProvider not critical in tests
+dotnet_diagnostic.CA1305.severity = none
+
+# CA1861: Static arrays in tests are fine
+dotnet_diagnostic.CA1861.severity = none
+
+# CA1310: StringComparison in tests is less critical
+dotnet_diagnostic.CA1310.severity = none
+
+# CA1062: Argument validation not needed in tests
+dotnet_diagnostic.CA1062.severity = none
+
+# CA1303: Localization not needed in tests
+dotnet_diagnostic.CA1303.severity = none
+
+# CA1063: IDisposable pattern - test fixtures often use simple disposal
+dotnet_diagnostic.CA1063.severity = none
+
+# CA1816: GC.SuppressFinalize not needed in test fixtures
+dotnet_diagnostic.CA1816.severity = none
+
+# CA2263: Use generic Enum.IsDefined
+dotnet_diagnostic.CA2263.severity = none
+
+# CA1822: Make static - test methods sometimes need instance context
+dotnet_diagnostic.CA1822.severity = none
+
+# CA1304/CA1311: Culture-specific string operations in tests
+dotnet_diagnostic.CA1304.severity = none
+dotnet_diagnostic.CA1311.severity = none

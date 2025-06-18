@@ -55,6 +55,15 @@ dotnet_diagnostic.CA2007.severity = warning
 # CA1051: Do not declare visible instance fields
 dotnet_diagnostic.CA1051.severity = suggestion
 
+# CA1010: Generic collection interfaces - Not needed for ADO.NET compatibility
+dotnet_diagnostic.CA1010.severity = none
+
+# CA1720: Identifier contains type name - "Integer" is a SQL type, not exposing .NET type
+dotnet_diagnostic.CA1720.severity = none
+
+# CA2201: Reserved exception types - IndexOutOfRangeException is appropriate for GetOrdinal
+dotnet_diagnostic.CA2201.severity = none
+
 # Roslynator rules
 # RCS1090: Add call to ConfigureAwait (similar to CA2007 but more comprehensive)
 dotnet_diagnostic.RCS1090.severity = warning
@@ -72,3 +81,32 @@ dotnet_diagnostic.CA2007.severity = none
 
 # RCS1090: ConfigureAwait is not needed in tests
 dotnet_diagnostic.RCS1090.severity = none
+
+# CA1707: Underscores in test method names are standard practice
+dotnet_diagnostic.CA1707.severity = none
+
+# CA1305: IFormatProvider not critical in tests
+dotnet_diagnostic.CA1305.severity = none
+
+# CA1861: Static arrays in tests are fine
+dotnet_diagnostic.CA1861.severity = none
+
+# Example project suppressions
+[**/examples/**/*.cs]
+# CA2007: ConfigureAwait is not needed in console apps
+dotnet_diagnostic.CA2007.severity = none
+
+# RCS1090: ConfigureAwait is not needed in console apps
+dotnet_diagnostic.RCS1090.severity = none
+
+# RCS1102: Making Program class static is optional
+dotnet_diagnostic.RCS1102.severity = none
+
+# CA1305: IFormatProvider not critical in examples
+dotnet_diagnostic.CA1305.severity = none
+
+# CA1303: Localization not needed in examples
+dotnet_diagnostic.CA1303.severity = none
+
+# CA1822: Static methods in examples don't matter
+dotnet_diagnostic.CA1822.severity = none

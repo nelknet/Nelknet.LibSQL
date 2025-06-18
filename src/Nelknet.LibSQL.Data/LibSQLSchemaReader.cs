@@ -21,7 +21,7 @@ internal class LibSQLSchemaReader
     /// <summary>
     /// Gets the metadata collection names.
     /// </summary>
-    public DataTable GetMetaDataCollections()
+    public static DataTable GetMetaDataCollections()
     {
         var table = new DataTable("MetaDataCollections");
 #pragma warning disable IDISP004 // Don't ignore created IDisposable - DataColumns are owned by DataTable

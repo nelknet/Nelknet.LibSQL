@@ -1,0 +1,22 @@
+# Disable analyzers that aren't relevant for example code
+[*.cs]
+# CA2007: ConfigureAwait is not needed in console apps
+dotnet_diagnostic.CA2007.severity = none
+
+# RCS1090: ConfigureAwait is not needed in console apps
+dotnet_diagnostic.RCS1090.severity = none
+
+# RCS1102: Making Program class static is optional
+dotnet_diagnostic.RCS1102.severity = none
+
+# CA1305: IFormatProvider not critical in examples
+dotnet_diagnostic.CA1305.severity = none
+
+# CA1303: Localization not needed in examples
+dotnet_diagnostic.CA1303.severity = none
+
+# CA1822: Static methods in examples don't matter
+dotnet_diagnostic.CA1822.severity = none
+
+# CA1852: Sealing Program class is optional
+dotnet_diagnostic.CA1852.severity = none
