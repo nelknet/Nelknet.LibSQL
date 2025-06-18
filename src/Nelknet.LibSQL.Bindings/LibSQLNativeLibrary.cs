@@ -90,7 +90,7 @@ internal static class LibSQLNativeLibrary
     /// <returns>The runtime identifier string, or null if unsupported.</returns>
     private static string? GetRuntimeIdentifier()
     {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        if (OperatingSystem.IsWindows())
         {
             return RuntimeInformation.ProcessArchitecture switch
             {
@@ -101,7 +101,7 @@ internal static class LibSQLNativeLibrary
             };
         }
 
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        if (OperatingSystem.IsLinux())
         {
             return RuntimeInformation.ProcessArchitecture switch
             {
@@ -112,7 +112,7 @@ internal static class LibSQLNativeLibrary
             };
         }
 
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        if (OperatingSystem.IsMacOS())
         {
             return RuntimeInformation.ProcessArchitecture switch
             {
@@ -183,12 +183,12 @@ internal static class LibSQLNativeLibrary
     /// <returns>An array of library names to attempt.</returns>
     private static string[] GetPlatformSpecificLibraryNames()
     {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        if (OperatingSystem.IsWindows())
         {
             return new[] { "libsql.dll", "sqlite3.dll" };
         }
 
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        if (OperatingSystem.IsMacOS())
         {
             return new[] { "libsql.dylib", "libsqlite3.dylib", "sqlite3.dylib" };
         }

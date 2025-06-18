@@ -323,23 +323,58 @@ public sealed class LibSQLConnection : DbConnection
                         {
                             throw new InvalidOperationException("Sync URL is required for embedded replica connections.");
                         }
-                        if (string.IsNullOrEmpty(builder.SyncAuthToken ?? builder.AuthToken))
+                        if (string.IsNullOrEmpty(builder.SyncAuthToken ?? builder.AuthToken) && !builder.Offline)
                         {
-                            throw new InvalidOperationException("Auth token is required for embedded replica connections.");
+                            throw new InvalidOperationException("Auth token is required for embedded replica connections (unless in offline mode).");
                         }
                         
-                        var authTokenToUse = builder.SyncAuthToken ?? builder.AuthToken;
+                        var authTokenToUse = builder.SyncAuthToken ?? builder.AuthToken ?? string.Empty;
                         var readYourWrites = builder.ReadYourWrites ? (byte)1 : (byte)0;
                         
-                        // Use WebPKI by default for embedded replicas
-                        result = LibSQLNative.libsql_open_sync_with_webpki(
-                            dataSource, 
-                            builder.SyncUrl, 
-                            authTokenToUse, 
-                            readYourWrites, 
-                            builder.EncryptionKey, 
-                            out dbHandle, 
-                            out errorMsg);
+                        if (builder.Offline)
+                        {
+                            // Use config-based API for offline mode
+                            var config = new LibSQLConfig
+                            {
+                                DbPath = Marshal.StringToCoTaskMemUTF8(dataSource),
+                                PrimaryUrl = Marshal.StringToCoTaskMemUTF8(builder.SyncUrl),
+                                AuthToken = Marshal.StringToCoTaskMemUTF8(authTokenToUse),
+                                ReadYourWrites = readYourWrites,
+                                EncryptionKey = Marshal.StringToCoTaskMemUTF8(builder.EncryptionKey),
+                                SyncInterval = builder.SyncInterval ?? 0,
+                                WithWebpki = 1,
+                                Offline = 1
+                            };
+                            
+                            try
+                            {
+                                result = LibSQLNative.libsql_open_sync_with_config(in config, out dbHandle, out errorMsg);
+                            }
+                            finally
+                            {
+                                // Clean up unmanaged memory
+                                if (config.DbPath != IntPtr.Zero)
+                                    Marshal.FreeCoTaskMem(config.DbPath);
+                                if (config.PrimaryUrl != IntPtr.Zero)
+                                    Marshal.FreeCoTaskMem(config.PrimaryUrl);
+                                if (config.AuthToken != IntPtr.Zero)
+                                    Marshal.FreeCoTaskMem(config.AuthToken);
+                                if (config.EncryptionKey != IntPtr.Zero)
+                                    Marshal.FreeCoTaskMem(config.EncryptionKey);
+                            }
+                        }
+                        else
+                        {
+                            // Use WebPKI by default for embedded replicas
+                            result = LibSQLNative.libsql_open_sync_with_webpki(
+                                dataSource, 
+                                builder.SyncUrl, 
+                                authTokenToUse, 
+                                readYourWrites, 
+                                builder.EncryptionKey, 
+                                out dbHandle, 
+                                out errorMsg);
+                        }
                         break;
                         
                     case LibSQLConnectionMode.Local:

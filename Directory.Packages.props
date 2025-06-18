@@ -13,5 +13,9 @@
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.1" />
     <!-- Future packages for ADO.NET implementation -->
     <!-- <PackageVersion Include="System.Data.Common" Version="4.3.0" /> -->
+    
+    <!-- Code analyzers -->
+    <PackageVersion Include="IDisposableAnalyzers" Version="4.0.8" />
+    <PackageVersion Include="Meziantou.Analyzer" Version="2.0.179" />
   </ItemGroup>
 </Project>
