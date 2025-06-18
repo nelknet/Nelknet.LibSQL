@@ -286,12 +286,8 @@ public sealed class LibSQLConnection : DbConnection
                 switch (builder.Mode)
                 {
                     case LibSQLConnectionMode.Remote:
-                        if (string.IsNullOrEmpty(builder.AuthToken))
-                        {
-                            throw new InvalidOperationException("Auth token is required for remote connections.");
-                        }
-                        
                         // Use HTTP-based remote connections
+                        // Auth token is optional - some servers don't require authentication
                         _httpClient = new LibSQLHttpClient(dataSource, builder.AuthToken);
                         _isHttpConnection = true;
                         
@@ -301,18 +297,8 @@ public sealed class LibSQLConnection : DbConnection
                             var testTask = _httpClient.TestConnectionAsync();
                             if (!testTask.Wait(TimeSpan.FromSeconds(10)) || !testTask.Result)
                             {
-                                _httpClient.Dispose();
-                                _httpClient = null;
-                                _isHttpConnection = false;
                                 throw new LibSQLConnectionException("Failed to connect to remote libSQL server", 0, dataSource);
                             }
-                        }
-                        catch (AggregateException ex) when (ex.InnerException != null)
-                        {
-                            _httpClient?.Dispose();
-                            _httpClient = null;
-                            _isHttpConnection = false;
-                            throw new LibSQLConnectionException("Failed to connect to remote libSQL server", ex.InnerException);
                         }
                         catch (Exception ex)
                         {

@@ -25,9 +25,6 @@ internal sealed class LibSQLHttpClient : IDisposable
     {
         if (string.IsNullOrWhiteSpace(url))
             throw new ArgumentException("URL cannot be null or empty", nameof(url));
-        
-        if (string.IsNullOrWhiteSpace(authToken))
-            throw new ArgumentException("Auth token cannot be null or empty", nameof(authToken));
 
         _authToken = authToken;
         _baseUrl = NormalizeUrl(url);
@@ -38,8 +35,12 @@ internal sealed class LibSQLHttpClient : IDisposable
             Timeout = TimeSpan.FromSeconds(30)
         };
         
-        _httpClient.DefaultRequestHeaders.Authorization = 
-            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _authToken);
+        // Only add authorization header if token is provided
+        if (!string.IsNullOrWhiteSpace(_authToken))
+        {
+            _httpClient.DefaultRequestHeaders.Authorization = 
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _authToken);
+        }
         
         _httpClient.DefaultRequestHeaders.Add("User-Agent", "Nelknet.LibSQL/1.0");
 
