@@ -407,10 +407,6 @@ public sealed class LibSQLConnection : DbConnection
                                     Marshal.FreeCoTaskMem(config.EncryptionKey);
                             }
                         }
-                        else if (dataSource == ":memory:" || dataSource.StartsWith(":memory:?", StringComparison.Ordinal))
-                        {
-                            result = LibSQLNative.libsql_open_ext(dataSource, out dbHandle, out errorMsg);
-                        }
                         else
                         {
                             result = LibSQLNative.libsql_open_file(dataSource, out dbHandle, out errorMsg);
