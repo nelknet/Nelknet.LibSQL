@@ -21,7 +21,7 @@ Nelknet.LibSQL is a C# client library that provides native bindings to libSQL, a
 
 ## Installation
 
-Install via NuGet Package Manager:
+Install the Nelknet.LibSQL.Data package via NuGet:
 
 ```bash
 dotnet add package Nelknet.LibSQL.Data
@@ -84,7 +84,7 @@ while (reader.Read())
 
 ```csharp
 // Connect to a remote libSQL database
-var connectionString = "Data Source=libsql://your-database.turso.io;AuthToken=your-auth-token";
+var connectionString = "Data Source=https://your-database.turso.io;Auth Token=your-auth-token";
 using var connection = new LibSQLConnection(connectionString);
 connection.Open();
 
@@ -97,7 +97,7 @@ connection.Open();
 // Create an embedded replica that syncs with a remote primary
 var connectionString = @"
     Data Source=local-replica.db;
-    SyncUrl=libsql://your-database.turso.io;
+    SyncUrl=https://your-database.turso.io;
     AuthToken=your-auth-token;
     ReadYourWrites=true";
 
@@ -155,17 +155,86 @@ var count = await cmd.ExecuteScalarAsync();
 Console.WriteLine($"Total users: {count}");
 ```
 
-## Connection String Options
+### Bulk Insert Operations
 
-| Parameter | Description | Example |
-|-----------|-------------|---------|
-| `Data Source` | Database file path or URL | `local.db` or `libsql://host.turso.io` |
-| `AuthToken` | Authentication token for remote connections | `your-auth-token` |
-| `SyncUrl` | URL of the primary database for embedded replicas | `libsql://primary.turso.io` |
-| `SyncInterval` | Automatic sync interval in milliseconds | `60000` (1 minute) |
-| `ReadYourWrites` | Enable read-your-writes consistency | `true` |
-| `EncryptionKey` | Encryption key for encrypted databases | `your-encryption-key` |
-| `Mode` | Connection mode | `Memory`, `ReadOnly`, `ReadWrite` |
+For inserting large amounts of data efficiently:
+
+```csharp
+var columns = new[] { "name", "email", "created_at" };
+using var bulkInsert = new LibSQLBulkInsert(connection, "users", columns);
+
+bulkInsert.BeginBulkInsert();
+
+for (int i = 0; i < 10000; i++)
+{
+    bulkInsert.WriteRow(
+        $"User {i}",
+        $"user{i}@example.com",
+        DateTime.Now.ToString("O")
+    );
+}
+
+bulkInsert.Complete();
+```
+
+## Connection String Reference
+
+Connection strings follow the standard key-value pair format: `key1=value1;key2=value2`
+
+### Connection Modes
+
+**Local Mode (Default)**
+```csharp
+// File-based database
+var connection = new LibSQLConnection("Data Source=mydatabase.db");
+
+// In-memory database
+var connection = new LibSQLConnection("Data Source=:memory:");
+```
+
+**Remote Mode**
+```csharp
+// Connect to remote libSQL server (e.g., Turso)
+var connection = new LibSQLConnection(
+    "Data Source=https://mydb.turso.io;Auth Token=your-auth-token");
+```
+
+**Embedded Replica Mode**
+```csharp
+// Local database that syncs with remote
+var connection = new LibSQLConnection(
+    "Data Source=local.db;SyncUrl=https://mydb.turso.io;AuthToken=your-token");
+```
+
+### Connection String Properties
+
+| Property | Description | Default | Example |
+|----------|-------------|---------|---------|
+| `Data Source` | Database location (file path, URL, or :memory:) | Required | `mydatabase.db`, `https://mydb.turso.io` |
+| `Auth Token` | Authentication token for remote connections | None | `Auth Token=eyJ0eXAi...` |
+| `SyncUrl` | URL of the primary database for embedded replicas | None | `SyncUrl=https://mydb.turso.io` |
+| `SyncInterval` | Automatic sync interval in milliseconds | None (manual) | `SyncInterval=60000` |
+| `ReadYourWrites` | Enable read-your-writes consistency | `true` | `ReadYourWrites=false` |
+| `Offline` | Start embedded replica in offline mode | `false` | `Offline=true` |
+| `EnableStatementCaching` | Enable prepared statement caching | `false` | `EnableStatementCaching=true` |
+| `MaxCachedStatements` | Maximum number of cached statements | `100` | `MaxCachedStatements=200` |
+
+**Property Aliases**: `Data Source` = `DataSource`, `Filename`, `Database` | `Auth Token` = `AuthToken`, `Token`
+
+### Connection String Builder
+
+For programmatic construction:
+
+```csharp
+var builder = new LibSQLConnectionStringBuilder
+{
+    DataSource = "https://mydb.turso.io",
+    AuthToken = "your-auth-token",
+    EnableStatementCaching = true
+};
+
+var connection = new LibSQLConnection(builder.ConnectionString);
+```
 
 ## Design Choices
 
@@ -201,6 +270,38 @@ The library implements the standard ADO.NET interfaces to ensure compatibility w
 - Follows Microsoft.Data.Sqlite patterns where applicable
 - Supports both synchronous and asynchronous operations
 
+## Performance Tips
+
+1. **Use Prepared Statements**: For repeated queries, prepare statements or enable statement caching
+2. **Bulk Operations**: Use `LibSQLBulkInsert` for inserting large amounts of data
+3. **Connection Pooling**: Reuse connections when possible, especially for remote databases
+4. **Transactions**: Group multiple operations in transactions for better performance
+5. **Statement Caching**: Enable with `EnableStatementCaching=true` in connection string
+
+## Error Handling
+
+```csharp
+try
+{
+    // Database operations
+}
+catch (LibSQLException ex)
+{
+    Console.WriteLine($"Database error: {ex.Message}");
+    Console.WriteLine($"Error code: {ex.ErrorCode}");
+    
+    // Handle specific error types
+    if (ex is LibSQLBusyException busyEx)
+    {
+        Console.WriteLine($"Database is busy: {busyEx.LockType}");
+    }
+    else if (ex is LibSQLConstraintException constraintEx)
+    {
+        Console.WriteLine($"Constraint violation: {constraintEx.ConstraintType}");
+    }
+}
+```
+
 ## Architecture
 
 ```
@@ -235,24 +336,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [DuckDB.NET](https://github.com/Giorgi/DuckDB.NET) - Inspiration for native binding patterns
 - [Microsoft.Data.Sqlite](https://github.com/dotnet/efcore) - Reference for ADO.NET implementation
 
-## Documentation
+## Example Projects
 
-### Getting Started
-- [Getting Started Guide](docs/getting-started.md) - Quick introduction and basic usage
-- [Connection Strings](docs/connection-strings.md) - All connection string options explained
-- [Code Examples](docs/examples.md) - Practical examples for common scenarios
-
-### Advanced Topics
-- [Performance Tuning](docs/performance-tuning.md) - Optimization techniques and best practices
-- [API Reference](docs/api-reference.md) - Complete API documentation
-
-### Example Projects
 - [BasicExample](examples/BasicExample) - Comprehensive console application demonstrating all major features
-- [More Examples](examples) - Additional example projects
+- [EmbeddedReplicaExample](examples/EmbeddedReplicaExample) - Demonstrates embedded replica functionality
+- [RemoteConnectionExample](examples/RemoteConnectionExample) - Shows remote connection usage
 
 ## Links
 
 - [libSQL Documentation](https://docs.turso.tech/libsql)
 - [Turso Database](https://turso.tech/) - Managed libSQL hosting
-- [NuGet Package](https://www.nuget.org/packages/Nelknet.LibSQL/)
+- [NuGet Package](https://www.nuget.org/packages/Nelknet.LibSQL.Data/)
 - [Report Issues](https://github.com/nelknet/Nelknet.LibSQL/issues)
