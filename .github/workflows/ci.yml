@@ -30,13 +30,27 @@ jobs:
     - name: Build
       run: dotnet build --no-restore --configuration Release
     
-    # Debug: Check if native libraries are present after build
-    - name: Check native libraries
+    # Debug: Check if native libraries are present after build (Unix)
+    - name: Check native libraries (Unix)
+      if: runner.os != 'Windows'
       run: |
         echo "Checking for native libraries..."
         find . -name "libsql.so" -o -name "libsql.dll" -o -name "libsql.dylib" | head -20
         echo "Test output directory contents:"
         ls -la tests/Nelknet.LibSQL.Tests/bin/Release/net8.0/runtimes/ || echo "Runtime directory not found"
+    
+    # Debug: Check if native libraries are present after build (Windows)
+    - name: Check native libraries (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        echo "Checking for native libraries..."
+        Get-ChildItem -Recurse -Filter "libsql.dll" | Select-Object -First 20
+        echo "Test output directory contents:"
+        if (Test-Path "tests\Nelknet.LibSQL.Tests\bin\Release\net8.0\runtimes\") {
+          Get-ChildItem "tests\Nelknet.LibSQL.Tests\bin\Release\net8.0\runtimes\" -Recurse
+        } else {
+          echo "Runtime directory not found"
+        }
     
     # Start sqld server for remote integration tests (Linux only)
     - name: Start sqld server
