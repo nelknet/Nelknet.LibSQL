@@ -759,7 +759,7 @@ public sealed class LibSQLCommand : DbCommand
         
         // Don't cache statements with positional parameters (?) as they're often used
         // for bulk operations where the same statement is executed many times
-        bool hasPositionalParameters = CommandText.Contains("?") && !CommandText.Contains("@");
+        bool hasPositionalParameters = CommandText.Contains('?') && !CommandText.Contains('@');
         
         // Try to get from cache if enabled at both connection and command level, and not using positional parameters
         if (_enableStatementCaching && Connection!.EnableStatementCaching && Connection.StatementCache != null && !hasPositionalParameters)
@@ -920,7 +920,7 @@ public sealed class LibSQLCommand : DbCommand
                 cts.CancelAfter(TimeSpan.FromSeconds(CommandTimeout));
             }
 
-            var response = await httpClient.ExecuteBatchAsync(batch, cts.Token);
+            var response = await httpClient.ExecuteBatchAsync(batch, cts.Token).ConfigureAwait(false);
             
             // Sequence requests don't return affected rows
             return -1;
@@ -931,7 +931,7 @@ public sealed class LibSQLCommand : DbCommand
         foreach (var statement in statements)
         {
             _commandText = statement;
-            var affected = await ExecuteNonQueryAsync(cancellationToken);
+            var affected = await ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             if (affected > 0)
                 totalAffected += affected;
         }
@@ -957,7 +957,7 @@ public sealed class LibSQLCommand : DbCommand
         // For HTTP connections, use the optimized transactional batch
         if (_httpCommand != null)
         {
-            return await _httpCommand.ExecuteTransactionalBatchAsync(statements, cancellationToken);
+            return await _httpCommand.ExecuteTransactionalBatchAsync(statements, cancellationToken).ConfigureAwait(false);
         }
 
         // For local connections, use a transaction
@@ -970,7 +970,7 @@ public sealed class LibSQLCommand : DbCommand
             foreach (var statement in statements)
             {
                 _commandText = statement;
-                var affected = await ExecuteNonQueryAsync(cancellationToken);
+                var affected = await ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 if (affected > 0)
                     totalAffected += affected;
             }

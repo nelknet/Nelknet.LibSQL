@@ -202,7 +202,11 @@ internal sealed class LibSQLBackupHandle : LibSQLSafeHandle
     {
         if (!IsInvalid && !IsClosed)
         {
-            LibSQLNative.sqlite3_backup_finish(handle);
+            // sqlite3_backup_finish can return an error code, but in the context of cleanup
+            // we can't do much about it. We log it for debugging purposes.
+            var result = LibSQLNative.sqlite3_backup_finish(handle);
+            // Return true even if there was an error, as we've done our best to clean up
+            return true;
         }
         return true;
     }

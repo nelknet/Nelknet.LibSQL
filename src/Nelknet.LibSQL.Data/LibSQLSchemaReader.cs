@@ -14,7 +14,8 @@ internal class LibSQLSchemaReader
     
     public LibSQLSchemaReader(LibSQLConnection connection)
     {
-        _connection = connection ?? throw new ArgumentNullException(nameof(connection));
+        ArgumentNullException.ThrowIfNull(connection);
+        _connection = connection;
     }
     
     /// <summary>
@@ -23,9 +24,11 @@ internal class LibSQLSchemaReader
     public DataTable GetMetaDataCollections()
     {
         var table = new DataTable("MetaDataCollections");
+#pragma warning disable IDISP004 // Don't ignore created IDisposable - DataColumns are owned by DataTable
         table.Columns.Add("CollectionName", typeof(string));
         table.Columns.Add("NumberOfRestrictions", typeof(int));
         table.Columns.Add("NumberOfIdentifierParts", typeof(int));
+#pragma warning restore IDISP004
         
         table.Rows.Add(LibSQLMetaDataCollectionNames.Tables, 2, 2);
         table.Rows.Add(LibSQLMetaDataCollectionNames.Columns, 4, 4);
@@ -59,10 +62,12 @@ internal class LibSQLSchemaReader
     private DataTable GetTables(string?[]? restrictionValues)
     {
         var table = new DataTable(LibSQLMetaDataCollectionNames.Tables);
+#pragma warning disable IDISP004 // Don't ignore created IDisposable - DataColumns are owned by DataTable
         table.Columns.Add("TABLE_CATALOG", typeof(string));
         table.Columns.Add("TABLE_SCHEMA", typeof(string));
         table.Columns.Add("TABLE_NAME", typeof(string));
         table.Columns.Add("TABLE_TYPE", typeof(string));
+#pragma warning restore IDISP004
         
         var catalog = restrictionValues?.Length > 0 ? restrictionValues[0] : null;
         var tableName = restrictionValues?.Length > 1 ? restrictionValues[1] : null;
@@ -92,6 +97,7 @@ internal class LibSQLSchemaReader
     private DataTable GetColumns(string?[]? restrictionValues)
     {
         var table = new DataTable(LibSQLMetaDataCollectionNames.Columns);
+#pragma warning disable IDISP004 // Don't ignore created IDisposable - DataColumns are owned by DataTable
         table.Columns.Add("TABLE_CATALOG", typeof(string));
         table.Columns.Add("TABLE_SCHEMA", typeof(string));
         table.Columns.Add("TABLE_NAME", typeof(string));
@@ -106,6 +112,7 @@ internal class LibSQLSchemaReader
         table.Columns.Add("PRIMARY_KEY", typeof(bool));
         table.Columns.Add("AUTOINCREMENT", typeof(bool));
         table.Columns.Add("UNIQUE", typeof(bool));
+#pragma warning restore IDISP004
         
         var catalog = restrictionValues?.Length > 0 ? restrictionValues[0] : null;
         var schema = restrictionValues?.Length > 1 ? restrictionValues[1] : null;
@@ -170,12 +177,14 @@ internal class LibSQLSchemaReader
     private DataTable GetViews(string?[]? restrictionValues)
     {
         var table = new DataTable(LibSQLMetaDataCollectionNames.Views);
+#pragma warning disable IDISP004 // Don't ignore created IDisposable - DataColumns are owned by DataTable
         table.Columns.Add("TABLE_CATALOG", typeof(string));
         table.Columns.Add("TABLE_SCHEMA", typeof(string));
         table.Columns.Add("TABLE_NAME", typeof(string));
         table.Columns.Add("VIEW_DEFINITION", typeof(string));
         table.Columns.Add("CHECK_OPTION", typeof(string));
         table.Columns.Add("IS_UPDATABLE", typeof(string));
+#pragma warning restore IDISP004
         
         var catalog = restrictionValues?.Length > 0 ? restrictionValues[0] : null;
         var viewName = restrictionValues?.Length > 1 ? restrictionValues[1] : null;
@@ -325,14 +334,14 @@ internal class LibSQLSchemaReader
             if (sql != null)
             {
                 var upperSql = sql.ToUpperInvariant();
-                if (upperSql.Contains("BEFORE"))
+                if (upperSql.Contains("BEFORE", StringComparison.Ordinal))
                     triggerType = "BEFORE";
-                else if (upperSql.Contains("INSTEAD OF"))
+                else if (upperSql.Contains("INSTEAD OF", StringComparison.Ordinal))
                     triggerType = "INSTEAD OF";
                 
-                if (upperSql.Contains("UPDATE"))
+                if (upperSql.Contains("UPDATE", StringComparison.Ordinal))
                     triggeringEvent = "UPDATE";
-                else if (upperSql.Contains("DELETE"))
+                else if (upperSql.Contains("DELETE", StringComparison.Ordinal))
                     triggeringEvent = "DELETE";
             }
             

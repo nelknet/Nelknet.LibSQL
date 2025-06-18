@@ -53,9 +53,13 @@ public class LibSQLBulkInsert : IDisposable
     /// <param name="columnNames">The names of the columns to insert.</param>
     public LibSQLBulkInsert(LibSQLConnection connection, string tableName, IEnumerable<string> columnNames)
     {
-        _connection = connection ?? throw new ArgumentNullException(nameof(connection));
-        _tableName = tableName ?? throw new ArgumentNullException(nameof(tableName));
-        _columnNames = new List<string>(columnNames ?? throw new ArgumentNullException(nameof(columnNames)));
+        ArgumentNullException.ThrowIfNull(connection);
+        ArgumentNullException.ThrowIfNull(tableName);
+        ArgumentNullException.ThrowIfNull(columnNames);
+        
+        _connection = connection;
+        _tableName = tableName;
+        _columnNames = new List<string>(columnNames);
 
         if (_columnNames.Count == 0)
             throw new ArgumentException("At least one column name must be specified.", nameof(columnNames));
@@ -66,8 +70,7 @@ public class LibSQLBulkInsert : IDisposable
     /// </summary>
     public void BeginBulkInsert()
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(LibSQLBulkInsert));
+        ObjectDisposedException.ThrowIf(_disposed, this);
 
         if (_connection.State != ConnectionState.Open)
             throw new InvalidOperationException("Connection must be open to begin bulk insert.");
@@ -86,8 +89,7 @@ public class LibSQLBulkInsert : IDisposable
     /// </summary>
     public async Task BeginBulkInsertAsync(CancellationToken cancellationToken = default)
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(LibSQLBulkInsert));
+        ObjectDisposedException.ThrowIf(_disposed, this);
 
         if (_connection.State != ConnectionState.Open)
             throw new InvalidOperationException("Connection must be open to begin bulk insert.");
@@ -107,8 +109,7 @@ public class LibSQLBulkInsert : IDisposable
     /// <param name="values">The values to insert.</param>
     public void WriteRow(params object?[] values)
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(LibSQLBulkInsert));
+        ObjectDisposedException.ThrowIf(_disposed, this);
 
         if (_insertCommand == null)
             throw new InvalidOperationException("BeginBulkInsert must be called before WriteRow.");
@@ -148,8 +149,7 @@ public class LibSQLBulkInsert : IDisposable
     /// <param name="values">The values to insert.</param>
     public async Task WriteRowAsync(CancellationToken cancellationToken, params object?[] values)
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(LibSQLBulkInsert));
+        ObjectDisposedException.ThrowIf(_disposed, this);
 
         if (_insertCommand == null)
             throw new InvalidOperationException("BeginBulkInsert must be called before WriteRow.");
@@ -179,8 +179,7 @@ public class LibSQLBulkInsert : IDisposable
     /// <param name="rows">The rows to insert.</param>
     public void WriteRows(IEnumerable<object?[]> rows)
     {
-        if (rows == null)
-            throw new ArgumentNullException(nameof(rows));
+        ArgumentNullException.ThrowIfNull(rows);
 
         foreach (var row in rows)
         {
@@ -195,8 +194,7 @@ public class LibSQLBulkInsert : IDisposable
     /// <param name="cancellationToken">The cancellation token.</param>
     public async Task WriteRowsAsync(IEnumerable<object?[]> rows, CancellationToken cancellationToken = default)
     {
-        if (rows == null)
-            throw new ArgumentNullException(nameof(rows));
+        ArgumentNullException.ThrowIfNull(rows);
 
         foreach (var row in rows)
         {
@@ -210,8 +208,7 @@ public class LibSQLBulkInsert : IDisposable
     /// <param name="reader">The data reader to read from.</param>
     public void WriteFromReader(DbDataReader reader)
     {
-        if (reader == null)
-            throw new ArgumentNullException(nameof(reader));
+        ArgumentNullException.ThrowIfNull(reader);
 
         var values = new object[_columnNames.Count];
         
@@ -229,8 +226,7 @@ public class LibSQLBulkInsert : IDisposable
     /// <param name="cancellationToken">The cancellation token.</param>
     public async Task WriteFromReaderAsync(DbDataReader reader, CancellationToken cancellationToken = default)
     {
-        if (reader == null)
-            throw new ArgumentNullException(nameof(reader));
+        ArgumentNullException.ThrowIfNull(reader);
 
         var values = new object[_columnNames.Count];
         
@@ -246,8 +242,7 @@ public class LibSQLBulkInsert : IDisposable
     /// </summary>
     public void Complete()
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(LibSQLBulkInsert));
+        ObjectDisposedException.ThrowIf(_disposed, this);
 
         if (_transaction != null)
         {
@@ -264,8 +259,7 @@ public class LibSQLBulkInsert : IDisposable
     /// </summary>
     public async Task CompleteAsync(CancellationToken cancellationToken = default)
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(LibSQLBulkInsert));
+        ObjectDisposedException.ThrowIf(_disposed, this);
 
         if (_transaction != null)
         {
@@ -388,10 +382,24 @@ public class LibSQLBulkInsert : IDisposable
     /// </summary>
     public void Dispose()
     {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Disposes the bulk insert operation.
+    /// </summary>
+    /// <param name="disposing">True if disposing managed resources.</param>
+    protected virtual void Dispose(bool disposing)
+    {
         if (_disposed)
             return;
 
-        Abort();
+        if (disposing)
+        {
+            Abort();
+        }
+
         _disposed = true;
     }
 
@@ -400,8 +408,7 @@ public class LibSQLBulkInsert : IDisposable
     /// </summary>
     public static void BulkInsertDataTable(LibSQLConnection connection, DataTable dataTable, string? tableName = null)
     {
-        if (dataTable == null)
-            throw new ArgumentNullException(nameof(dataTable));
+        ArgumentNullException.ThrowIfNull(dataTable);
 
         tableName ??= dataTable.TableName;
         if (string.IsNullOrEmpty(tableName))
@@ -429,8 +436,7 @@ public class LibSQLBulkInsert : IDisposable
     /// </summary>
     public static async Task BulkInsertDataTableAsync(LibSQLConnection connection, DataTable dataTable, string? tableName = null, CancellationToken cancellationToken = default)
     {
-        if (dataTable == null)
-            throw new ArgumentNullException(nameof(dataTable));
+        ArgumentNullException.ThrowIfNull(dataTable);
 
         tableName ??= dataTable.TableName;
         if (string.IsNullOrEmpty(tableName))

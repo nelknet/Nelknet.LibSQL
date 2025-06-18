@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
+using System.Globalization;
 
 namespace Nelknet.LibSQL.Data;
 
@@ -50,7 +51,7 @@ public sealed class LibSQLConnectionStringBuilder : DbConnectionStringBuilder
     private string? _syncAuthToken;
     private bool _readYourWrites = true;
     private int? _syncInterval;
-    private bool _offline = false;
+    private bool _offline;
     private LibSQLConnectionMode _mode = LibSQLConnectionMode.Local;
 
     /// <summary>
@@ -215,13 +216,13 @@ public sealed class LibSQLConnectionStringBuilder : DbConnectionStringBuilder
                     SyncAuthToken = value?.ToString();
                     break;
                 case "Read Your Writes":
-                    ReadYourWrites = Convert.ToBoolean(value);
+                    ReadYourWrites = Convert.ToBoolean(value, CultureInfo.InvariantCulture);
                     break;
                 case "Sync Interval":
-                    SyncInterval = value != null ? Convert.ToInt32(value) : null;
+                    SyncInterval = value != null ? Convert.ToInt32(value, CultureInfo.InvariantCulture) : null;
                     break;
                 case "Offline":
-                    Offline = Convert.ToBoolean(value);
+                    Offline = Convert.ToBoolean(value, CultureInfo.InvariantCulture);
                     break;
                 default:
                     base[keyword] = value;
@@ -423,13 +424,13 @@ public sealed class LibSQLConnectionStringBuilder : DbConnectionStringBuilder
             _syncAuthToken = syncAuthToken?.ToString();
             
         if (base.TryGetValue("Read Your Writes", out var readYourWrites))
-            _readYourWrites = Convert.ToBoolean(readYourWrites);
+            _readYourWrites = Convert.ToBoolean(readYourWrites, CultureInfo.InvariantCulture);
             
         if (base.TryGetValue("Sync Interval", out var syncInterval))
-            _syncInterval = syncInterval != null ? Convert.ToInt32(syncInterval) : null;
+            _syncInterval = syncInterval != null ? Convert.ToInt32(syncInterval, CultureInfo.InvariantCulture) : null;
             
         if (base.TryGetValue("Offline", out var offline))
-            _offline = Convert.ToBoolean(offline);
+            _offline = Convert.ToBoolean(offline, CultureInfo.InvariantCulture);
             
         UpdateMode();
     }

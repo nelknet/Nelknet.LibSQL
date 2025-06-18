@@ -24,14 +24,14 @@ public sealed class LibSQLConnection : DbConnection
     private LibSQLConnectionHandle? _connectionHandle;
     private LibSQLHttpClient? _httpClient;
     private ConnectionState _connectionState = ConnectionState.Closed;
-    private string _connectionString = string.Empty;
+    private string _connectionString = string.Empty; // Empty string is not default for reference types
     private LibSQLConnectionStringBuilder? _connectionStringBuilder;
     internal LibSQLTransaction? _currentTransaction;
     private LibSQLStatementCache? _statementCache;
-    private bool _enableStatementCaching = false; // Disabled by default for compatibility
+    private bool _enableStatementCaching; // false by default
     private Timer? _syncTimer;
-    private bool _isSyncing = false;
-    private bool _isHttpConnection = false;
+    private bool _isSyncing;
+    private bool _isHttpConnection;
     // Commented out - libSQL doesn't support direct SQLite function registration
     // private LibSQLFunctionManager? _functionManager;
     // private bool _extendedResultCodes = false;
@@ -407,7 +407,7 @@ public sealed class LibSQLConnection : DbConnection
                                     Marshal.FreeCoTaskMem(config.EncryptionKey);
                             }
                         }
-                        else if (dataSource == ":memory:" || dataSource.StartsWith(":memory:?"))
+                        else if (dataSource == ":memory:" || dataSource.StartsWith(":memory:?", StringComparison.Ordinal))
                         {
                             result = LibSQLNative.libsql_open_ext(dataSource, out dbHandle, out errorMsg);
                         }
@@ -888,7 +888,7 @@ public sealed class LibSQLConnection : DbConnection
         // Run sync on thread pool with cancellation support
         using (cancellationToken.Register(() => { /* Could implement interrupt if libSQL supports it */ }))
         {
-            return await Task.Run(() => Sync(), cancellationToken);
+            return await Task.Run(() => Sync(), cancellationToken).ConfigureAwait(false);
         }
     }
     
@@ -922,7 +922,7 @@ public sealed class LibSQLConnection : DbConnection
             {
                 try
                 {
-                    await SyncAsync();
+                    await SyncAsync().ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {

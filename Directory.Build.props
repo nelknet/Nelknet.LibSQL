@@ -40,13 +40,15 @@
     <DebugType>embedded</DebugType>
   </PropertyGroup>
 
+  <!-- Enable built-in .NET analyzers -->
+  <PropertyGroup>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+  </PropertyGroup>
+
   <!-- Code analyzers for all projects -->
   <ItemGroup>
-    <PackageReference Include="IDisposableAnalyzers">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="Meziantou.Analyzer">
+    <PackageReference Include="Roslynator.Analyzers">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>

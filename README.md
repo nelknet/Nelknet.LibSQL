@@ -305,8 +305,8 @@ catch (LibSQLException ex)
 ## Code Quality
 
 The project uses the following analyzers to maintain code quality:
-- **IDisposableAnalyzers** - Ensures proper disposal patterns and catches resource leaks
-- **Meziantou.Analyzer** - Comprehensive code quality checks including performance and correctness
+- **Microsoft.CodeAnalysis.NetAnalyzers** - Built-in .NET analyzers for security, performance, and reliability
+- **Roslynator.Analyzers** - Additional code quality and style checks
 
 These analyzers help catch potential issues at compile time. Configuration is in `.editorconfig`.
 

@@ -73,8 +73,7 @@ public sealed class LibSQLDataReader : DbDataReader
     {
         get
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(LibSQLDataReader));
+            ObjectDisposedException.ThrowIf(_disposed, this);
             
             if (_isHttpReader && _httpDataReader != null)
                 return _httpDataReader.FieldCount;
@@ -94,8 +93,7 @@ public sealed class LibSQLDataReader : DbDataReader
     {
         get
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(LibSQLDataReader));
+            ObjectDisposedException.ThrowIf(_disposed, this);
                 
             if (_isHttpReader && _httpDataReader != null)
                 return _httpDataReader.HasRows;
@@ -196,8 +194,7 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The actual number of bytes read.</returns>
     public override long GetBytes(int ordinal, long dataOffset, byte[]? buffer, int bufferOffset, int length)
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(LibSQLDataReader));
+        ObjectDisposedException.ThrowIf(_disposed, this);
         if (_closed || _rowsHandle == null || _currentRow == null)
             throw new InvalidOperationException("No current row available. Call Read() first.");
         
@@ -273,8 +270,7 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The name of the data type.</returns>
     public override string GetDataTypeName(int ordinal)
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(LibSQLDataReader));
+        ObjectDisposedException.ThrowIf(_disposed, this);
         if (_closed || _rowsHandle == null)
             throw new InvalidOperationException("Reader is closed.");
 
@@ -340,8 +336,7 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The value of the specified column.</returns>
     public override double GetDouble(int ordinal)
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(LibSQLDataReader));
+        ObjectDisposedException.ThrowIf(_disposed, this);
             
         if (_isHttpReader && _httpDataReader != null)
             return _httpDataReader.GetDouble(ordinal);
@@ -378,8 +373,7 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The data type of the specified column.</returns>
     public override Type GetFieldType(int ordinal)
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(LibSQLDataReader));
+        ObjectDisposedException.ThrowIf(_disposed, this);
         if (_closed || _rowsHandle == null)
             throw new InvalidOperationException("Reader is closed.");
 
@@ -473,8 +467,7 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The value of the specified column.</returns>
     public override long GetInt64(int ordinal)
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(LibSQLDataReader));
+        ObjectDisposedException.ThrowIf(_disposed, this);
             
         if (_isHttpReader && _httpDataReader != null)
             return _httpDataReader.GetInt64(ordinal);
@@ -502,8 +495,7 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The name of the specified column.</returns>
     public override string GetName(int ordinal)
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(LibSQLDataReader));
+        ObjectDisposedException.ThrowIf(_disposed, this);
             
         if (_isHttpReader && _httpDataReader != null)
             return _httpDataReader.GetName(ordinal);
@@ -524,8 +516,7 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The zero-based column ordinal.</returns>
     public override int GetOrdinal(string name)
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(LibSQLDataReader));
+        ObjectDisposedException.ThrowIf(_disposed, this);
             
         if (_isHttpReader && _httpDataReader != null)
             return _httpDataReader.GetOrdinal(name);
@@ -555,8 +546,7 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The value of the specified column.</returns>
     public override string GetString(int ordinal)
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(LibSQLDataReader));
+        ObjectDisposedException.ThrowIf(_disposed, this);
             
         if (_isHttpReader && _httpDataReader != null)
             return _httpDataReader.GetString(ordinal);
@@ -593,8 +583,7 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The value of the specified column.</returns>
     public override object GetValue(int ordinal)
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(LibSQLDataReader));
+        ObjectDisposedException.ThrowIf(_disposed, this);
             
         if (_isHttpReader && _httpDataReader != null)
             return _httpDataReader.GetValue(ordinal);
@@ -633,8 +622,7 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The number of instances of Object in the array.</returns>
     public override int GetValues(object[] values)
     {
-        if (values == null)
-            throw new ArgumentNullException(nameof(values));
+        ArgumentNullException.ThrowIfNull(values);
         
         int count = Math.Min(values.Length, FieldCount);
         for (int i = 0; i < count; i++)
@@ -652,8 +640,7 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>true if the specified column is equivalent to DBNull; otherwise false.</returns>
     public override bool IsDBNull(int ordinal)
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(LibSQLDataReader));
+        ObjectDisposedException.ThrowIf(_disposed, this);
             
         if (_isHttpReader && _httpDataReader != null)
             return _httpDataReader.IsDBNull(ordinal);
@@ -692,8 +679,7 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>A DataTable that describes the column metadata.</returns>
     public override DataTable? GetSchemaTable()
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(LibSQLDataReader));
+        ObjectDisposedException.ThrowIf(_disposed, this);
         if (_closed || _rowsHandle == null)
             return null;
 
@@ -812,8 +798,7 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>true if there are more rows; otherwise false.</returns>
     public override bool Read()
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(LibSQLDataReader));
+        ObjectDisposedException.ThrowIf(_disposed, this);
             
         if (_isHttpReader && _httpDataReader != null)
             return _httpDataReader.Read();
@@ -904,8 +889,7 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <returns>The value of the specified column as a byte array.</returns>
     private byte[]? GetBlobBytes(int ordinal)
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(LibSQLDataReader));
+        ObjectDisposedException.ThrowIf(_disposed, this);
         if (_closed || _rowsHandle == null || _currentRow == null)
             throw new InvalidOperationException("No current row available. Call Read() first.");
 

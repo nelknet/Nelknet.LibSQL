@@ -45,72 +45,30 @@ trim_trailing_whitespace = false
 # Analyzer configurations
 [*.cs]
 
-# IDisposableAnalyzers
-# IDISP001: Dispose created - Important but needs careful review
-dotnet_diagnostic.IDISP001.severity = warning
+# .NET SDK Analyzers (CA rules)
+# CA1063: Implement IDisposable correctly
+dotnet_diagnostic.CA1063.severity = warning
 
-# IDISP003: Dispose previous before re-assigning - Can be noisy
-dotnet_diagnostic.IDISP003.severity = suggestion
+# CA2007: Consider calling ConfigureAwait on the awaited task
+dotnet_diagnostic.CA2007.severity = warning
 
-# IDISP004: Don't ignore created IDisposable
-dotnet_diagnostic.IDISP004.severity = warning
+# CA1051: Do not declare visible instance fields
+dotnet_diagnostic.CA1051.severity = suggestion
 
-# IDISP007: Don't dispose injected - Important
-dotnet_diagnostic.IDISP007.severity = warning
+# Roslynator rules
+# RCS1090: Add call to ConfigureAwait (similar to CA2007 but more comprehensive)
+dotnet_diagnostic.RCS1090.severity = warning
 
-# IDISP008: Don't assign member with injected and created disposables
-dotnet_diagnostic.IDISP008.severity = suggestion
+# RCS1158: Static member in generic type should use a type parameter
+dotnet_diagnostic.RCS1158.severity = warning
 
-# IDISP025: Class with no virtual dispose method should be sealed
-dotnet_diagnostic.IDISP025.severity = suggestion
-
-# Meziantou.Analyzer configurations
-# MA0004: Use .ConfigureAwait(false) - Important for library code
-dotnet_diagnostic.MA0004.severity = warning
-
-# MA0006: Use String.Equals instead of equality operator - Can be noisy
-dotnet_diagnostic.MA0006.severity = suggestion
-
-# MA0011: Use an overload with IFormatProvider - Good for libraries
-dotnet_diagnostic.MA0011.severity = suggestion
-
-# MA0015: Use overload with parameter name
-dotnet_diagnostic.MA0015.severity = warning
-
-# MA0025: Implement the functionality - Disable for TODO comments
-dotnet_diagnostic.MA0025.severity = none
-
-# MA0026: Fix TODO comment - Disable
-dotnet_diagnostic.MA0026.severity = none
-
-# MA0048: File name must match type name - Can be annoying for partial classes
-dotnet_diagnostic.MA0048.severity = suggestion
-
-# MA0051: Method is too long - Subjective
-dotnet_diagnostic.MA0051.severity = none
-
-# MA0053: Make class sealed - Not always desired for library code
-dotnet_diagnostic.MA0053.severity = suggestion
-
-# MA0074: Use StringComparison with string methods
-dotnet_diagnostic.MA0074.severity = suggestion
-
-# MA0097: A class that implements IComparable<T> should also override comparison operators
-dotnet_diagnostic.MA0097.severity = suggestion
-
-# MA0134: Observe result of async calls
-dotnet_diagnostic.MA0134.severity = warning
+# RCS1194: Implement exception constructors
+dotnet_diagnostic.RCS1194.severity = suggestion
 
 # Test-specific suppressions
 [*Tests.cs]
-# MA0004: ConfigureAwait(false) is not needed in tests
-dotnet_diagnostic.MA0004.severity = none
+# CA2007: ConfigureAwait is not needed in tests
+dotnet_diagnostic.CA2007.severity = none
 
-# IDISP001: Dispose created - Tests often have different disposal patterns
-dotnet_diagnostic.IDISP001.severity = suggestion
-
-# IDISP003: Dispose previous before re-assigning - Common in tests
-dotnet_diagnostic.IDISP003.severity = suggestion
-
-# MA0053: Seal classes - Not important in tests
-dotnet_diagnostic.MA0053.severity = none
+# RCS1090: ConfigureAwait is not needed in tests
+dotnet_diagnostic.RCS1090.severity = none

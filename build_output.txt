@@ -1,0 +1,6 @@
+MSBUILD : error MSB1001: Unknown switch.
+    Full command line: '/Users/nat/Library/Application Support/dnvm/dn/sdk/10.0.100-preview.4.25258.110/MSBuild.dll -maxcpucount -verbosity:m -tlp:default=auto -nologo -restore -consoleloggerparameters:Summary -property:NuGetInteractive=false -warnaserror- -distributedlogger:Microsoft.DotNet.Cli.Commands.MSBuild.MSBuildLogger,/Users/nat/Library/Application Support/dnvm/dn/sdk/10.0.100-preview.4.25258.110/dotnet.dll*Microsoft.DotNet.Cli.Commands.MSBuild.MSBuildForwardingLogger,/Users/nat/Library/Application Support/dnvm/dn/sdk/10.0.100-preview.4.25258.110/dotnet.dll'
+  Switches appended by response files:
+Switch: -warnaserror-
+
+For switch syntax, type "MSBuild -help"

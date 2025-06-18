@@ -49,7 +49,8 @@ public sealed class LibSQLParameterCollection : DbParameterCollection
         get => _parameters[index];
         set
         {
-            _parameters[index] = value ?? throw new ArgumentNullException(nameof(value));
+            ArgumentNullException.ThrowIfNull(value);
+            _parameters[index] = value;
         }
     }
 
@@ -85,8 +86,7 @@ public sealed class LibSQLParameterCollection : DbParameterCollection
     /// <returns>The index of the new parameter.</returns>
     public LibSQLParameter Add(LibSQLParameter parameter)
     {
-        if (parameter is null)
-            throw new ArgumentNullException(nameof(parameter));
+        ArgumentNullException.ThrowIfNull(parameter);
 
         _parameters.Add(parameter);
         return parameter;
@@ -128,8 +128,7 @@ public sealed class LibSQLParameterCollection : DbParameterCollection
     /// <param name="parameters">The parameters to add.</param>
     public void AddRange(IEnumerable<LibSQLParameter> parameters)
     {
-        if (parameters is null)
-            throw new ArgumentNullException(nameof(parameters));
+        ArgumentNullException.ThrowIfNull(parameters);
 
         foreach (var parameter in parameters)
         {
@@ -143,8 +142,7 @@ public sealed class LibSQLParameterCollection : DbParameterCollection
     /// <param name="values">The parameters to add.</param>
     public override void AddRange(Array values)
     {
-        if (values is null)
-            throw new ArgumentNullException(nameof(values));
+        ArgumentNullException.ThrowIfNull(values);
 
         foreach (LibSQLParameter parameter in values)
         {

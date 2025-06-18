@@ -15,7 +15,7 @@ internal static class LibSQLNativeLibrary
     /// </summary>
     internal const string LibraryName = "libsql";
 
-    private static bool _isInitialized = false;
+    private static bool _isInitialized;
     private static readonly object _lock = new();
 
     /// <summary>

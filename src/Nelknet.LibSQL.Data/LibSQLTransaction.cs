@@ -138,10 +138,7 @@ public sealed class LibSQLTransaction : DbTransaction
     /// <exception cref="InvalidOperationException">Thrown when the transaction has been completed or disposed, or the connection is invalid.</exception>
     public void ValidateTransaction()
     {
-        if (_disposed)
-        {
-            throw new ObjectDisposedException(nameof(LibSQLTransaction));
-        }
+        ObjectDisposedException.ThrowIf(_disposed, this);
 
         if (_completed)
         {

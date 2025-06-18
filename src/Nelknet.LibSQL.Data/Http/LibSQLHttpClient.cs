@@ -57,19 +57,18 @@ internal sealed class LibSQLHttpClient : IDisposable
     /// </summary>
     public async Task<HranaBatchResponse> ExecuteBatchAsync(HranaBatchRequest batch, CancellationToken cancellationToken = default)
     {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(LibSQLHttpClient));
+        ObjectDisposedException.ThrowIf(_disposed, this);
 
         try
         {
             var json = JsonSerializer.Serialize(batch, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var response = await _httpClient.PostAsync("v2/pipeline", content, cancellationToken);
+            var response = await _httpClient.PostAsync("v2/pipeline", content, cancellationToken).ConfigureAwait(false);
             
             if (!response.IsSuccessStatusCode)
             {
-                var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                var errorContent = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
                 throw new LibSQLHttpException(
                     $"HTTP {(int)response.StatusCode} {response.StatusCode}: {response.ReasonPhrase}",
                     (int)response.StatusCode,
@@ -77,7 +76,7 @@ internal sealed class LibSQLHttpClient : IDisposable
                     json);
             }
 
-            var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+            var responseJson = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             var result = JsonSerializer.Deserialize<HranaBatchResponse>(responseJson, _jsonOptions);
             
             if (result == null)
@@ -126,7 +125,7 @@ internal sealed class LibSQLHttpClient : IDisposable
                 }
             });
 
-            var response = await ExecuteBatchAsync(batch, cancellationToken);
+            var response = await ExecuteBatchAsync(batch, cancellationToken).ConfigureAwait(false);
             return response.Results.Count > 0 && response.Results[0].Type == HranaTypes.Ok;
         }
         catch
@@ -143,11 +142,11 @@ internal sealed class LibSQLHttpClient : IDisposable
         // Convert libsql:// to https://
         if (url.StartsWith("libsql://", StringComparison.OrdinalIgnoreCase))
         {
-            url = "https://" + url.Substring(9);
+            url = string.Concat("https://", url.AsSpan(9));
         }
 
         // Ensure it ends with a slash for proper BaseAddress
-        if (!url.EndsWith("/"))
+        if (!url.EndsWith('/'))
         {
             url += "/";
         }

@@ -24,7 +24,8 @@ internal sealed class LibSQLHttpCommand : DbCommand
 
     public LibSQLHttpCommand(LibSQLHttpClient httpClient)
     {
-        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        ArgumentNullException.ThrowIfNull(httpClient);
+        _httpClient = httpClient;
         _parameters = new LibSQLParameterCollection();
     }
 
@@ -73,7 +74,7 @@ internal sealed class LibSQLHttpCommand : DbCommand
         }
 
         var batch = CreateBatch();
-        var response = await _httpClient.ExecuteBatchAsync(batch, cts.Token);
+        var response = await _httpClient.ExecuteBatchAsync(batch, cts.Token).ConfigureAwait(false);
 
         if (response.Results.Count == 0)
             return 0;
@@ -104,7 +105,7 @@ internal sealed class LibSQLHttpCommand : DbCommand
 
     public override async Task<object?> ExecuteScalarAsync(CancellationToken cancellationToken)
     {
-        using var reader = await ExecuteReaderAsync(cancellationToken);
+        using var reader = await ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
         if (reader.Read() && reader.FieldCount > 0)
         {
             return reader.GetValue(0);
@@ -128,7 +129,7 @@ internal sealed class LibSQLHttpCommand : DbCommand
         }
 
         var batch = CreateBatch();
-        var response = await _httpClient.ExecuteBatchAsync(batch, cts.Token);
+        var response = await _httpClient.ExecuteBatchAsync(batch, cts.Token).ConfigureAwait(false);
 
         if (response.Results.Count == 0)
             throw new LibSQLException("No results returned from server");
@@ -214,7 +215,7 @@ internal sealed class LibSQLHttpCommand : DbCommand
         return batch;
     }
     
-    private int CountStatements(string sql)
+    private static int CountStatements(string sql)
     {
         // Simple count of statements by splitting on semicolons
         // This is a naive implementation that doesn't handle semicolons in strings
@@ -239,7 +240,7 @@ internal sealed class LibSQLHttpCommand : DbCommand
         {
             if (!string.IsNullOrEmpty(param.ParameterName))
             {
-                var paramName = param.ParameterName.StartsWith("@") ? param.ParameterName : "@" + param.ParameterName;
+                var paramName = param.ParameterName.StartsWith('@') ? param.ParameterName : "@" + param.ParameterName;
                 processedSql = processedSql.Replace(paramName, $"?{paramIndex}");
                 paramIndex++;
             }
@@ -277,18 +278,18 @@ internal sealed class LibSQLHttpCommand : DbCommand
             DbType.Boolean => new HranaValue 
             { 
                 Type = HranaTypes.Integer, 
-                Value = (Convert.ToBoolean(value) ? 1 : 0).ToString(CultureInfo.InvariantCulture) 
+                Value = (Convert.ToBoolean(value, CultureInfo.InvariantCulture) ? 1 : 0).ToString(CultureInfo.InvariantCulture) 
             },
             DbType.Byte or DbType.SByte or DbType.Int16 or DbType.UInt16 or 
             DbType.Int32 or DbType.UInt32 or DbType.Int64 or DbType.UInt64 => new HranaValue 
             { 
                 Type = HranaTypes.Integer, 
-                Value = Convert.ToInt64(value).ToString(CultureInfo.InvariantCulture) 
+                Value = Convert.ToInt64(value, CultureInfo.InvariantCulture).ToString(CultureInfo.InvariantCulture) 
             },
             DbType.Single or DbType.Double or DbType.Decimal => new HranaValue 
             { 
                 Type = HranaTypes.Float, 
-                Value = Convert.ToDouble(value) 
+                Value = Convert.ToDouble(value, CultureInfo.InvariantCulture) 
             },
             DbType.Binary => new HranaValue 
             { 
@@ -299,7 +300,7 @@ internal sealed class LibSQLHttpCommand : DbCommand
             _ => new HranaValue 
             { 
                 Type = HranaTypes.Text, 
-                Value = Convert.ToString(value) ?? string.Empty 
+                Value = Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty 
             }
         };
     }
@@ -368,7 +369,7 @@ internal sealed class LibSQLHttpCommand : DbCommand
             Batch = hranaBatch
         });
 
-        var response = await _httpClient.ExecuteBatchAsync(batch, cts.Token);
+        var response = await _httpClient.ExecuteBatchAsync(batch, cts.Token).ConfigureAwait(false);
 
         if (response.Results.Count == 0)
             return -1;

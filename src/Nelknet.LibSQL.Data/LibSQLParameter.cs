@@ -156,7 +156,7 @@ public sealed class LibSQLParameter : DbParameter
             throw new InvalidOperationException("Parameter name cannot be null or empty.");
         }
 
-        if (!ParameterName.StartsWith("@") && !ParameterName.StartsWith(":") && !ParameterName.StartsWith("?"))
+        if (!ParameterName.StartsWith('@') && !ParameterName.StartsWith(':') && !ParameterName.StartsWith('?'))
         {
             throw new ArgumentException("Parameter name must start with '@', ':', or '?'.", nameof(ParameterName));
         }

@@ -25,7 +25,8 @@ internal sealed class LibSQLHttpDataReader : DbDataReader
 
     public LibSQLHttpDataReader(HranaQueryResult result)
     {
-        _result = result ?? throw new ArgumentNullException(nameof(result));
+        ArgumentNullException.ThrowIfNull(result);
+        _result = result;
         _columns = result.Cols ?? new List<HranaColumn>();
         _rows = result.Rows ?? new List<List<HranaValue>>();
     }
@@ -102,9 +103,9 @@ internal sealed class LibSQLHttpDataReader : DbDataReader
         var declType = _columns[ordinal].DeclType?.ToUpperInvariant();
         return declType switch
         {
-            string dt when dt.Contains("INT") => typeof(long),
-            string dt when dt.Contains("REAL") || dt.Contains("FLOAT") || dt.Contains("DOUBLE") => typeof(double),
-            string dt when dt.Contains("BLOB") => typeof(byte[]),
+            string dt when dt.Contains("INT", StringComparison.OrdinalIgnoreCase) => typeof(long),
+            string dt when dt.Contains("REAL", StringComparison.OrdinalIgnoreCase) || dt.Contains("FLOAT", StringComparison.OrdinalIgnoreCase) || dt.Contains("DOUBLE", StringComparison.OrdinalIgnoreCase) => typeof(double),
+            string dt when dt.Contains("BLOB", StringComparison.OrdinalIgnoreCase) => typeof(byte[]),
             _ => typeof(string)
         };
     }
@@ -133,8 +134,7 @@ internal sealed class LibSQLHttpDataReader : DbDataReader
 
     public override int GetValues(object[] values)
     {
-        if (values == null)
-            throw new ArgumentNullException(nameof(values));
+        ArgumentNullException.ThrowIfNull(values);
 
         var count = Math.Min(values.Length, FieldCount);
         for (int i = 0; i < count; i++)
@@ -169,7 +169,7 @@ internal sealed class LibSQLHttpDataReader : DbDataReader
         if (value == DBNull.Value)
             throw new InvalidCastException("Cannot convert null to boolean");
 
-        return Convert.ToBoolean(value);
+        return Convert.ToBoolean(value, CultureInfo.InvariantCulture);
     }
 
     public override byte GetByte(int ordinal)
@@ -178,7 +178,7 @@ internal sealed class LibSQLHttpDataReader : DbDataReader
         if (value == DBNull.Value)
             throw new InvalidCastException("Cannot convert null to byte");
 
-        return Convert.ToByte(value);
+        return Convert.ToByte(value, CultureInfo.InvariantCulture);
     }
 
     public override long GetBytes(int ordinal, long dataOffset, byte[]? buffer, int bufferOffset, int length)
@@ -207,7 +207,7 @@ internal sealed class LibSQLHttpDataReader : DbDataReader
         if (value == DBNull.Value)
             throw new InvalidCastException("Cannot convert null to char");
 
-        return Convert.ToChar(value);
+        return Convert.ToChar(value, CultureInfo.InvariantCulture);
     }
 
     public override long GetChars(int ordinal, long dataOffset, char[]? buffer, int bufferOffset, int length)
@@ -237,7 +237,7 @@ internal sealed class LibSQLHttpDataReader : DbDataReader
         if (value == DBNull.Value)
             throw new InvalidCastException("Cannot convert null to DateTime");
 
-        return Convert.ToDateTime(value);
+        return Convert.ToDateTime(value, CultureInfo.InvariantCulture);
     }
 
     public override decimal GetDecimal(int ordinal)
@@ -246,7 +246,7 @@ internal sealed class LibSQLHttpDataReader : DbDataReader
         if (value == DBNull.Value)
             throw new InvalidCastException("Cannot convert null to decimal");
 
-        return Convert.ToDecimal(value);
+        return Convert.ToDecimal(value, CultureInfo.InvariantCulture);
     }
 
     public override double GetDouble(int ordinal)
@@ -255,7 +255,7 @@ internal sealed class LibSQLHttpDataReader : DbDataReader
         if (value == DBNull.Value)
             throw new InvalidCastException("Cannot convert null to double");
 
-        return Convert.ToDouble(value);
+        return Convert.ToDouble(value, CultureInfo.InvariantCulture);
     }
 
     public override float GetFloat(int ordinal)
@@ -264,7 +264,7 @@ internal sealed class LibSQLHttpDataReader : DbDataReader
         if (value == DBNull.Value)
             throw new InvalidCastException("Cannot convert null to float");
 
-        return Convert.ToSingle(value);
+        return Convert.ToSingle(value, CultureInfo.InvariantCulture);
     }
 
     public override Guid GetGuid(int ordinal)
@@ -285,7 +285,7 @@ internal sealed class LibSQLHttpDataReader : DbDataReader
         if (value == DBNull.Value)
             throw new InvalidCastException("Cannot convert null to short");
 
-        return Convert.ToInt16(value);
+        return Convert.ToInt16(value, CultureInfo.InvariantCulture);
     }
 
     public override int GetInt32(int ordinal)
@@ -294,7 +294,7 @@ internal sealed class LibSQLHttpDataReader : DbDataReader
         if (value == DBNull.Value)
             throw new InvalidCastException("Cannot convert null to int");
 
-        return Convert.ToInt32(value);
+        return Convert.ToInt32(value, CultureInfo.InvariantCulture);
     }
 
     public override long GetInt64(int ordinal)
@@ -303,7 +303,7 @@ internal sealed class LibSQLHttpDataReader : DbDataReader
         if (value == DBNull.Value)
             throw new InvalidCastException("Cannot convert null to long");
 
-        return Convert.ToInt64(value);
+        return Convert.ToInt64(value, CultureInfo.InvariantCulture);
     }
 
     public override string GetString(int ordinal)
@@ -312,7 +312,7 @@ internal sealed class LibSQLHttpDataReader : DbDataReader
         if (value == DBNull.Value)
             throw new InvalidCastException("Cannot convert null to string");
 
-        return Convert.ToString(value) ?? string.Empty;
+        return Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
     }
 
     public override IEnumerator GetEnumerator()
@@ -335,10 +335,10 @@ internal sealed class LibSQLHttpDataReader : DbDataReader
             {
                 HranaTypes.Null => DBNull.Value,
                 HranaTypes.Integer => element.ValueKind == JsonValueKind.String 
-                    ? long.Parse(element.GetString() ?? "0") 
+                    ? long.Parse(element.GetString() ?? "0", CultureInfo.InvariantCulture) 
                     : element.GetInt64(),
                 HranaTypes.Float => element.ValueKind == JsonValueKind.String 
-                    ? double.Parse(element.GetString() ?? "0") 
+                    ? double.Parse(element.GetString() ?? "0", CultureInfo.InvariantCulture) 
                     : element.GetDouble(),
                 HranaTypes.Text => element.GetString() ?? string.Empty,
                 HranaTypes.Blob => !string.IsNullOrEmpty(value.Base64) 
@@ -354,9 +354,9 @@ internal sealed class LibSQLHttpDataReader : DbDataReader
         return value.Type switch
         {
             HranaTypes.Null => DBNull.Value,
-            HranaTypes.Integer => Convert.ToInt64(value.Value),
-            HranaTypes.Float => Convert.ToDouble(value.Value),
-            HranaTypes.Text => Convert.ToString(value.Value) ?? string.Empty,
+            HranaTypes.Integer => Convert.ToInt64(value.Value, CultureInfo.InvariantCulture),
+            HranaTypes.Float => Convert.ToDouble(value.Value, CultureInfo.InvariantCulture),
+            HranaTypes.Text => Convert.ToString(value.Value, CultureInfo.InvariantCulture) ?? string.Empty,
             HranaTypes.Blob => !string.IsNullOrEmpty(value.Base64) 
                 ? ConvertFromBase64(value.Base64) 
                 : (value.Value is string base64 ? ConvertFromBase64(base64) : value.Value),
@@ -364,7 +364,7 @@ internal sealed class LibSQLHttpDataReader : DbDataReader
         };
     }
 
-    private static object ConvertFromBase64(string base64String)
+    private static byte[] ConvertFromBase64(string base64String)
     {
         try
         {

@@ -15,7 +15,6 @@
     <!-- <PackageVersion Include="System.Data.Common" Version="4.3.0" /> -->
     
     <!-- Code analyzers -->
-    <PackageVersion Include="IDisposableAnalyzers" Version="4.0.8" />
-    <PackageVersion Include="Meziantou.Analyzer" Version="2.0.179" />
+    <PackageVersion Include="Roslynator.Analyzers" Version="4.12.9" />
   </ItemGroup>
 </Project>

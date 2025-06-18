@@ -39,7 +39,8 @@ public class LibSQLSyncCompletedEventArgs : EventArgs
     /// <param name="result">The sync result.</param>
     public LibSQLSyncCompletedEventArgs(LibSQLSyncResult result)
     {
-        Result = result ?? throw new ArgumentNullException(nameof(result));
+        ArgumentNullException.ThrowIfNull(result);
+        Result = result;
     }
 }
 
@@ -59,6 +60,7 @@ public class LibSQLSyncFailedEventArgs : EventArgs
     /// <param name="exception">The exception that caused the sync to fail.</param>
     public LibSQLSyncFailedEventArgs(Exception exception)
     {
-        Exception = exception ?? throw new ArgumentNullException(nameof(exception));
+        ArgumentNullException.ThrowIfNull(exception);
+        Exception = exception;
     }
 }
