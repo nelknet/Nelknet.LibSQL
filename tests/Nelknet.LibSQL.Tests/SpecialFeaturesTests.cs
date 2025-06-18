@@ -167,40 +167,44 @@ public class SpecialFeaturesTests : IDisposable
         // - On others, it may fail later with internal errors (error 2)
         // - In some cases, it might treat the entire string as a filename
         
-        // Different platforms handle :memory:?cache=shared differently:
-        // - Windows: May fail with CANTOPEN (14) during Open()
-        // - macOS/Linux: May open but fail with internal error (2) during command execution
-        // - Some platforms: May work as a regular :memory: database
+        // Test 3: Verify that :memory:?cache=shared is not properly supported
+        // Platform-specific behaviors:
+        // - Windows: Fails with CANTOPEN (14) during Open()
+        // - macOS/Linux: Opens successfully but fails with internal error (2) during command execution
+        // - Neither platform actually supports shared cache mode through this syntax
         
-        bool openedSuccessfully = false;
-        bool commandSucceeded = false;
+        bool openSucceeded = false;
+        bool gotExpectedError = false;
         
         try
         {
             using var conn = new LibSQLConnection("Data Source=:memory:?cache=shared");
             conn.Open();
-            openedSuccessfully = true;
+            openSucceeded = true;
             
-            // If it opens, try to use it
+            // Try to create a table
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "CREATE TABLE uri_test (id INTEGER)";
+            cmd.CommandText = "CREATE TABLE platform_test (id INTEGER)";
             cmd.ExecuteNonQuery();
-            commandSucceeded = true;
+            
+            // If we get here, it's working as a regular :memory: database
+            // (shouldn't happen with current libSQL)
         }
-        catch (LibSQLException ex) when (ex.ErrorCode == 14)
+        catch (LibSQLConnectionException ex) when (ex.ErrorCode == 14)
         {
-            // Expected on Windows where :memory:?cache=shared fails to open
-            Assert.False(openedSuccessfully, "Should fail during Open() with CANTOPEN");
+            // Expected on Windows - fails during Open()
+            Assert.False(openSucceeded, "Should fail during Open() on Windows");
+            gotExpectedError = true;
         }
         catch (LibSQLException ex) when (ex.ErrorCode == 2)
         {
-            // Expected on macOS/Linux where it opens but fails during command execution
-            Assert.True(openedSuccessfully, "Should open successfully but fail during command execution");
-            Assert.False(commandSucceeded, "Command should not succeed");
+            // Expected on macOS/Linux - opens but fails during command execution
+            Assert.True(openSucceeded, "Should open successfully on macOS/Linux");
+            gotExpectedError = true;
         }
         
-        // If we get here without exceptions, it's working as a regular :memory: database
-        // (the ?cache=shared parameter was ignored)
+        // One of the expected errors should have occurred
+        Assert.True(gotExpectedError, ":memory:?cache=shared should fail with platform-specific error");
         
         // Note: SQLite supports shared cache with "file::memory:" syntax when SQLITE_OPEN_URI
         // flag is set, but libSQL's experimental API doesn't enable URI parsing
