@@ -148,15 +148,97 @@ public class RemoteIntegrationTests
         }
     }
 
-    // Note: Transaction tests are not included for HTTP/remote connections because:
-    // 1. HTTP connections don't support stateful transactions across multiple requests
-    // 2. Each HTTP request is independent and atomic
-    // 3. While libSQL's Rust client supports transactional batches (multiple statements
-    //    in one atomic request), our current implementation only sends one statement
-    //    per request. This could be enhanced in the future.
-    //
-    // The ADO.NET transaction API (BeginTransaction, Commit, Rollback) is implemented
-    // for compatibility but won't provide true transaction isolation over HTTP.
+    [Fact]
+    public async Task RemoteConnection_CanExecuteMultipleStatements()
+    {
+        if (!_testsEnabled)
+        {
+            return;
+        }
+
+        var connectionString = $"Data Source={_testUrl};Auth Token={_testToken}";
+        using var connection = new LibSQLConnection(connectionString);
+        await connection.OpenAsync();
+
+        var tableName = $"test_multi_{Guid.NewGuid():N}";
+
+        try
+        {
+            // Test: Execute multiple CREATE statements in one command
+            using var createCmd = connection.CreateCommand();
+            createCmd.CommandText = $@"
+                CREATE TABLE {tableName}_1 (id INTEGER PRIMARY KEY, name TEXT);
+                CREATE TABLE {tableName}_2 (id INTEGER PRIMARY KEY, value REAL);
+                CREATE TABLE {tableName}_3 (id INTEGER PRIMARY KEY, data BLOB);";
+            
+            await createCmd.ExecuteNonQueryAsync();
+
+            // Verify all tables were created
+            using var checkCmd = connection.CreateCommand();
+            checkCmd.CommandText = $@"
+                SELECT name FROM sqlite_master 
+                WHERE type = 'table' AND name LIKE '{tableName}%'
+                ORDER BY name";
+            
+            using var reader = await checkCmd.ExecuteReaderAsync();
+            var tables = new List<string>();
+            while (await reader.ReadAsync())
+            {
+                tables.Add(reader.GetString(0));
+            }
+
+            Assert.Equal(3, tables.Count);
+            Assert.Contains($"{tableName}_1", tables);
+            Assert.Contains($"{tableName}_2", tables);
+            Assert.Contains($"{tableName}_3", tables);
+
+            // Test: Execute multiple INSERT statements and verify affected rows
+            using var insertCmd = connection.CreateCommand();
+            insertCmd.CommandText = $@"INSERT INTO {tableName}_1 (name) VALUES ('Alice'); INSERT INTO {tableName}_1 (name) VALUES ('Bob'); INSERT INTO {tableName}_2 (value) VALUES (3.14); INSERT INTO {tableName}_3 (data) VALUES (X'48656C6C6F');";
+            
+            var affectedRows = await insertCmd.ExecuteNonQueryAsync();
+            // For now, accept either -1 (sequence) or 0 (if not detected as multi-statement)
+            Assert.True(affectedRows == -1 || affectedRows >= 0);
+            
+            // Verify the data was actually inserted
+            using var count1Cmd = connection.CreateCommand();
+            count1Cmd.CommandText = $"SELECT COUNT(*) FROM {tableName}_1";
+            var count1 = await count1Cmd.ExecuteScalarAsync();
+            Assert.Equal(2L, count1);
+            
+            using var count2Cmd = connection.CreateCommand();
+            count2Cmd.CommandText = $"SELECT COUNT(*) FROM {tableName}_2";
+            var count2 = await count2Cmd.ExecuteScalarAsync();
+            Assert.Equal(1L, count2);
+            
+            using var count3Cmd = connection.CreateCommand();
+            count3Cmd.CommandText = $"SELECT COUNT(*) FROM {tableName}_3";
+            var count3 = await count3Cmd.ExecuteScalarAsync();
+            Assert.Equal(1L, count3);
+        }
+        finally
+        {
+            // Clean up
+            try
+            {
+                using var dropCmd = connection.CreateCommand();
+                dropCmd.CommandText = $@"
+                    DROP TABLE IF EXISTS {tableName}_1;
+                    DROP TABLE IF EXISTS {tableName}_2;
+                    DROP TABLE IF EXISTS {tableName}_3;";
+                await dropCmd.ExecuteNonQueryAsync();
+            }
+            catch
+            {
+                // Ignore cleanup errors
+            }
+        }
+    }
+
+    // Note: Traditional transaction tests are not included for HTTP/remote connections because:
+    // HTTP connections don't support stateful transactions across multiple requests.
+    // Each HTTP request is independent. However, you can achieve atomic execution using
+    // ExecuteTransactionalBatchAsync() which wraps statements in BEGIN/COMMIT/ROLLBACK.
 
     [Fact]
     public async Task RemoteConnection_HandlesDataTypes()

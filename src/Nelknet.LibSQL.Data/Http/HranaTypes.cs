@@ -24,7 +24,16 @@ internal sealed class HranaRequest
     public string Type { get; set; }
 
     [JsonPropertyName("stmt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public HranaStatement? Statement { get; set; }
+
+    [JsonPropertyName("batch")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public HranaBatch? Batch { get; set; }
+
+    [JsonPropertyName("sql")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Sql { get; set; }
 }
 
 /// <summary>
@@ -92,10 +101,16 @@ internal sealed class HranaResponse
     public string Type { get; set; }
 
     [JsonPropertyName("result")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public HranaQueryResult? Result { get; set; }
+
+    [JsonPropertyName("batch_result")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public HranaBatchResult? BatchResult { get; set; }
 
     // Error fields
     [JsonPropertyName("error")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public HranaError? Error { get; set; }
 }
 
@@ -164,6 +179,8 @@ internal static class HranaTypes
     // Request types
     public const string Execute = "execute";
     public const string Close = "close";
+    public const string Batch = "batch";
+    public const string Sequence = "sequence";
 
     // Response types
     public const string Ok = "ok";
@@ -175,4 +192,55 @@ internal static class HranaTypes
     public const string Float = "float";
     public const string Text = "text";
     public const string Blob = "blob";
+}
+
+/// <summary>
+/// Represents a batch of statements for conditional execution.
+/// </summary>
+internal sealed class HranaBatch
+{
+    [JsonPropertyName("steps")]
+    public List<HranaBatchStep> Steps { get; set; } = new();
+}
+
+/// <summary>
+/// Represents a single step in a batch.
+/// </summary>
+internal sealed class HranaBatchStep
+{
+    [JsonPropertyName("stmt")]
+    public HranaStatement Statement { get; set; }
+
+    [JsonPropertyName("condition")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public HranaBatchCondition? Condition { get; set; }
+}
+
+/// <summary>
+/// Represents a condition for batch step execution.
+/// </summary>
+internal sealed class HranaBatchCondition
+{
+    [JsonPropertyName("type")]
+    public string Type { get; set; }
+
+    [JsonPropertyName("step")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? Step { get; set; }
+
+    [JsonPropertyName("cond")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public HranaBatchCondition? InnerCondition { get; set; }
+}
+
+/// <summary>
+/// Represents a batch result from the server.
+/// </summary>
+internal sealed class HranaBatchResult
+{
+    [JsonPropertyName("step_results")]
+    public List<HranaQueryResult?> StepResults { get; set; } = new();
+
+    [JsonPropertyName("step_errors")]
+    public List<HranaError?> StepErrors { get; set; } = new();
 }

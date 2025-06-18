@@ -79,6 +79,16 @@ internal sealed class LibSQLHttpCommand : DbCommand
             return 0;
 
         var result = response.Results[0];
+        
+        // Handle sequence response (multiple results)
+        if (result.Type == HranaTypes.Sequence)
+        {
+            // For sequence, we don't get individual affected row counts
+            // Return -1 to indicate the operation succeeded but row count is unknown
+            return -1;
+        }
+        
+        // Handle single execute response
         if (result.Response?.Result != null)
         {
             return (int)result.Response.Result.AffectedRowCount;
@@ -124,8 +134,25 @@ internal sealed class LibSQLHttpCommand : DbCommand
             throw new LibSQLException("No results returned from server");
 
         var result = response.Results[0];
+        
+        // Handle sequence response
+        if (result.Type == HranaTypes.Sequence)
+        {
+            // Sequence responses don't return data readers
+            // Return empty reader for compatibility
+            return new LibSQLHttpDataReader(new HranaQueryResult
+            {
+                Cols = new List<HranaColumn>(),
+                Rows = new List<List<HranaValue>>(),
+                AffectedRowCount = 0
+            });
+        }
+        
+        // Handle single execute response
         if (result.Response?.Result == null)
+        {
             throw new LibSQLException("Invalid response from server");
+        }
 
         return new LibSQLHttpDataReader(result.Response.Result);
     }
@@ -154,20 +181,50 @@ internal sealed class LibSQLHttpCommand : DbCommand
     {
         var batch = new HranaBatchRequest();
         
-        var statement = new HranaStatement
+        // Check if we have multiple statements (naive check for semicolons outside of strings)
+        var sql = CommandText?.Trim() ?? string.Empty;
+        var hasMultipleStatements = CountStatements(sql) > 1;
+        
+        if (hasMultipleStatements && (_parameters == null || _parameters.Count == 0))
         {
-            Sql = ProcessSql(CommandText),
-            Args = CreateArgs()
-        };
+            // Use sequence request for multi-statement execution without parameters
+            // This matches standard ADO.NET behavior where all statements execute
+            batch.Requests.Add(new HranaRequest
+            {
+                Type = HranaTypes.Sequence,
+                Sql = sql
+            });
+        }
+        else
+        {
+            // Use execute request for single statement or statements with parameters
+            var statement = new HranaStatement
+            {
+                Sql = ProcessSql(sql),
+                Args = CreateArgs()
+            };
 
-        batch.Requests.Add(new HranaRequest
-        {
-            Type = HranaTypes.Execute,
-            Statement = statement
-        });
+            batch.Requests.Add(new HranaRequest
+            {
+                Type = HranaTypes.Execute,
+                Statement = statement
+            });
+        }
 
         return batch;
     }
+    
+    private int CountStatements(string sql)
+    {
+        // Simple count of statements by splitting on semicolons
+        // This is a naive implementation that doesn't handle semicolons in strings
+        if (string.IsNullOrWhiteSpace(sql))
+            return 0;
+            
+        var statements = sql.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return statements.Where(s => !string.IsNullOrWhiteSpace(s)).Count();
+    }
+
 
     private string ProcessSql(string sql)
     {
@@ -245,6 +302,107 @@ internal sealed class LibSQLHttpCommand : DbCommand
                 Value = Convert.ToString(value) ?? string.Empty 
             }
         };
+    }
+
+    /// <summary>
+    /// Executes a batch of SQL statements as a transaction.
+    /// All statements will be executed in a single transaction that is automatically committed if all succeed,
+    /// or rolled back if any fail.
+    /// </summary>
+    /// <param name="statements">The SQL statements to execute.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of affected rows, or -1 if not available.</returns>
+    public async Task<int> ExecuteTransactionalBatchAsync(string[] statements, CancellationToken cancellationToken = default)
+    {
+        if (statements == null || statements.Length == 0)
+            throw new ArgumentException("Statements array cannot be null or empty", nameof(statements));
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        if (CommandTimeout > 0)
+        {
+            cts.CancelAfter(TimeSpan.FromSeconds(CommandTimeout));
+        }
+
+        // Create a batch with conditional steps
+        var batch = new HranaBatchRequest();
+        var hranaBatch = new HranaBatch();
+
+        // Add BEGIN statement as first step
+        hranaBatch.Steps.Add(new HranaBatchStep
+        {
+            Statement = new HranaStatement { Sql = "BEGIN", Args = null },
+            Condition = null
+        });
+
+        // Add each statement with condition to check previous step succeeded
+        for (int i = 0; i < statements.Length; i++)
+        {
+            hranaBatch.Steps.Add(new HranaBatchStep
+            {
+                Statement = new HranaStatement { Sql = statements[i], Args = null },
+                Condition = new HranaBatchCondition { Type = "ok", Step = i } // Depends on previous step
+            });
+        }
+
+        // Add COMMIT with condition that all previous steps succeeded
+        hranaBatch.Steps.Add(new HranaBatchStep
+        {
+            Statement = new HranaStatement { Sql = "COMMIT", Args = null },
+            Condition = new HranaBatchCondition { Type = "ok", Step = statements.Length }
+        });
+
+        // Add ROLLBACK if any step failed (not condition for the COMMIT step)
+        hranaBatch.Steps.Add(new HranaBatchStep
+        {
+            Statement = new HranaStatement { Sql = "ROLLBACK", Args = null },
+            Condition = new HranaBatchCondition 
+            { 
+                Type = "not", 
+                InnerCondition = new HranaBatchCondition { Type = "ok", Step = statements.Length + 1 }
+            }
+        });
+
+        batch.Requests.Add(new HranaRequest
+        {
+            Type = HranaTypes.Batch,
+            Batch = hranaBatch
+        });
+
+        var response = await _httpClient.ExecuteBatchAsync(batch, cts.Token);
+
+        if (response.Results.Count == 0)
+            return -1;
+
+        var result = response.Results[0];
+        if (result.Response?.BatchResult != null)
+        {
+            // Check if all steps succeeded
+            var batchResult = result.Response.BatchResult;
+            if (batchResult.StepErrors != null && batchResult.StepErrors.Any(e => e != null))
+            {
+                // Find the first error
+                var firstError = batchResult.StepErrors.FirstOrDefault(e => e != null);
+                throw new LibSQLException($"Batch execution failed: {firstError?.Message ?? "Unknown error"}");
+            }
+
+            // Sum up affected rows from all steps (excluding BEGIN/COMMIT/ROLLBACK)
+            var totalAffected = 0;
+            if (batchResult.StepResults != null)
+            {
+                // Skip BEGIN (0) and COMMIT/ROLLBACK (last 2)
+                for (int i = 1; i < batchResult.StepResults.Count - 2 && i <= statements.Length; i++)
+                {
+                    if (batchResult.StepResults[i] != null)
+                    {
+                        totalAffected += (int)batchResult.StepResults[i].AffectedRowCount;
+                    }
+                }
+            }
+
+            return totalAffected;
+        }
+
+        return -1;
     }
 
     protected override void Dispose(bool disposing)

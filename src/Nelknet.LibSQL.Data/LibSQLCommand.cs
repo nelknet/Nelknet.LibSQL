@@ -879,4 +879,115 @@ public sealed class LibSQLCommand : DbCommand
     }
     
     #endregion
+
+    #region Batch Execution
+
+    /// <summary>
+    /// Executes multiple SQL statements as a single batch.
+    /// For remote connections, this uses the Hrana protocol's sequence request.
+    /// For local connections, this executes statements sequentially.
+    /// </summary>
+    /// <param name="statements">The SQL statements to execute.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The total number of affected rows, or -1 if not available.</returns>
+    public async Task<int> ExecuteBatchAsync(string[] statements, CancellationToken cancellationToken = default)
+    {
+        if (statements == null || statements.Length == 0)
+            throw new ArgumentException("Statements array cannot be null or empty", nameof(statements));
+
+        EnsureConnectionOpen();
+
+        // For HTTP connections, use the optimized sequence execution
+        if (_httpCommand != null)
+        {
+            // Create a custom HTTP command to execute the sequence
+            var batch = new Http.HranaBatchRequest();
+            var combinedSql = string.Join("; ", statements);
+            
+            batch.Requests.Add(new Http.HranaRequest
+            {
+                Type = Http.HranaTypes.Sequence,
+                Sql = combinedSql
+            });
+
+            var httpClient = ((LibSQLConnection)Connection!).GetHttpClient();
+            if (httpClient == null)
+                throw new InvalidOperationException("HTTP client not available");
+                
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            if (CommandTimeout > 0)
+            {
+                cts.CancelAfter(TimeSpan.FromSeconds(CommandTimeout));
+            }
+
+            var response = await httpClient.ExecuteBatchAsync(batch, cts.Token);
+            
+            // Sequence requests don't return affected rows
+            return -1;
+        }
+
+        // For local connections, execute statements sequentially
+        var totalAffected = 0;
+        foreach (var statement in statements)
+        {
+            _commandText = statement;
+            var affected = await ExecuteNonQueryAsync(cancellationToken);
+            if (affected > 0)
+                totalAffected += affected;
+        }
+
+        return totalAffected;
+    }
+
+    /// <summary>
+    /// Executes multiple SQL statements as a transactional batch.
+    /// All statements are executed within a transaction that is automatically
+    /// committed if all succeed, or rolled back if any fail.
+    /// </summary>
+    /// <param name="statements">The SQL statements to execute.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The total number of affected rows, or -1 if not available.</returns>
+    public async Task<int> ExecuteTransactionalBatchAsync(string[] statements, CancellationToken cancellationToken = default)
+    {
+        if (statements == null || statements.Length == 0)
+            throw new ArgumentException("Statements array cannot be null or empty", nameof(statements));
+
+        EnsureConnectionOpen();
+
+        // For HTTP connections, use the optimized transactional batch
+        if (_httpCommand != null)
+        {
+            return await _httpCommand.ExecuteTransactionalBatchAsync(statements, cancellationToken);
+        }
+
+        // For local connections, use a transaction
+        using var transaction = Connection!.BeginTransaction();
+        try
+        {
+            Transaction = transaction;
+            var totalAffected = 0;
+
+            foreach (var statement in statements)
+            {
+                _commandText = statement;
+                var affected = await ExecuteNonQueryAsync(cancellationToken);
+                if (affected > 0)
+                    totalAffected += affected;
+            }
+
+            transaction.Commit();
+            return totalAffected;
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
+        finally
+        {
+            Transaction = null;
+        }
+    }
+
+    #endregion
 }

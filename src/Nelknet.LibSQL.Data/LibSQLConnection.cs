@@ -984,4 +984,17 @@ public sealed class LibSQLConnection : DbConnection
     }
     
     #endregion
+    
+    #region Internal Methods
+    
+    /// <summary>
+    /// Gets the HTTP client for remote connections.
+    /// </summary>
+    /// <returns>The HTTP client or null if this is not an HTTP connection.</returns>
+    internal Http.LibSQLHttpClient? GetHttpClient()
+    {
+        return _httpClient;
+    }
+    
+    #endregion
 }
