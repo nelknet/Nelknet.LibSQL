@@ -30,5 +30,50 @@ jobs:
     - name: Build
       run: dotnet build --no-restore --configuration Release
     
-    - name: Test
-      run: dotnet test --no-build --configuration Release --verbosity normal
+    # Debug: Check if native libraries are present after build
+    - name: Check native libraries
+      run: |
+        echo "Checking for native libraries..."
+        find . -name "libsql.so" -o -name "libsql.dll" -o -name "libsql.dylib" | head -20
+        echo "Test output directory contents:"
+        ls -la tests/Nelknet.LibSQL.Tests/bin/Release/net8.0/runtimes/ || echo "Runtime directory not found"
+    
+    # Start sqld server for remote integration tests (Linux only)
+    - name: Start sqld server
+      if: runner.os == 'Linux'
+      run: |
+        docker compose up -d sqld
+        # Wait for sqld to be ready by checking if it responds to requests
+        count=0
+        while ! curl -s http://localhost:8080/v2 >/dev/null 2>&1; do
+          echo "Waiting for sqld to respond..."
+          sleep 2
+          count=$((count + 1))
+          if [ $count -gt 15 ]; then
+            echo "Timeout waiting for sqld to be ready"
+            docker logs $(docker ps -q -f name=sqld) --tail 20
+            exit 1
+          fi
+        done
+        echo "sqld is ready!"
+    
+    # Run tests without remote integration tests first
+    - name: Test (excluding remote integration)
+      run: dotnet test --no-build --configuration Release --verbosity normal --filter "FullyQualifiedName!~RemoteIntegration"
+    
+    # Run remote integration tests separately (Linux only)
+    # Note: Using port 8080 (no auth) - auth error test will be skipped
+    - name: Test remote integration
+      if: runner.os == 'Linux'
+      env:
+        LIBSQL_TEST_URL: http://localhost:8080
+        LIBSQL_TEST_TOKEN: ""
+      run: |
+        echo "Running remote integration tests against sqld (no auth)..."
+        echo "Note: Authentication error test will be skipped as the server doesn't require auth"
+        dotnet test --no-build --configuration Release --verbosity normal --filter "FullyQualifiedName~RemoteIntegration"
+    
+    # Clean up Docker containers
+    - name: Stop sqld server
+      if: always() && runner.os == 'Linux'
+      run: docker compose down -v
