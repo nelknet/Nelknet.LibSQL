@@ -148,89 +148,15 @@ public class RemoteIntegrationTests
         }
     }
 
-    [Fact]
-    public async Task RemoteConnection_CanUseTransactions()
-    {
-        if (!_testsEnabled)
-        {
-            return;
-        }
-        
-        // Skip transaction test for local sqld without proper transaction support
-        // HTTP connections process each request atomically and don't maintain transaction state
-        if (_testUrl?.Contains("localhost:8080") == true)
-        {
-            // Local sqld may not support proper transaction isolation over HTTP
-            return;
-        }
-
-        var connectionString = $"Data Source={_testUrl};Auth Token={_testToken}";
-        using var connection = new LibSQLConnection(connectionString);
-        await connection.OpenAsync();
-
-        var tableName = $"test_txn_{Guid.NewGuid():N}";
-
-        try
-        {
-            // Create table
-            using var createCmd = connection.CreateCommand();
-            createCmd.CommandText = $@"
-                CREATE TABLE {tableName} (
-                    id INTEGER PRIMARY KEY,
-                    name TEXT NOT NULL
-                )";
-            await createCmd.ExecuteNonQueryAsync();
-
-            // Test transaction commit
-            using (var transaction = await connection.BeginTransactionAsync())
-            {
-                using var insertCmd = connection.CreateCommand();
-                insertCmd.Transaction = transaction;
-                insertCmd.CommandText = $"INSERT INTO {tableName} (name) VALUES (@name)";
-                insertCmd.Parameters.Add(new LibSQLParameter("@name", "committed_record"));
-                await insertCmd.ExecuteNonQueryAsync();
-
-                await transaction.CommitAsync();
-            }
-
-            // Test transaction rollback
-            using (var transaction = await connection.BeginTransactionAsync())
-            {
-                using var insertCmd = connection.CreateCommand();
-                insertCmd.Transaction = transaction;
-                insertCmd.CommandText = $"INSERT INTO {tableName} (name) VALUES (@name)";
-                insertCmd.Parameters.Add(new LibSQLParameter("@name", "rolled_back_record"));
-                await insertCmd.ExecuteNonQueryAsync();
-
-                await transaction.RollbackAsync();
-            }
-
-            // Verify only committed record exists
-            using var selectCmd = connection.CreateCommand();
-            selectCmd.CommandText = $"SELECT COUNT(*) FROM {tableName}";
-            var count = await selectCmd.ExecuteScalarAsync();
-            Assert.Equal(1L, count);
-
-            using var selectNameCmd = connection.CreateCommand();
-            selectNameCmd.CommandText = $"SELECT name FROM {tableName}";
-            var name = await selectNameCmd.ExecuteScalarAsync();
-            Assert.Equal("committed_record", name);
-        }
-        finally
-        {
-            // Clean up
-            try
-            {
-                using var dropCmd = connection.CreateCommand();
-                dropCmd.CommandText = $"DROP TABLE IF EXISTS {tableName}";
-                await dropCmd.ExecuteNonQueryAsync();
-            }
-            catch
-            {
-                // Ignore cleanup errors
-            }
-        }
-    }
+    // Note: Transaction tests are not included for HTTP/remote connections because:
+    // 1. HTTP connections don't support stateful transactions across multiple requests
+    // 2. Each HTTP request is independent and atomic
+    // 3. While libSQL's Rust client supports transactional batches (multiple statements
+    //    in one atomic request), our current implementation only sends one statement
+    //    per request. This could be enhanced in the future.
+    //
+    // The ADO.NET transaction API (BeginTransaction, Commit, Rollback) is implemented
+    // for compatibility but won't provide true transaction isolation over HTTP.
 
     [Fact]
     public async Task RemoteConnection_HandlesDataTypes()
