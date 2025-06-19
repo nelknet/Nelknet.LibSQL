@@ -23,6 +23,12 @@ jobs:
         # Check each commit
         FAILED=0
         while IFS= read -r commit; do
+          # Skip merge commits
+          if [[ "$commit" =~ ^Merge ]]; then
+            echo "⏭️  Skipping merge commit: $commit"
+            continue
+          fi
+          
           if [[ ! "$commit" =~ $PATTERN ]]; then
             echo "❌ Invalid commit message: $commit"
             FAILED=1
