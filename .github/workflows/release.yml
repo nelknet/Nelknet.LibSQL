@@ -70,14 +70,19 @@ jobs:
     - name: Check project versions
       run: |
         # Extract version from Directory.Build.props
-        VERSION_PREFIX=$(grep -oP '(?<=<VersionPrefix>)[^<]+' Directory.Build.props)
-        VERSION_SUFFIX=$(grep -oP '(?<=<VersionSuffix>)[^<]+' Directory.Build.props || echo "")
+        VERSION_PREFIX=$(sed -n 's/.*<VersionPrefix>\(.*\)<\/VersionPrefix>.*/\1/p' Directory.Build.props | tr -d ' ')
+        VERSION_SUFFIX=$(sed -n 's/.*<VersionSuffix>\(.*\)<\/VersionSuffix>.*/\1/p' Directory.Build.props | tr -d ' ')
+        
+        echo "VERSION_PREFIX='$VERSION_PREFIX'"
+        echo "VERSION_SUFFIX='$VERSION_SUFFIX'"
         
         if [ -n "$VERSION_SUFFIX" ]; then
           PROJECT_VERSION="$VERSION_PREFIX-$VERSION_SUFFIX"
         else
           PROJECT_VERSION="$VERSION_PREFIX"
         fi
+        
+        echo "PROJECT_VERSION='$PROJECT_VERSION'"
         
         if [ "$PROJECT_VERSION" != "${{ steps.version.outputs.version }}" ]; then
           echo "❌ Version mismatch!"
