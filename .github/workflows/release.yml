@@ -222,30 +222,29 @@ jobs:
         sed -i "s/## \[$VERSION\]/## [$VERSION] - $DATE/" CHANGELOG.md
         
         # Add new Unreleased section
-        cat > $TEMP_FILE << 'EOF'
-# Changelog
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [Unreleased]
-
-### Added
-
-### Changed
-
-### Deprecated
-
-### Removed
-
-### Fixed
-
-### Security
-
-EOF
-        
+        {
+          echo "# Changelog"
+          echo ""
+          echo "All notable changes to this project will be documented in this file."
+          echo ""
+          echo "The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),"
+          echo "and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)."
+          echo ""
+          echo "## [Unreleased]"
+          echo ""
+          echo "### Added"
+          echo ""
+          echo "### Changed"
+          echo ""
+          echo "### Deprecated"
+          echo ""
+          echo "### Removed"
+          echo ""
+          echo "### Fixed"
+          echo ""
+          echo "### Security"
+          echo ""
+        } > $TEMP_FILE
         # Append the rest of the changelog
         tail -n +7 CHANGELOG.md >> $TEMP_FILE
         mv $TEMP_FILE CHANGELOG.md

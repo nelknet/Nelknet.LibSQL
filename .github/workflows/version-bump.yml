@@ -140,24 +140,21 @@ jobs:
         head -n $LINE_NUM CHANGELOG.md > $TEMP_FILE
         
         # Add new version section
-        cat >> $TEMP_FILE << 'EOF'
-
-## [$NEW_VERSION]
-
-### Added
-
-### Changed
-
-### Deprecated
-
-### Removed
-
-### Fixed
-
-### Security
-
-EOF
-        
+        echo "" >> $TEMP_FILE
+        echo "## [$NEW_VERSION]" >> $TEMP_FILE
+        echo "" >> $TEMP_FILE
+        echo "### Added" >> $TEMP_FILE
+        echo "" >> $TEMP_FILE
+        echo "### Changed" >> $TEMP_FILE
+        echo "" >> $TEMP_FILE
+        echo "### Deprecated" >> $TEMP_FILE
+        echo "" >> $TEMP_FILE
+        echo "### Removed" >> $TEMP_FILE
+        echo "" >> $TEMP_FILE
+        echo "### Fixed" >> $TEMP_FILE
+        echo "" >> $TEMP_FILE
+        echo "### Security" >> $TEMP_FILE
+        echo "" >> $TEMP_FILE
         # Copy the rest of the file
         tail -n +$((LINE_NUM + 1)) CHANGELOG.md >> $TEMP_FILE
         

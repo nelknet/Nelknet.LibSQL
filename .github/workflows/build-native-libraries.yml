@@ -217,15 +217,14 @@ jobs:
         cp artifacts/libsql-osx-arm64/libsql.dylib src/Nelknet.LibSQL.Bindings/runtimes/osx-arm64/native/
         
         # Create version file with detailed information
-        cat > src/Nelknet.LibSQL.Bindings/runtimes/LIBSQL_VERSION << EOF
-libSQL Reference: ${{ github.event.inputs.libsql_ref }}
-libSQL Commit: ${{ steps.read_version.outputs.commit_sha }}
-libSQL Tag: ${{ steps.read_version.outputs.tag_name }}
-libSQL Cargo Version: ${{ steps.read_version.outputs.cargo_version }}
-Build Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
-Build Workflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-EOF
-        
+        {
+          echo "libSQL Reference: ${{ github.event.inputs.libsql_ref }}"
+          echo "libSQL Commit: ${{ steps.read_version.outputs.commit_sha }}"
+          echo "libSQL Tag: ${{ steps.read_version.outputs.tag_name }}"
+          echo "libSQL Cargo Version: ${{ steps.read_version.outputs.cargo_version }}"
+          echo "Build Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+          echo "Build Workflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        } > src/Nelknet.LibSQL.Bindings/runtimes/LIBSQL_VERSION
         # Show what we built
         ls -lh src/Nelknet.LibSQL.Bindings/runtimes/*/native/*
     
