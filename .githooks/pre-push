@@ -1,0 +1,19 @@
+#!/bin/bash
+
+echo "🔍 Running pre-push checks..."
+
+# Check if we're on a feature branch
+current_branch=$(git rev-parse --abbrev-ref HEAD)
+if [[ "$current_branch" == "main" ]]; then
+    echo "❌ Cannot push directly to main branch. Please create a PR."
+    exit 1
+fi
+
+# Run basic build check
+echo "🔨 Running build check..."
+if ! dotnet build --no-restore --verbosity quiet 2>/dev/null; then
+    echo "❌ Build failed. Please fix build errors before pushing."
+    exit 1
+fi
+
+echo "✅ Pre-push checks passed!"
