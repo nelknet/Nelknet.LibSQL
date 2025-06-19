@@ -33,10 +33,7 @@ Or via Package Manager Console:
 Install-Package Nelknet.LibSQL.Data
 ```
 
-> **Note**: The package is currently in alpha. To install pre-release versions:
-> ```bash
-> dotnet add package Nelknet.LibSQL.Data --prerelease
-> ```
+> **Note**: This library is pre-1.0 and the API may change in future releases. The current version is stable for production use with the understanding that breaking changes may occur before v1.0.
 
 ## Quick Start
 
