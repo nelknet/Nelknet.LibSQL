@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Automated release process with GitHub Actions workflows
+- Conventional commits support with commit linting
+- Release drafter for automatic release notes generation
+- Version bump workflow for automated version management
+- Enhanced native library build workflow with detailed version tracking
+- CHANGELOG enforcement in CI for pull requests
+- Comprehensive CONTRIBUTING.md with commit message guidelines
+- RELEASE_PROCESS.md documentation
+
+### Changed
+- Improved build-native-libraries workflow to track libSQL version details (commit SHA, tag, version)
+- CI workflow now checks for CHANGELOG updates on PRs
+
+### Removed
+- Deleted inconsistent version tags (v1.0.1-v1.0.4) that didn't match package versions
+- Removed redundant publish-nuget.yml workflow (superseded by release.yml)
+
+### Added
 - Initial implementation of native libSQL bindings using LibraryImport
 - Full ADO.NET provider implementation (DbConnection, DbCommand, DbDataReader, etc.)
 - Cross-platform support for Windows, Linux, and macOS (x86, x64, ARM64)

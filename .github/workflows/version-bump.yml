@@ -1,0 +1,195 @@
+name: Version Bump
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - prerelease
+      prerelease_id:
+        description: 'Prerelease identifier (e.g., alpha, beta, rc)'
+        required: false
+        default: 'alpha'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Get current version
+      id: current_version
+      run: |
+        # Extract version from Directory.Build.props
+        VERSION_PREFIX=$(grep -oP '(?<=<VersionPrefix>)[^<]+' Directory.Build.props)
+        VERSION_SUFFIX=$(grep -oP '(?<=<VersionSuffix>)[^<]+' Directory.Build.props || echo "")
+        
+        if [ -n "$VERSION_SUFFIX" ]; then
+          CURRENT_VERSION="$VERSION_PREFIX-$VERSION_SUFFIX"
+        else
+          CURRENT_VERSION="$VERSION_PREFIX"
+        fi
+        
+        echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+        echo "version_prefix=$VERSION_PREFIX" >> $GITHUB_OUTPUT
+        echo "version_suffix=$VERSION_SUFFIX" >> $GITHUB_OUTPUT
+        echo "Current version: $CURRENT_VERSION"
+    
+    - name: Calculate new version
+      id: new_version
+      run: |
+        CURRENT_PREFIX="${{ steps.current_version.outputs.version_prefix }}"
+        CURRENT_SUFFIX="${{ steps.current_version.outputs.version_suffix }}"
+        VERSION_TYPE="${{ inputs.version_type }}"
+        PRERELEASE_ID="${{ inputs.prerelease_id }}"
+        
+        # Parse current version
+        IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_PREFIX"
+        
+        # Calculate new version based on type
+        case $VERSION_TYPE in
+          major)
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+            NEW_SUFFIX=""
+            ;;
+          minor)
+            MINOR=$((MINOR + 1))
+            PATCH=0
+            NEW_SUFFIX=""
+            ;;
+          patch)
+            PATCH=$((PATCH + 1))
+            NEW_SUFFIX=""
+            ;;
+          prerelease)
+            if [ -n "$CURRENT_SUFFIX" ]; then
+              # Already in prerelease, increment the number
+              if [[ "$CURRENT_SUFFIX" =~ ^([a-zA-Z]+)([0-9]+)?$ ]]; then
+                PRERELEASE_NAME="${BASH_REMATCH[1]}"
+                PRERELEASE_NUM="${BASH_REMATCH[2]:-0}"
+                PRERELEASE_NUM=$((PRERELEASE_NUM + 1))
+                NEW_SUFFIX="${PRERELEASE_NAME}${PRERELEASE_NUM}"
+              else
+                NEW_SUFFIX="${PRERELEASE_ID}1"
+              fi
+            else
+              # Not in prerelease, start new one
+              PATCH=$((PATCH + 1))
+              NEW_SUFFIX="${PRERELEASE_ID}1"
+            fi
+            ;;
+        esac
+        
+        NEW_PREFIX="$MAJOR.$MINOR.$PATCH"
+        if [ -n "$NEW_SUFFIX" ]; then
+          NEW_VERSION="$NEW_PREFIX-$NEW_SUFFIX"
+        else
+          NEW_VERSION="$NEW_PREFIX"
+        fi
+        
+        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "new_prefix=$NEW_PREFIX" >> $GITHUB_OUTPUT
+        echo "new_suffix=$NEW_SUFFIX" >> $GITHUB_OUTPUT
+        echo "New version: $NEW_VERSION"
+    
+    - name: Update Directory.Build.props
+      run: |
+        # Update VersionPrefix
+        sed -i "s|<VersionPrefix>.*</VersionPrefix>|<VersionPrefix>${{ steps.new_version.outputs.new_prefix }}</VersionPrefix>|" Directory.Build.props
+        
+        # Update or remove VersionSuffix
+        if [ -n "${{ steps.new_version.outputs.new_suffix }}" ]; then
+          if grep -q "<VersionSuffix>" Directory.Build.props; then
+            sed -i "s|<VersionSuffix>.*</VersionSuffix>|<VersionSuffix>${{ steps.new_version.outputs.new_suffix }}</VersionSuffix>|" Directory.Build.props
+          else
+            # Add VersionSuffix after VersionPrefix
+            sed -i "/<VersionPrefix>/a\\    <VersionSuffix>${{ steps.new_version.outputs.new_suffix }}</VersionSuffix>" Directory.Build.props
+          fi
+        else
+          # Remove VersionSuffix line if it exists
+          sed -i '/<VersionSuffix>/d' Directory.Build.props
+        fi
+    
+    - name: Update CHANGELOG.md
+      run: |
+        NEW_VERSION="${{ steps.new_version.outputs.new_version }}"
+        
+        # Add new version section in CHANGELOG
+        TEMP_FILE=$(mktemp)
+        
+        # Find the line number of [Unreleased]
+        LINE_NUM=$(grep -n "## \[Unreleased\]" CHANGELOG.md | cut -d: -f1)
+        
+        # Copy everything up to and including [Unreleased]
+        head -n $LINE_NUM CHANGELOG.md > $TEMP_FILE
+        
+        # Add new version section
+        cat >> $TEMP_FILE << EOF
+
+## [$NEW_VERSION]
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+EOF
+        
+        # Copy the rest of the file
+        tail -n +$((LINE_NUM + 1)) CHANGELOG.md >> $TEMP_FILE
+        
+        # Update the links section
+        sed -i "s|^\[Unreleased\]:.*|[Unreleased]: https://github.com/nelknet/Nelknet.LibSQL/compare/v$NEW_VERSION...HEAD\n[$NEW_VERSION]: https://github.com/nelknet/Nelknet.LibSQL/compare/v${{ steps.current_version.outputs.current_version }}...v$NEW_VERSION|" $TEMP_FILE
+        
+        mv $TEMP_FILE CHANGELOG.md
+    
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v6
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: 'chore(release): bump version to ${{ steps.new_version.outputs.new_version }}'
+        title: 'chore(release): bump version to ${{ steps.new_version.outputs.new_version }}'
+        body: |
+          ## Version Bump
+          
+          This PR bumps the version from `${{ steps.current_version.outputs.current_version }}` to `${{ steps.new_version.outputs.new_version }}`.
+          
+          ### Changes
+          - Updated `Directory.Build.props` with new version
+          - Prepared `CHANGELOG.md` for new version
+          
+          ### Next Steps
+          1. Review and update the CHANGELOG.md with actual changes
+          2. Merge this PR
+          3. Create a release using the release workflow or by pushing a tag
+          
+          ---
+          *This is an automated PR created by the version bump workflow.*
+        branch: chore/version-bump-${{ steps.new_version.outputs.new_version }}
+        delete-branch: true
+        labels: |
+          release
+          skip-changelog

@@ -1,0 +1,44 @@
+# <type>(<scope>): <subject>
+#
+# <body>
+#
+# <footer>
+
+# Type should be one of the following:
+# - feat: A new feature
+# - fix: A bug fix
+# - docs: Documentation only changes
+# - style: Changes that do not affect the meaning of the code
+# - refactor: A code change that neither fixes a bug nor adds a feature
+# - perf: A code change that improves performance
+# - test: Adding missing tests or correcting existing tests
+# - build: Changes that affect the build system or external dependencies
+# - ci: Changes to our CI configuration files and scripts
+# - chore: Other changes that don't modify src or test files
+# - revert: Reverts a previous commit
+
+# Scope should be one of:
+# - bindings: Changes to Nelknet.LibSQL.Bindings
+# - data: Changes to Nelknet.LibSQL.Data
+# - http: Changes to HTTP/remote connection support
+# - native: Changes to native library management
+# - tests: Changes to test infrastructure
+# - examples: Changes to example projects
+# - docs: Changes to documentation
+# - deps: Dependency updates
+
+# Subject should be:
+# - Written in imperative mood ("add" not "adds", "fix" not "fixed")
+# - Not capitalized
+# - No period at the end
+# - Maximum 50 characters
+
+# Body should:
+# - Wrap at 72 characters
+# - Explain what and why, not how
+# - Can use multiple paragraphs
+
+# Footer should contain:
+# - Breaking changes (start with "BREAKING CHANGE:")
+# - Issues closed (e.g., "Closes #123")
+# - References to other issues/PRs

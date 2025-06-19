@@ -10,6 +10,10 @@ on:
 
 jobs:
   build-native:
+    outputs:
+      commit_sha: ${{ steps.version_info.outputs.commit_sha }}
+      tag_name: ${{ steps.version_info.outputs.tag_name }}
+      cargo_version: ${{ steps.version_info.outputs.cargo_version }}
     strategy:
       matrix:
         include:
@@ -39,6 +43,34 @@ jobs:
         repository: tursodatabase/libsql
         ref: ${{ github.event.inputs.libsql_ref }}
         path: libsql
+    
+    - name: Get libSQL version info
+      id: version_info
+      run: |
+        cd libsql
+        # Get the commit SHA
+        COMMIT_SHA=$(git rev-parse HEAD)
+        echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+        
+        # Get the exact ref (tag or branch)
+        REF_NAME="${{ github.event.inputs.libsql_ref }}"
+        echo "ref_name=$REF_NAME" >> $GITHUB_OUTPUT
+        
+        # Try to get the latest tag if we're on a branch
+        if git describe --exact-match --tags HEAD 2>/dev/null; then
+          TAG_NAME=$(git describe --exact-match --tags HEAD)
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+        else
+          # Get the latest tag that's an ancestor of this commit
+          TAG_NAME=$(git describe --tags --abbrev=0 HEAD 2>/dev/null || echo "no-tag")
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+        fi
+        
+        # Get version from Cargo.toml if it exists
+        if [ -f "Cargo.toml" ]; then
+          CARGO_VERSION=$(grep '^version' Cargo.toml | head -1 | cut -d'"' -f2)
+          echo "cargo_version=$CARGO_VERSION" >> $GITHUB_OUTPUT
+        fi
     
     - name: Install MinGW for cross-compilation
       if: matrix.is_cross == true
@@ -126,6 +158,23 @@ jobs:
       with:
         name: libsql-${{ matrix.output }}
         path: artifacts/${{ matrix.output }}/native/libsql.${{ matrix.ext }}
+    
+    - name: Save version info
+      if: matrix.os == 'ubuntu-latest' && matrix.target == 'x86_64-unknown-linux-gnu'
+      run: |
+        mkdir -p version-info
+        cat > version-info/version.env << EOF
+        COMMIT_SHA=${{ steps.version_info.outputs.commit_sha }}
+        TAG_NAME=${{ steps.version_info.outputs.tag_name }}
+        CARGO_VERSION=${{ steps.version_info.outputs.cargo_version }}
+        EOF
+    
+    - name: Upload version info
+      if: matrix.os == 'ubuntu-latest' && matrix.target == 'x86_64-unknown-linux-gnu'
+      uses: actions/upload-artifact@v4
+      with:
+        name: version-info
+        path: version-info/version.env
   
   commit-libraries:
     needs: build-native
@@ -142,6 +191,21 @@ jobs:
       with:
         path: artifacts
     
+    - name: Download version info artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: version-info
+        path: version-info
+    
+    - name: Read version info
+      id: read_version
+      run: |
+        # Read the version info from the artifact
+        source version-info/version.env
+        echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+        echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+        echo "cargo_version=$CARGO_VERSION" >> $GITHUB_OUTPUT
+    
     - name: Copy libraries to project
       run: |
         # Create directories
@@ -154,9 +218,15 @@ jobs:
         cp artifacts/libsql-win-x64/libsql.dll src/Nelknet.LibSQL.Bindings/runtimes/win-x64/native/
         cp artifacts/libsql-osx-arm64/libsql.dylib src/Nelknet.LibSQL.Bindings/runtimes/osx-arm64/native/
         
-        # Create version file
-        echo "Built from libSQL ref: ${{ github.event.inputs.libsql_ref }}" > src/Nelknet.LibSQL.Bindings/runtimes/LIBSQL_VERSION
-        echo "Built on: $(date)" >> src/Nelknet.LibSQL.Bindings/runtimes/LIBSQL_VERSION
+        # Create version file with detailed information
+        cat > src/Nelknet.LibSQL.Bindings/runtimes/LIBSQL_VERSION << EOF
+libSQL Reference: ${{ github.event.inputs.libsql_ref }}
+libSQL Commit: ${{ steps.read_version.outputs.commit_sha }}
+libSQL Tag: ${{ steps.read_version.outputs.tag_name }}
+libSQL Cargo Version: ${{ steps.read_version.outputs.cargo_version }}
+Build Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+Build Workflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+EOF
         
         # Show what we built
         ls -lh src/Nelknet.LibSQL.Bindings/runtimes/*/native/*

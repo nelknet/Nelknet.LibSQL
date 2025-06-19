@@ -334,6 +334,12 @@ Nelknet.LibSQL/
   - Linux x64/ARM64
   - macOS x64/ARM64
 
+## Contributing
+
+We welcome contributions! Please see:
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guidelines and development setup
+- [RELEASE_PROCESS.md](RELEASE_PROCESS.md) - Release workflow documentation
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

@@ -1,0 +1,44 @@
+name: Lint Commit Messages
+
+on:
+  pull_request:
+    types: [opened, synchronize, edited]
+
+jobs:
+  commitlint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Check commit messages
+      run: |
+        # Get all commits in the PR
+        COMMITS=$(git log --format=%s origin/${{ github.base_ref }}..HEAD)
+        
+        # Conventional commit pattern
+        PATTERN='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z]+\))?: .{1,72}$'
+        
+        # Check each commit
+        FAILED=0
+        while IFS= read -r commit; do
+          if [[ ! "$commit" =~ $PATTERN ]]; then
+            echo "❌ Invalid commit message: $commit"
+            FAILED=1
+          else
+            echo "✅ Valid commit message: $commit"
+          fi
+        done <<< "$COMMITS"
+        
+        if [ $FAILED -eq 1 ]; then
+          echo ""
+          echo "Please use conventional commits format:"
+          echo "  <type>(<scope>): <subject>"
+          echo ""
+          echo "Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert"
+          echo "Scopes: bindings, data, http, native, tests, examples, docs, deps, release, ci"
+          echo ""
+          echo "Example: feat(data): add support for custom SQL functions"
+          exit 1
+        fi

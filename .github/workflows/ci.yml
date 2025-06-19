@@ -8,7 +8,37 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Check if CHANGELOG.md was updated for PRs (except for certain labels)
+  changelog-check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Check if CHANGELOG.md was updated
+      run: |
+        # Skip check if PR has certain labels
+        if [[ "${{ contains(github.event.pull_request.labels.*.name, 'skip-changelog') }}" == "true" ]] || \
+           [[ "${{ contains(github.event.pull_request.labels.*.name, 'dependencies') }}" == "true" ]] || \
+           [[ "${{ contains(github.event.pull_request.labels.*.name, 'documentation') }}" == "true" ]]; then
+          echo "Skipping changelog check due to label"
+          exit 0
+        fi
+        
+        # Check if CHANGELOG.md was modified
+        if git diff --name-only origin/${{ github.base_ref }}..HEAD | grep -q "CHANGELOG.md"; then
+          echo "✅ CHANGELOG.md was updated"
+        else
+          echo "❌ CHANGELOG.md must be updated for this PR"
+          echo "Add a 'skip-changelog' label if this change doesn't require a changelog entry"
+          exit 1
+        fi
+
   build-and-test:
+    needs: [changelog-check]
+    if: always() && (needs.changelog-check.result == 'success' || needs.changelog-check.result == 'skipped')
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]

@@ -1,0 +1,72 @@
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+categories:
+  - title: '🚀 Features'
+    labels:
+      - 'feature'
+      - 'enhancement'
+      - 'feat'
+  - title: '🐛 Bug Fixes'
+    labels:
+      - 'fix'
+      - 'bugfix'
+      - 'bug'
+  - title: '📚 Documentation'
+    labels:
+      - 'documentation'
+      - 'docs'
+  - title: '🧰 Maintenance'
+    labels:
+      - 'chore'
+      - 'maintenance'
+  - title: '⚡ Performance'
+    labels:
+      - 'performance'
+      - 'perf'
+  - title: '🔒 Security'
+    labels:
+      - 'security'
+  - title: '⚠️ Breaking Changes'
+    labels:
+      - 'breaking-change'
+      - 'breaking'
+change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
+change-title-escapes: '\<*_&'
+version-resolver:
+  major:
+    labels:
+      - 'major'
+      - 'breaking-change'
+      - 'breaking'
+  minor:
+    labels:
+      - 'minor'
+      - 'feature'
+      - 'enhancement'
+      - 'feat'
+  patch:
+    labels:
+      - 'patch'
+      - 'fix'
+      - 'bugfix'
+      - 'bug'
+      - 'docs'
+      - 'chore'
+      - 'perf'
+  default: patch
+template: |
+  ## What's Changed
+
+  $CHANGES
+
+  ## 📦 Installation
+
+  ```bash
+  dotnet add package Nelknet.LibSQL.Data --version $RESOLVED_VERSION
+  ```
+
+  ## 🔗 NuGet Packages
+  - [Nelknet.LibSQL.Data](https://www.nuget.org/packages/Nelknet.LibSQL.Data/$RESOLVED_VERSION)
+  - [Nelknet.LibSQL.Bindings](https://www.nuget.org/packages/Nelknet.LibSQL.Bindings/$RESOLVED_VERSION)
+
+  **Full Changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
