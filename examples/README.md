@@ -4,7 +4,7 @@ This folder contains example projects demonstrating various features and usage p
 
 ## Important Note
 
-These examples require the libSQL native library to be available. Until the NuGet package with bundled native libraries is complete (Phase 19 of the implementation plan), you'll need to have libSQL installed on your system or manually place the native library in the example's output directory.
+These examples require the libSQL native library to be available. Until the NuGet package with bundled native libraries is complete, you'll need to have libSQL installed on your system or manually place the native library in the example's output directory.
 
 ## Available Examples
 
@@ -65,12 +65,3 @@ To add a new example:
    dotnet sln add examples/YourExampleName/YourExampleName.csproj
    ```
 
-## Example Ideas for Future
-
-- **RemoteConnectionExample** - Direct remote connections (Phase 21)
-- **PerformanceExample** - Benchmarking and performance optimization techniques
-- **AsyncExample** - Advanced async/await patterns
-- **DataAdapterExample** - Using LibSQLDataAdapter with DataSets
-- **DapperIntegrationExample** - Using Nelknet.LibSQL with Dapper ORM
-- **WebApiExample** - Using in ASP.NET Core applications
-- **MigrationExample** - Database schema migrations and versioning

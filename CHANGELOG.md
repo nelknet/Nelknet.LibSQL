@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Query plan access for performance analysis
 - Connection progress events for monitoring long operations
 - Command execution events (CommandExecuting, CommandExecuted)
-- **Embedded replica support** (Phase 20)
+- **Embedded replica support**
   - Manual sync operations with `Sync()` and `SyncAsync()` methods
   - Automatic sync with configurable intervals via `SyncInterval` connection string option
   - Read-your-writes consistency configuration

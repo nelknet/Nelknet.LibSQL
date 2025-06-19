@@ -11,7 +11,7 @@ This example demonstrates the basic usage of Nelknet.LibSQL, including:
 
 ## Prerequisites
 
-This example requires the libSQL native library to be available on your system. Until the NuGet package with bundled native libraries is available (Phase 19), you need to either:
+This example requires the libSQL native library to be available on your system. Until the NuGet package with bundled native libraries is available, you need to either:
 
 1. Install libSQL system-wide
 2. Place the appropriate native library (`libsql.dylib` on macOS, `libsql.so` on Linux, or `libsql.dll` on Windows) in the example's output directory
