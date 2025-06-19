@@ -140,7 +140,7 @@ jobs:
         head -n $LINE_NUM CHANGELOG.md > $TEMP_FILE
         
         # Add new version section
-        cat >> $TEMP_FILE << EOF
+        cat >> $TEMP_FILE << 'EOF'
 
 ## [$NEW_VERSION]
 

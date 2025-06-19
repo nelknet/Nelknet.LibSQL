@@ -167,7 +167,7 @@ jobs:
         COMMIT_SHA=${{ steps.version_info.outputs.commit_sha }}
         TAG_NAME=${{ steps.version_info.outputs.tag_name }}
         CARGO_VERSION=${{ steps.version_info.outputs.cargo_version }}
-        EOF
+EOF
     
     - name: Upload version info
       if: matrix.os == 'ubuntu-latest' && matrix.target == 'x86_64-unknown-linux-gnu'
