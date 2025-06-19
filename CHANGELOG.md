@@ -2,13 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
 ### Fixed
 - Fixed native library packaging structure in Nelknet.LibSQL.Bindings NuGet package - libraries were being packaged with duplicate paths (e.g., `runtimes/osx-arm64/native/osx-arm64/native/libsql.dylib`) preventing .NET's automatic native library resolution
+
+### Security
+
 
 ## [0.2.3] - 2025-06-19
 
