@@ -27,9 +27,9 @@
   <ItemGroup>
     <None Include="runtimes\**\*">
       <Pack>true</Pack>
-      <PackagePath>runtimes\%(RecursiveDir)</PackagePath>
+      <PackagePath>%(Identity)</PackagePath>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Link>runtimes\%(RecursiveDir)%(FileName)%(Extension)</Link>
+      <Link>%(Identity)</Link>
     </None>
   </ItemGroup>
 
