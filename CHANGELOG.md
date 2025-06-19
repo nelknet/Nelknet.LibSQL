@@ -10,18 +10,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 ### Changed
-- Bump version to 0.2.4 for release
 
 ### Deprecated
 
 ### Removed
 
 ### Fixed
-- Fixed native library packaging structure in Nelknet.LibSQL.Bindings NuGet package - libraries were being packaged with duplicate paths (e.g., `runtimes/osx-arm64/native/osx-arm64/native/libsql.dylib`) preventing .NET's automatic native library resolution
-- Fixed release workflow version extraction to use portable sed commands instead of GNU grep with PCRE
 
 ### Security
 
+
+## [0.2.4] - 2025-06-19
+
+### Changed
+- Bump version to 0.2.4 for release
+
+### Fixed
+- Fixed native library packaging structure in Nelknet.LibSQL.Bindings NuGet package - libraries were being packaged with duplicate paths (e.g., `runtimes/osx-arm64/native/osx-arm64/native/libsql.dylib`) preventing .NET's automatic native library resolution
+- Fixed release workflow version extraction to use portable sed commands instead of GNU grep with PCRE
 
 ## [0.2.3] - 2025-06-19
 
@@ -103,7 +109,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Backup/restore functionality is not available (requires sqlite3* handle)
 - Extended error codes are not accessible (requires sqlite3* handle)
 
-[Unreleased]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.0...v0.2.1
