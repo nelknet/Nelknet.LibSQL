@@ -163,10 +163,10 @@ jobs:
       if: matrix.os == 'ubuntu-latest' && matrix.target == 'x86_64-unknown-linux-gnu'
       run: |
         mkdir -p version-info
-        cat > version-info/version.env << EOF
-        COMMIT_SHA=${{ steps.version_info.outputs.commit_sha }}
-        TAG_NAME=${{ steps.version_info.outputs.tag_name }}
-        CARGO_VERSION=${{ steps.version_info.outputs.cargo_version }}
+        cat > version-info/version.env << 'EOF'
+COMMIT_SHA=${{ steps.version_info.outputs.commit_sha }}
+TAG_NAME=${{ steps.version_info.outputs.tag_name }}
+CARGO_VERSION=${{ steps.version_info.outputs.cargo_version }}
 EOF
     
     - name: Upload version info
