@@ -262,4 +262,5 @@ jobs:
           
           This is an automated PR created after the release of v${{ needs.validate-version.outputs.version }}.
         branch: chore/prepare-changelog-${{ needs.validate-version.outputs.version }}
+        base: main
         delete-branch: true
