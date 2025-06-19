@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0]
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+
 ### Added
 - Automated release process with GitHub Actions workflows
 - Conventional commits support with commit linting
@@ -60,5 +75,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Everything listed in Unreleased section above
 
-[Unreleased]: https://github.com/yourusername/Nelknet.LibSQL/compare/v0.1.0-alpha...HEAD
+[Unreleased]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.1.0-alpha...v0.2.0
 [0.1.0-alpha]: https://github.com/yourusername/Nelknet.LibSQL/releases/tag/v0.1.0-alpha
