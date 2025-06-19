@@ -117,18 +117,16 @@ jobs:
         ' CHANGELOG.md > release_notes.md
         
         # Add installation instructions
-        cat >> release_notes.md << EOF
-
-## 📦 Installation
-
-\`\`\`bash
-dotnet add package Nelknet.LibSQL.Data --version $VERSION
-\`\`\`
-
-## 🔗 NuGet Packages
-- [Nelknet.LibSQL.Data](https://www.nuget.org/packages/Nelknet.LibSQL.Data/$VERSION)
-- [Nelknet.LibSQL.Bindings](https://www.nuget.org/packages/Nelknet.LibSQL.Bindings/$VERSION)
-EOF
+        echo "" >> release_notes.md
+        echo "## 📦 Installation" >> release_notes.md
+        echo "" >> release_notes.md
+        echo '```bash' >> release_notes.md
+        echo "dotnet add package Nelknet.LibSQL.Data --version $VERSION" >> release_notes.md
+        echo '```' >> release_notes.md
+        echo "" >> release_notes.md
+        echo "## 🔗 NuGet Packages" >> release_notes.md
+        echo "- [Nelknet.LibSQL.Data](https://www.nuget.org/packages/Nelknet.LibSQL.Data/$VERSION)" >> release_notes.md
+        echo "- [Nelknet.LibSQL.Bindings](https://www.nuget.org/packages/Nelknet.LibSQL.Bindings/$VERSION)" >> release_notes.md
     
     - name: Create GitHub Release
       id: create_release
