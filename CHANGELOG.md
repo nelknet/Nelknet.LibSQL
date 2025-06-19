@@ -10,19 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.0]
 
 ### Added
-
-### Changed
-
-### Deprecated
-
-### Removed
-
-### Fixed
-
-### Security
-
-
-### Added
 - Automated release process with GitHub Actions workflows
 - Conventional commits support with commit linting
 - Release drafter for automatic release notes generation
@@ -33,12 +20,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - RELEASE_PROCESS.md documentation
 
 ### Changed
+- Moved from alpha to stable pre-1.0 status
+- Updated README to reflect production-ready status with pre-1.0 API stability caveat
 - Improved build-native-libraries workflow to track libSQL version details (commit SHA, tag, version)
 - CI workflow now checks for CHANGELOG updates on PRs
 
 ### Removed
 - Deleted inconsistent version tags (v1.0.1-v1.0.4) that didn't match package versions
 - Removed redundant publish-nuget.yml workflow (superseded by release.yml)
+
+## [0.1.0-alpha] - 2025-06-17
 
 ### Added
 - Initial implementation of native libSQL bindings using LibraryImport
@@ -70,11 +61,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Backup/restore functionality is not available (requires sqlite3* handle)
 - Extended error codes are not accessible (requires sqlite3* handle)
 
-## [0.1.0-alpha] - TBD
-
-### Added
-- Everything listed in Unreleased section above
-
 [Unreleased]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.0...HEAD
 [0.2.0]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.1.0-alpha...v0.2.0
-[0.1.0-alpha]: https://github.com/yourusername/Nelknet.LibSQL/releases/tag/v0.1.0-alpha
+[0.1.0-alpha]: https://github.com/nelknet/Nelknet.LibSQL/releases/tag/v0.1.0-alpha
