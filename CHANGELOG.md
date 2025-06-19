@@ -16,13 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+- Fixed native library packaging structure in Nelknet.LibSQL.Bindings NuGet package - libraries were being packaged with duplicate paths (e.g., `runtimes/osx-arm64/native/osx-arm64/native/libsql.dylib`) preventing .NET's automatic native library resolution
 
 ### Security
 
 
-## [Unreleased]
-
-## [0.2.3] - 2025-06-19 - 2025-06-19
+## [0.2.3] - 2025-06-19
 
 ### Fixed
 - Add missing `base: main` parameter to Create Pull Request step in release workflow to fix update-changelog job
