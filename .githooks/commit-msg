@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Commitlint hook for conventional commits
+# Checks commit message format before allowing commit
+
+commit_regex='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z]+\))?: .{1,72}$'
+error_msg="❌ Commit message must follow conventional format and be max 72 chars:
+  <type>(<scope>): <subject>
+  
+Types: feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert
+Example: fix(ci): add write permissions to publish-nuget job"
+
+if ! grep -qE "$commit_regex" "$1"; then
+    echo "$error_msg" >&2
+    exit 1
+fi

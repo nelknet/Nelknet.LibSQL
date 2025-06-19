@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Add missing `contents: write` permission to publish-nuget job in release workflow
+- Remove non-existent `*.snupkg` pattern from release file upload
+
 ## [0.2.1]
 
 ### Added
