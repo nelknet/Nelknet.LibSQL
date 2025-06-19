@@ -26,7 +26,7 @@
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     
     <!-- Versioning -->
-    <VersionPrefix>0.2.3</VersionPrefix>
+    <VersionPrefix>0.2.4</VersionPrefix>
     
     <!-- Build configuration -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
