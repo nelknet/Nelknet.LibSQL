@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fixed native library packaging structure in Nelknet.LibSQL.Bindings NuGet package - libraries were being packaged with duplicate paths (e.g., `runtimes/osx-arm64/native/osx-arm64/native/libsql.dylib`) preventing .NET's automatic native library resolution
+- Fixed release workflow version extraction to use portable sed commands instead of GNU grep with PCRE
 
 ### Security
 
