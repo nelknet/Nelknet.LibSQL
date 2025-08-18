@@ -35,10 +35,10 @@ jobs:
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
     
     - name: Checkout libSQL
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         repository: tursodatabase/libsql
         ref: ${{ github.event.inputs.libsql_ref }}
@@ -182,7 +182,7 @@ jobs:
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
     
     - name: Download all artifacts
       uses: actions/download-artifact@v4
