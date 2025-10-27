@@ -15,6 +15,6 @@
     <!-- <PackageVersion Include="System.Data.Common" Version="4.3.0" /> -->
     
     <!-- Code analyzers -->
-    <PackageVersion Include="Roslynator.Analyzers" Version="4.12.9" />
+    <PackageVersion Include="Roslynator.Analyzers" Version="4.14.1" />
   </ItemGroup>
 </Project>
