@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+- Fix NULL column type handling in `LibSQLDataReader` metadata and `IsDBNull`
 
 ### Security
 
