@@ -1,2 +1,6 @@
-Built from libSQL ref: main
-Built on: Tue Jun 17 23:40:42 UTC 2025
+libSQL Reference: e4beacaa266fba930b637515e2082b42c2d6a817
+libSQL Commit: e4beacaa266fba930b637515e2082b42c2d6a817
+libSQL Tag: no-tag
+libSQL Cargo Version: 0.9.30
+Build Date: 2026-04-19 20:17:04 UTC
+Build Workflow Run: https://github.com/nelknet/Nelknet.LibSQL/actions/runs/24638118580
