@@ -22,7 +22,9 @@ jobs:
         # Skip check if PR has certain labels
         if [[ "${{ contains(github.event.pull_request.labels.*.name, 'skip-changelog') }}" == "true" ]] || \
            [[ "${{ contains(github.event.pull_request.labels.*.name, 'dependencies') }}" == "true" ]] || \
-           [[ "${{ contains(github.event.pull_request.labels.*.name, 'documentation') }}" == "true" ]]; then
+           [[ "${{ contains(github.event.pull_request.labels.*.name, 'documentation') }}" == "true" ]] || \
+           [[ "${{ github.event.pull_request.user.login }}" == "dependabot[bot]" ]] || \
+           [[ "${{ startsWith(github.head_ref, 'dependabot/') }}" == "true" ]]; then
           echo "Skipping changelog check due to label"
           exit 0
         fi
