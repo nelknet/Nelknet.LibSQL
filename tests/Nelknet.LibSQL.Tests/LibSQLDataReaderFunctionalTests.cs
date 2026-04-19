@@ -310,4 +310,46 @@ public class LibSQLDataReaderFunctionalTests
             Assert.Contains("No current row available", ex.Message);
         }
     }
+
+    [Fact]
+    public void DataReader_IsDBNull_ShouldReturnTrueForNullValues()
+    {
+        using var connection = new LibSQLConnection("Data Source=:memory:");
+        using var command = new LibSQLCommand("SELECT 1, 'test', 3.14, NULL", connection);
+
+        connection.Open();
+        using var reader = command.ExecuteReader();
+
+        Assert.True(reader.Read());
+        Assert.False(reader.IsDBNull(0));
+        Assert.False(reader.IsDBNull(1));
+        Assert.False(reader.IsDBNull(2));
+        Assert.True(reader.IsDBNull(3));
+    }
+
+    [Fact]
+    public void DataReader_NullColumnMetadata_ShouldUseNullType()
+    {
+        using var connection = new LibSQLConnection("Data Source=:memory:");
+        using var command = new LibSQLCommand("SELECT 1 AS id, NULL AS missing_value", connection);
+
+        connection.Open();
+        using var reader = command.ExecuteReader();
+
+        Assert.True(reader.Read());
+        Assert.Equal("NULL", reader.GetDataTypeName(1));
+        Assert.Equal(typeof(object), reader.GetFieldType(1));
+        Assert.Equal(DBNull.Value, reader.GetValue(1));
+        Assert.True(reader.IsDBNull(1));
+
+        var schemaTable = reader.GetSchemaTable();
+        Assert.NotNull(schemaTable);
+
+        var nullColumn = schemaTable!.Rows
+            .Cast<DataRow>()
+            .Single(row => (int)row["ColumnOrdinal"] == 1);
+
+        Assert.Equal(typeof(object), nullColumn["DataType"]);
+        Assert.Equal("NULL", nullColumn["ProviderType"]);
+    }
 }

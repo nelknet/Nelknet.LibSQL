@@ -15,6 +15,15 @@ namespace Nelknet.LibSQL.Data;
 /// </summary>
 public sealed class LibSQLDataReader : DbDataReader
 {
+    private enum LibSQLColumnType
+    {
+        Integer = 1,
+        Real = 2,
+        Text = 3,
+        Blob = 4,
+        Null = 5,
+    }
+
     private readonly LibSQLRowsHandle? _rowsHandle;
     private readonly LibSQLHttpDataReader? _httpDataReader;
     private readonly CommandBehavior _behavior;
@@ -284,11 +293,11 @@ public sealed class LibSQLDataReader : DbDataReader
             {
                 return columnType switch
                 {
-                    0 => "NULL",
-                    1 => "INTEGER",
-                    2 => "REAL",
-                    3 => "TEXT",
-                    4 => "BLOB",
+                    (int)LibSQLColumnType.Integer => "INTEGER",
+                    (int)LibSQLColumnType.Real => "REAL",
+                    (int)LibSQLColumnType.Text => "TEXT",
+                    (int)LibSQLColumnType.Blob => "BLOB",
+                    (int)LibSQLColumnType.Null => "NULL",
                     _ => "UNKNOWN"
                 };
             }
@@ -387,11 +396,11 @@ public sealed class LibSQLDataReader : DbDataReader
             {
                 return columnType switch
                 {
-                    0 => typeof(object), // NULL
-                    1 => typeof(long),   // INTEGER
-                    2 => typeof(double), // REAL
-                    3 => typeof(string), // TEXT
-                    4 => typeof(byte[]), // BLOB
+                    (int)LibSQLColumnType.Integer => typeof(long),
+                    (int)LibSQLColumnType.Real => typeof(double),
+                    (int)LibSQLColumnType.Text => typeof(string),
+                    (int)LibSQLColumnType.Blob => typeof(byte[]),
+                    (int)LibSQLColumnType.Null => typeof(object),
                     _ => typeof(object)
                 };
             }
@@ -603,14 +612,13 @@ public sealed class LibSQLDataReader : DbDataReader
         }
 
         // Return value based on type
-        // libSQL/SQLite type constants: INT=1, FLOAT=2, TEXT=3, BLOB=4, NULL=5
         return columnType switch
         {
-            1 => GetInt64(ordinal), // INT - use long as the widest integer type
-            2 => GetDouble(ordinal), // FLOAT
-            3 => GetString(ordinal), // TEXT
-            4 => GetBlobBytes(ordinal), // BLOB
-            5 => DBNull.Value, // NULL
+            (int)LibSQLColumnType.Integer => GetInt64(ordinal),
+            (int)LibSQLColumnType.Real => GetDouble(ordinal),
+            (int)LibSQLColumnType.Text => GetString(ordinal),
+            (int)LibSQLColumnType.Blob => GetBlobBytes(ordinal),
+            (int)LibSQLColumnType.Null => DBNull.Value,
             _ => throw new NotSupportedException($"Unknown column type: {columnType}")
         };
     }
@@ -659,7 +667,7 @@ public sealed class LibSQLDataReader : DbDataReader
             throw new InvalidOperationException($"Failed to get column type: {errorMessage}");
         }
 
-        return columnType == 0; // NULL type
+        return columnType == (int)LibSQLColumnType.Null;
     }
 
     /// <summary>
@@ -729,11 +737,11 @@ public sealed class LibSQLDataReader : DbDataReader
                 {
                     (dataType, providerType) = columnType switch
                     {
-                        0 => (typeof(object), "NULL"),
-                        1 => (typeof(long), "INTEGER"),
-                        2 => (typeof(double), "REAL"),
-                        3 => (typeof(string), "TEXT"),
-                        4 => (typeof(byte[]), "BLOB"),
+                        (int)LibSQLColumnType.Integer => (typeof(long), "INTEGER"),
+                        (int)LibSQLColumnType.Real => (typeof(double), "REAL"),
+                        (int)LibSQLColumnType.Text => (typeof(string), "TEXT"),
+                        (int)LibSQLColumnType.Blob => (typeof(byte[]), "BLOB"),
+                        (int)LibSQLColumnType.Null => (typeof(object), "NULL"),
                         _ => (typeof(object), "UNKNOWN")
                     };
                 }
