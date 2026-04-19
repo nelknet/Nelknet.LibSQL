@@ -15,6 +15,15 @@ namespace Nelknet.LibSQL.Data;
 /// </summary>
 public sealed class LibSQLDataReader : DbDataReader
 {
+    private enum LibSQLColumnType
+    {
+        Integer = 1,
+        Real = 2,
+        Text = 3,
+        Blob = 4,
+        Null = 5,
+    }
+
     private readonly LibSQLRowsHandle? _rowsHandle;
     private readonly LibSQLHttpDataReader? _httpDataReader;
     private readonly CommandBehavior _behavior;
@@ -74,10 +83,10 @@ public sealed class LibSQLDataReader : DbDataReader
         get
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-
+            
             if (_isHttpReader && _httpDataReader != null)
                 return _httpDataReader.FieldCount;
-
+                
             if (_closed || _rowsHandle == null)
                 return 0;
 
@@ -94,10 +103,10 @@ public sealed class LibSQLDataReader : DbDataReader
         get
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-
+                
             if (_isHttpReader && _httpDataReader != null)
                 return _httpDataReader.HasRows;
-
+                
             if (_closed || _rowsHandle == null)
                 return false;
 
@@ -139,17 +148,17 @@ public sealed class LibSQLDataReader : DbDataReader
         if (!_closed)
         {
             _closed = true;
-
+            
             if (_isHttpReader && _httpDataReader != null)
             {
                 _httpDataReader.Close();
                 return;
             }
-
+            
             // Clean up current row if we have one
             _currentRow?.Dispose();
             _currentRow = null;
-
+            
             // Clean up rows handle
             _rowsHandle?.Dispose();
         }
@@ -165,7 +174,7 @@ public sealed class LibSQLDataReader : DbDataReader
         var value = GetValue(ordinal);
         if (value == DBNull.Value)
             throw new InvalidCastException("Cannot convert NULL to boolean.");
-
+        
         return (bool)LibSQLTypeConverter.ConvertFromLibSQL(value, typeof(bool));
     }
 
@@ -179,7 +188,7 @@ public sealed class LibSQLDataReader : DbDataReader
         var value = GetValue(ordinal);
         if (value == DBNull.Value)
             throw new InvalidCastException("Cannot convert NULL to byte.");
-
+        
         return (byte)LibSQLTypeConverter.ConvertFromLibSQL(value, typeof(byte));
     }
 
@@ -197,20 +206,20 @@ public sealed class LibSQLDataReader : DbDataReader
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_closed || _rowsHandle == null || _currentRow == null)
             throw new InvalidOperationException("No current row available. Call Read() first.");
-
+        
         ValidateOrdinal(ordinal);
-
+        
         var data = GetBlobBytes(ordinal);
         if (data == null)
             return 0;
-
+            
         if (buffer == null)
             return data.Length;
-
+            
         long actualLength = Math.Min(length, data.Length - dataOffset);
         if (actualLength <= 0)
             return 0;
-
+            
         Array.Copy(data, dataOffset, buffer, bufferOffset, actualLength);
         return actualLength;
     }
@@ -225,7 +234,7 @@ public sealed class LibSQLDataReader : DbDataReader
         var value = GetValue(ordinal);
         if (value == DBNull.Value)
             throw new InvalidCastException("Cannot convert NULL to char.");
-
+        
         return (char)LibSQLTypeConverter.ConvertFromLibSQL(value, typeof(char));
     }
 
@@ -245,7 +254,7 @@ public sealed class LibSQLDataReader : DbDataReader
             return 0;
 
         string str = (string)LibSQLTypeConverter.ConvertFromLibSQL(value, typeof(string));
-
+        
         if (buffer == null)
         {
             // Just return the length
@@ -254,12 +263,12 @@ public sealed class LibSQLDataReader : DbDataReader
 
         var charsToRead = Math.Min(str.Length - dataOffset, length);
         charsToRead = Math.Min(charsToRead, buffer.Length - bufferOffset);
-
+        
         if (charsToRead > 0)
         {
             str.CopyTo((int)dataOffset, buffer, bufferOffset, (int)charsToRead);
         }
-
+        
         return charsToRead;
     }
 
@@ -284,11 +293,11 @@ public sealed class LibSQLDataReader : DbDataReader
             {
                 return columnType switch
                 {
-                    1 => "INTEGER",
-                    2 => "REAL",
-                    3 => "TEXT",
-                    4 => "BLOB",
-                    5 => "NULL",
+                    (int)LibSQLColumnType.Integer => "INTEGER",
+                    (int)LibSQLColumnType.Real => "REAL",
+                    (int)LibSQLColumnType.Text => "TEXT",
+                    (int)LibSQLColumnType.Blob => "BLOB",
+                    (int)LibSQLColumnType.Null => "NULL",
                     _ => "UNKNOWN"
                 };
             }
@@ -311,7 +320,7 @@ public sealed class LibSQLDataReader : DbDataReader
         var value = GetValue(ordinal);
         if (value == DBNull.Value)
             throw new InvalidCastException("Cannot convert NULL to DateTime.");
-
+        
         return (DateTime)LibSQLTypeConverter.ConvertFromLibSQL(value, typeof(DateTime));
     }
 
@@ -325,7 +334,7 @@ public sealed class LibSQLDataReader : DbDataReader
         var value = GetValue(ordinal);
         if (value == DBNull.Value)
             throw new InvalidCastException("Cannot convert NULL to decimal.");
-
+        
         return (decimal)LibSQLTypeConverter.ConvertFromLibSQL(value, typeof(decimal));
     }
 
@@ -337,10 +346,10 @@ public sealed class LibSQLDataReader : DbDataReader
     public override double GetDouble(int ordinal)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-
+            
         if (_isHttpReader && _httpDataReader != null)
             return _httpDataReader.GetDouble(ordinal);
-
+            
         if (_closed || _rowsHandle == null || _currentRow == null)
             throw new InvalidOperationException("No current row available. Call Read() first.");
 
@@ -387,11 +396,11 @@ public sealed class LibSQLDataReader : DbDataReader
             {
                 return columnType switch
                 {
-                    1 => typeof(long),   // INTEGER
-                    2 => typeof(double), // REAL
-                    3 => typeof(string), // TEXT
-                    4 => typeof(byte[]), // BLOB
-                    5 => typeof(object), // NULL
+                    (int)LibSQLColumnType.Integer => typeof(long),
+                    (int)LibSQLColumnType.Real => typeof(double),
+                    (int)LibSQLColumnType.Text => typeof(string),
+                    (int)LibSQLColumnType.Blob => typeof(byte[]),
+                    (int)LibSQLColumnType.Null => typeof(object),
                     _ => typeof(object)
                 };
             }
@@ -414,7 +423,7 @@ public sealed class LibSQLDataReader : DbDataReader
         var value = GetValue(ordinal);
         if (value == DBNull.Value)
             throw new InvalidCastException("Cannot convert NULL to float.");
-
+        
         return (float)LibSQLTypeConverter.ConvertFromLibSQL(value, typeof(float));
     }
 
@@ -428,7 +437,7 @@ public sealed class LibSQLDataReader : DbDataReader
         var value = GetValue(ordinal);
         if (value == DBNull.Value)
             throw new InvalidCastException("Cannot convert NULL to Guid.");
-
+        
         return (Guid)LibSQLTypeConverter.ConvertFromLibSQL(value, typeof(Guid));
     }
 
@@ -442,7 +451,7 @@ public sealed class LibSQLDataReader : DbDataReader
         var value = GetValue(ordinal);
         if (value == DBNull.Value)
             throw new InvalidCastException("Cannot convert NULL to short.");
-
+        
         return (short)LibSQLTypeConverter.ConvertFromLibSQL(value, typeof(short));
     }
 
@@ -456,7 +465,7 @@ public sealed class LibSQLDataReader : DbDataReader
         var value = GetValue(ordinal);
         if (value == DBNull.Value)
             throw new InvalidCastException("Cannot convert NULL to int.");
-
+        
         return (int)LibSQLTypeConverter.ConvertFromLibSQL(value, typeof(int));
     }
 
@@ -468,10 +477,10 @@ public sealed class LibSQLDataReader : DbDataReader
     public override long GetInt64(int ordinal)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-
+            
         if (_isHttpReader && _httpDataReader != null)
             return _httpDataReader.GetInt64(ordinal);
-
+            
         if (_closed || _rowsHandle == null || _currentRow == null)
             throw new InvalidOperationException("No current row available. Call Read() first.");
 
@@ -496,10 +505,10 @@ public sealed class LibSQLDataReader : DbDataReader
     public override string GetName(int ordinal)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-
+            
         if (_isHttpReader && _httpDataReader != null)
             return _httpDataReader.GetName(ordinal);
-
+            
         if (_closed || _rowsHandle == null)
             throw new InvalidOperationException("Reader is closed.");
 
@@ -517,10 +526,10 @@ public sealed class LibSQLDataReader : DbDataReader
     public override int GetOrdinal(string name)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-
+            
         if (_isHttpReader && _httpDataReader != null)
             return _httpDataReader.GetOrdinal(name);
-
+            
         if (_closed || _rowsHandle == null)
             throw new InvalidOperationException("Reader is closed.");
         if (string.IsNullOrEmpty(name))
@@ -547,10 +556,10 @@ public sealed class LibSQLDataReader : DbDataReader
     public override string GetString(int ordinal)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-
+            
         if (_isHttpReader && _httpDataReader != null)
             return _httpDataReader.GetString(ordinal);
-
+            
         if (_closed || _rowsHandle == null || _currentRow == null)
             throw new InvalidOperationException("No current row available. Call Read() first.");
 
@@ -584,10 +593,10 @@ public sealed class LibSQLDataReader : DbDataReader
     public override object GetValue(int ordinal)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-
+            
         if (_isHttpReader && _httpDataReader != null)
             return _httpDataReader.GetValue(ordinal);
-
+            
         if (_closed || _rowsHandle == null || _currentRow == null)
             throw new InvalidOperationException("No current row available. Call Read() first.");
 
@@ -603,14 +612,13 @@ public sealed class LibSQLDataReader : DbDataReader
         }
 
         // Return value based on type
-        // libSQL/SQLite type constants: INT=1, FLOAT=2, TEXT=3, BLOB=4, NULL=5
         return columnType switch
         {
-            1 => GetInt64(ordinal), // INT - use long as the widest integer type
-            2 => GetDouble(ordinal), // FLOAT
-            3 => GetString(ordinal), // TEXT
-            4 => GetBlobBytes(ordinal), // BLOB
-            5 => DBNull.Value, // NULL
+            (int)LibSQLColumnType.Integer => GetInt64(ordinal),
+            (int)LibSQLColumnType.Real => GetDouble(ordinal),
+            (int)LibSQLColumnType.Text => GetString(ordinal),
+            (int)LibSQLColumnType.Blob => GetBlobBytes(ordinal),
+            (int)LibSQLColumnType.Null => DBNull.Value,
             _ => throw new NotSupportedException($"Unknown column type: {columnType}")
         };
     }
@@ -623,13 +631,13 @@ public sealed class LibSQLDataReader : DbDataReader
     public override int GetValues(object[] values)
     {
         ArgumentNullException.ThrowIfNull(values);
-
+        
         int count = Math.Min(values.Length, FieldCount);
         for (int i = 0; i < count; i++)
         {
             values[i] = GetValue(i);
         }
-
+        
         return count;
     }
 
@@ -641,10 +649,10 @@ public sealed class LibSQLDataReader : DbDataReader
     public override bool IsDBNull(int ordinal)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-
+            
         if (_isHttpReader && _httpDataReader != null)
             return _httpDataReader.IsDBNull(ordinal);
-
+            
         if (_closed || _rowsHandle == null || _currentRow == null)
             throw new InvalidOperationException("No current row available. Call Read() first.");
 
@@ -659,7 +667,7 @@ public sealed class LibSQLDataReader : DbDataReader
             throw new InvalidOperationException($"Failed to get column type: {errorMessage}");
         }
 
-        return columnType == 5; // NULL type
+        return columnType == (int)LibSQLColumnType.Null;
     }
 
     /// <summary>
@@ -686,7 +694,7 @@ public sealed class LibSQLDataReader : DbDataReader
         EnsureMetadataInitialized();
 
         var schemaTable = new DataTable("SchemaTable");
-
+        
         // Define the schema table columns
         schemaTable.Columns.Add("ColumnName", typeof(string));
         schemaTable.Columns.Add("ColumnOrdinal", typeof(int));
@@ -711,17 +719,17 @@ public sealed class LibSQLDataReader : DbDataReader
         for (int i = 0; i < _fieldCount; i++)
         {
             var row = schemaTable.NewRow();
-
+            
             row["ColumnName"] = _columnNames![i];
             row["ColumnOrdinal"] = i;
             row["ColumnSize"] = -1; // Unknown for libSQL
             row["NumericPrecision"] = DBNull.Value;
             row["NumericScale"] = DBNull.Value;
-
+            
             // Try to determine the data type from the current row if available
             Type dataType = typeof(object);
             string providerType = "UNKNOWN";
-
+            
             if (_currentRow != null)
             {
                 int result = LibSQLNative.libsql_column_type(_rowsHandle, _currentRow, i, out int columnType, out IntPtr errorMsg);
@@ -729,11 +737,11 @@ public sealed class LibSQLDataReader : DbDataReader
                 {
                     (dataType, providerType) = columnType switch
                     {
-                        1 => (typeof(long), "INTEGER"),
-                        2 => (typeof(double), "REAL"),
-                        3 => (typeof(string), "TEXT"),
-                        4 => (typeof(byte[]), "BLOB"),
-                        5 => (typeof(object), "NULL"),
+                        (int)LibSQLColumnType.Integer => (typeof(long), "INTEGER"),
+                        (int)LibSQLColumnType.Real => (typeof(double), "REAL"),
+                        (int)LibSQLColumnType.Text => (typeof(string), "TEXT"),
+                        (int)LibSQLColumnType.Blob => (typeof(byte[]), "BLOB"),
+                        (int)LibSQLColumnType.Null => (typeof(object), "NULL"),
                         _ => (typeof(object), "UNKNOWN")
                     };
                 }
@@ -742,7 +750,7 @@ public sealed class LibSQLDataReader : DbDataReader
                     LibSQLNative.libsql_free_error_msg(errorMsg);
                 }
             }
-
+            
             row["DataType"] = dataType;
             row["ProviderType"] = providerType;
             row["IsLong"] = providerType == "BLOB";
@@ -756,7 +764,7 @@ public sealed class LibSQLDataReader : DbDataReader
             row["BaseCatalogName"] = DBNull.Value;
             row["BaseTableName"] = DBNull.Value;
             row["BaseColumnName"] = _columnNames![i];
-
+            
             schemaTable.Rows.Add(row);
         }
 
@@ -772,12 +780,12 @@ public sealed class LibSQLDataReader : DbDataReader
     public override T GetFieldValue<T>(int ordinal)
     {
         var value = GetValue(ordinal);
-
+        
         if (value == DBNull.Value)
         {
             if (typeof(T).IsValueType && Nullable.GetUnderlyingType(typeof(T)) == null)
                 throw new InvalidCastException($"Column contains null value and cannot be converted to non-nullable type {typeof(T)}.");
-
+            
             return default!;
         }
 
@@ -799,10 +807,10 @@ public sealed class LibSQLDataReader : DbDataReader
     public override bool Read()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-
+            
         if (_isHttpReader && _httpDataReader != null)
             return _httpDataReader.Read();
-
+            
         if (_closed || _rowsHandle == null)
             return false;
 
@@ -812,7 +820,7 @@ public sealed class LibSQLDataReader : DbDataReader
 
         // Get next row from libSQL
         int result = LibSQLNative.libsql_next_row(_rowsHandle, out IntPtr rowPtr, out IntPtr errorMsg);
-
+        
         if (result != 0)
         {
             if (rowPtr == IntPtr.Zero)
@@ -820,7 +828,7 @@ public sealed class LibSQLDataReader : DbDataReader
                 // No more rows
                 return false;
             }
-
+            
             // Error occurred
             var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
             LibSQLNative.libsql_free_error_msg(errorMsg);

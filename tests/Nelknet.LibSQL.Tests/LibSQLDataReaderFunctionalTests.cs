@@ -14,12 +14,12 @@ public class LibSQLDataReaderFunctionalTests
     {
         using var connection = new LibSQLConnection("Data Source=:memory:");
         using var command = new LibSQLCommand("SELECT 1 as test_column", connection);
-
+        
         try
         {
             connection.Open();
             using var reader = command.ExecuteReader();
-
+            
             Assert.NotNull(reader);
             Assert.IsType<LibSQLDataReader>(reader);
         }
@@ -35,18 +35,18 @@ public class LibSQLDataReaderFunctionalTests
     {
         using var connection = new LibSQLConnection("Data Source=:memory:");
         using var command = new LibSQLCommand("SELECT 1", connection);
-
+        
         try
         {
             connection.Open();
-
+            
             // Test different command behaviors
             using var reader1 = command.ExecuteReader(CommandBehavior.Default);
             Assert.NotNull(reader1);
-
+            
             using var reader2 = command.ExecuteReader(CommandBehavior.SingleResult);
             Assert.NotNull(reader2);
-
+            
             using var reader3 = command.ExecuteReader(CommandBehavior.SingleRow);
             Assert.NotNull(reader3);
         }
@@ -62,20 +62,20 @@ public class LibSQLDataReaderFunctionalTests
     {
         using var connection = new LibSQLConnection("Data Source=:memory:");
         using var command = new LibSQLCommand("SELECT 1 as id, 'test' as name", connection);
-
+        
         try
         {
             connection.Open();
             using var reader = command.ExecuteReader();
-
+            
             // Test initial state
             Assert.False(reader.IsClosed);
-
+            
             // Test reading - SELECT 1 should return one row
             Assert.True(reader.Read()); // Should have one row
             Assert.Equal(1L, reader.GetInt64(0)); // libSQL returns 1 as int64
             Assert.False(reader.Read()); // No more rows
-
+            
             // Test closing
             reader.Close();
             Assert.True(reader.IsClosed);
@@ -92,27 +92,27 @@ public class LibSQLDataReaderFunctionalTests
     {
         using var connection = new LibSQLConnection("Data Source=:memory:");
         using var command = new LibSQLCommand("SELECT 42 as number, 'hello' as text", connection);
-
+        
         try
         {
             connection.Open();
             using var reader = command.ExecuteReader();
-
+            
             if (reader.Read())
             {
                 // These would work with actual data
                 var number = reader.GetFieldValue<int>(0);
                 var text = reader.GetFieldValue<string>(1);
-
+                
                 Assert.Equal(42, number);
                 Assert.Equal("hello", text);
             }
         }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("Failed to load libSQL native library") ||
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Failed to load libSQL native library") || 
                                                    ex.Message.Contains("No current row available"))
         {
             // Expected in test environment without native library or data
-            Assert.True(ex.Message.Contains("Failed to load libSQL native library") ||
+            Assert.True(ex.Message.Contains("Failed to load libSQL native library") || 
                        ex.Message.Contains("No current row available"));
         }
     }
@@ -122,7 +122,7 @@ public class LibSQLDataReaderFunctionalTests
     {
         // Test the type conversion logic without native library
         using var reader = new LibSQLDataReader();
-
+        
         // Test GetFieldValue with null handling
         try
         {
@@ -140,7 +140,7 @@ public class LibSQLDataReaderFunctionalTests
     {
         // Test boolean conversion logic
         using var reader = new LibSQLDataReader();
-
+        
         // These tests verify the conversion logic structure
         // Actual conversions would happen with real data
         try
@@ -158,7 +158,7 @@ public class LibSQLDataReaderFunctionalTests
     public void DataReader_CharConversion_ShouldValidateStringLength()
     {
         using var reader = new LibSQLDataReader();
-
+        
         try
         {
             reader.GetChar(0);
@@ -174,7 +174,7 @@ public class LibSQLDataReaderFunctionalTests
     public void DataReader_GuidConversion_ShouldSupportMultipleFormats()
     {
         using var reader = new LibSQLDataReader();
-
+        
         try
         {
             reader.GetGuid(0);
@@ -190,7 +190,7 @@ public class LibSQLDataReaderFunctionalTests
     public void DataReader_DateTimeConversion_ShouldHandleMultipleFormats()
     {
         using var reader = new LibSQLDataReader();
-
+        
         try
         {
             reader.GetDateTime(0);
@@ -207,26 +207,26 @@ public class LibSQLDataReaderFunctionalTests
     {
         using var connection = new LibSQLConnection("Data Source=:memory:");
         using var command = new LibSQLCommand("SELECT 1, 'test', 3.14", connection);
-
+        
         try
         {
             connection.Open();
             using var reader = command.ExecuteReader();
-
+            
             if (reader.Read())
             {
                 var values = new object[3];
                 var count = reader.GetValues(values);
-
+                
                 Assert.Equal(3, count);
                 // Values would be populated with actual data
             }
         }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("Failed to load libSQL native library") ||
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Failed to load libSQL native library") || 
                                                    ex.Message.Contains("No current row available"))
         {
             // Expected in test environment
-            Assert.True(ex.Message.Contains("Failed to load libSQL native library") ||
+            Assert.True(ex.Message.Contains("Failed to load libSQL native library") || 
                        ex.Message.Contains("No current row available"));
         }
     }
@@ -236,14 +236,14 @@ public class LibSQLDataReaderFunctionalTests
     {
         using var connection = new LibSQLConnection("Data Source=:memory:");
         using var command = new LibSQLCommand("SELECT 1 as id, 'test' as name", connection);
-
+        
         try
         {
             connection.Open();
             using var reader = command.ExecuteReader();
-
+            
             var schemaTable = reader.GetSchemaTable();
-
+            
             if (schemaTable != null)
             {
                 Assert.True(schemaTable.Columns.Count > 0);
@@ -263,7 +263,7 @@ public class LibSQLDataReaderFunctionalTests
     public void DataReader_StreamMethods_ShouldHandleLargeData()
     {
         using var reader = new LibSQLDataReader();
-
+        
         // Test GetBytes with buffer
         try
         {
@@ -275,7 +275,7 @@ public class LibSQLDataReaderFunctionalTests
             // Expected when no current row
             Assert.Contains("No current row available", ex.Message);
         }
-
+        
         // Test GetChars with buffer
         try
         {
@@ -293,7 +293,7 @@ public class LibSQLDataReaderFunctionalTests
     public void DataReader_NumericConversions_ShouldMaintainPrecision()
     {
         using var reader = new LibSQLDataReader();
-
+        
         // Test various numeric conversions
         try
         {
@@ -320,16 +320,36 @@ public class LibSQLDataReaderFunctionalTests
         connection.Open();
         using var reader = command.ExecuteReader();
 
-        if (reader.Read())
-        {
-            Assert.False(reader.IsDBNull(0));
-            Assert.False(reader.IsDBNull(1));
-            Assert.False(reader.IsDBNull(2));
-            Assert.True(reader.IsDBNull(3));
-        }
-        else
-        {
-            Assert.True(false);
-        }
+        Assert.True(reader.Read());
+        Assert.False(reader.IsDBNull(0));
+        Assert.False(reader.IsDBNull(1));
+        Assert.False(reader.IsDBNull(2));
+        Assert.True(reader.IsDBNull(3));
+    }
+
+    [Fact]
+    public void DataReader_NullColumnMetadata_ShouldUseNullType()
+    {
+        using var connection = new LibSQLConnection("Data Source=:memory:");
+        using var command = new LibSQLCommand("SELECT 1 AS id, NULL AS missing_value", connection);
+
+        connection.Open();
+        using var reader = command.ExecuteReader();
+
+        Assert.True(reader.Read());
+        Assert.Equal("NULL", reader.GetDataTypeName(1));
+        Assert.Equal(typeof(object), reader.GetFieldType(1));
+        Assert.Equal(DBNull.Value, reader.GetValue(1));
+        Assert.True(reader.IsDBNull(1));
+
+        var schemaTable = reader.GetSchemaTable();
+        Assert.NotNull(schemaTable);
+
+        var nullColumn = schemaTable!.Rows
+            .Cast<DataRow>()
+            .Single(row => (int)row["ColumnOrdinal"] == 1);
+
+        Assert.Equal(typeof(object), nullColumn["DataType"]);
+        Assert.Equal("NULL", nullColumn["ProviderType"]);
     }
 }
