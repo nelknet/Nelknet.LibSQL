@@ -11,8 +11,13 @@ jobs:
     - uses: actions/checkout@v5
       with:
         fetch-depth: 0
+
+    - name: Skip Dependabot commits
+      if: github.event.pull_request.user.login == 'dependabot[bot]' || startsWith(github.head_ref, 'dependabot/')
+      run: echo "Skipping commit message lint for Dependabot PRs"
     
     - name: Check commit messages
+      if: github.event.pull_request.user.login != 'dependabot[bot]' && !startsWith(github.head_ref, 'dependabot/')
       run: |
         # Get all commits in the PR
         COMMITS=$(git log --format=%s origin/${{ github.base_ref }}..HEAD)
