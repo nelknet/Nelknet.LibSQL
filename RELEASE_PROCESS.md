@@ -46,7 +46,7 @@ The release process is now largely automated with proper version tracking, chang
 
 #### d. Release Drafter (`release-drafter.yml`)
 - **Purpose**: Automatically draft release notes from PRs
-- **Trigger**: Push to main, PR events
+- **Trigger**: Push to `main`
 - **Output**: Draft release with categorized changes
 
 ### 3. Commit Convention

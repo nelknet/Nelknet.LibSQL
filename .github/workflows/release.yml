@@ -131,6 +131,7 @@ jobs:
         echo "" >> release_notes.md
         echo "## 🔗 NuGet Packages" >> release_notes.md
         echo "- [Nelknet.LibSQL.Data](https://www.nuget.org/packages/Nelknet.LibSQL.Data/$VERSION)" >> release_notes.md
+        echo "- [Nelknet.LibSQL.Data.Full](https://www.nuget.org/packages/Nelknet.LibSQL.Data.Full/$VERSION)" >> release_notes.md
         echo "- [Nelknet.LibSQL.Bindings](https://www.nuget.org/packages/Nelknet.LibSQL.Bindings/$VERSION)" >> release_notes.md
     
     - name: Create GitHub Release
@@ -171,6 +172,12 @@ jobs:
         dotnet pack src/Nelknet.LibSQL.Data/Nelknet.LibSQL.Data.csproj \
           --configuration Release \
           -p:PackageVersion=$VERSION \
+          --output ./artifacts
+
+        dotnet pack src/Nelknet.LibSQL.Data/Nelknet.LibSQL.Data.csproj \
+          --configuration Release \
+          -p:PackageVersion=$VERSION \
+          -p:BuildType=Full \
           --output ./artifacts
     
     - name: Upload packages to release
@@ -250,16 +257,17 @@ jobs:
           echo "### Security"
           echo ""
         } > $TEMP_FILE
-        # Append the rest of the changelog
-        tail -n +7 CHANGELOG.md >> $TEMP_FILE
+        # Append released versions without duplicating the previous Unreleased section
+        FIRST_VERSION_LINE=$(grep -n '^## \[[0-9]' CHANGELOG.md | head -n 1 | cut -d: -f1)
+        tail -n +$FIRST_VERSION_LINE CHANGELOG.md >> $TEMP_FILE
         mv $TEMP_FILE CHANGELOG.md
     
     - name: Create Pull Request
       uses: peter-evans/create-pull-request@v8
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-        commit-message: 'chore: prepare CHANGELOG for next release'
-        title: 'chore: prepare CHANGELOG for next release'
+        commit-message: 'chore(release): prepare changelog for next release'
+        title: 'chore(release): prepare changelog for next release'
         body: |
           This PR prepares the CHANGELOG for the next release by:
           - Adding release date to v${{ needs.validate-version.outputs.version }}

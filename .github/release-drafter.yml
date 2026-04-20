@@ -67,6 +67,7 @@ template: |
 
   ## 🔗 NuGet Packages
   - [Nelknet.LibSQL.Data](https://www.nuget.org/packages/Nelknet.LibSQL.Data/$RESOLVED_VERSION)
+  - [Nelknet.LibSQL.Data.Full](https://www.nuget.org/packages/Nelknet.LibSQL.Data.Full/$RESOLVED_VERSION)
   - [Nelknet.LibSQL.Bindings](https://www.nuget.org/packages/Nelknet.LibSQL.Bindings/$RESOLVED_VERSION)
 
   **Full Changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
