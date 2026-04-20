@@ -368,5 +368,73 @@ public class SpecialFeaturesTests : IDisposable
         Assert.Contains("1", extracted); // Should contain our vector values
     }
 
+    [Fact]
+    public void Vector_UpdateIndexedNullEmbedding_ShouldAffectRowAndRefreshIndex()
+    {
+        using var connection = new LibSQLConnection("Data Source=:memory:");
+        connection.Open();
+
+        bool vectorSupported = false;
+        try
+        {
+            using var checkCmd = connection.CreateCommand();
+            checkCmd.CommandText = "SELECT vector('[1,2,3]')";
+            checkCmd.ExecuteScalar();
+            vectorSupported = true;
+        }
+        catch
+        {
+            // Vector functions not available
+        }
+
+        if (!vectorSupported)
+        {
+            return;
+        }
+
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = @"
+            CREATE TABLE embeddings (
+                id INTEGER PRIMARY KEY,
+                title TEXT NOT NULL,
+                data FLOAT32(3)
+            )";
+        cmd.ExecuteNonQuery();
+
+        cmd.CommandText = "INSERT INTO embeddings (id, title, data) VALUES (1, 'seed', NULL)";
+        cmd.ExecuteNonQuery();
+
+        cmd.CommandText = "CREATE INDEX embeddings_idx ON embeddings(libsql_vector_idx(data))";
+        cmd.ExecuteNonQuery();
+
+        cmd.CommandText = "UPDATE embeddings SET data = vector(@vec) WHERE id = @id";
+        cmd.Parameters.Clear();
+        cmd.Parameters.Add(new LibSQLParameter("@vec", "[4,5,6]"));
+        cmd.Parameters.Add(new LibSQLParameter("@id", 1));
+
+        var rowsAffected = cmd.ExecuteNonQuery();
+
+        Assert.Equal(1, rowsAffected);
+
+        cmd.CommandText = "SELECT vector_extract(data) FROM embeddings WHERE id = 1";
+        cmd.Parameters.Clear();
+
+        var extracted = cmd.ExecuteScalar() as string;
+
+        Assert.NotNull(extracted);
+        Assert.Contains("4", extracted);
+        Assert.Contains("5", extracted);
+        Assert.Contains("6", extracted);
+
+        cmd.CommandText = @"
+            SELECT e.id
+            FROM vector_top_k('embeddings_idx', '[4,5,6]', 1) AS knn
+            JOIN embeddings e ON e.rowid = knn.id";
+
+        var nearestId = Convert.ToInt32(cmd.ExecuteScalar());
+
+        Assert.Equal(1, nearestId);
+    }
+
     #endregion
 }
