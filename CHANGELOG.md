@@ -16,10 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+- Skip redundant manual tag creation in the release workflow after the GitHub release step has already created the tag
 
 ### Security
 
-## [0.2.5]
+## [0.2.5] - 2026-04-20
 
 ### Added
 
