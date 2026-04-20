@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fix NULL column type handling in `LibSQLDataReader` metadata and `IsDBNull`
+- Run Release Drafter only on pushes to `main` to avoid pull request `target_commitish` failures
 
 ### Security
 
