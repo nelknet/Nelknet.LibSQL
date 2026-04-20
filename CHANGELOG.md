@@ -16,23 +16,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
-- Fix NULL column type handling in `LibSQLDataReader` metadata and `IsDBNull`
-- Run Release Drafter only on pushes to `main` to avoid pull request `target_commitish` failures
 
 ### Security
 
-
-## [Unreleased]
+## [0.2.5]
 
 ### Added
 
 ### Changed
+- Upgrade bundled libSQL native libraries to upstream commit `e4beacaa266fba930b637515e2082b42c2d6a817`
+- Publish `Nelknet.LibSQL.Data.Full` alongside the managed and bindings packages during releases
 
 ### Deprecated
 
 ### Removed
 
 ### Fixed
+- Fix NULL column type handling in `LibSQLDataReader` metadata and `IsDBNull`
+- Run Release Drafter only on pushes to `main` to avoid pull request `target_commitish` failures
+- Avoid duplicate `Unreleased` sections in automated post-release changelog updates
+- Make the automated changelog preparation PR follow the repo's conventional commit rules
 
 ### Security
 
@@ -126,7 +129,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Backup/restore functionality is not available (requires sqlite3* handle)
 - Extended error codes are not accessible (requires sqlite3* handle)
 
-[Unreleased]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.5...HEAD
+[0.2.5]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.1...v0.2.2

@@ -134,7 +134,7 @@ jobs:
         TEMP_FILE=$(mktemp)
         
         # Find the line number of [Unreleased]
-        LINE_NUM=$(grep -n "## \[Unreleased\]" CHANGELOG.md | cut -d: -f1)
+        LINE_NUM=$(grep -n "## \[Unreleased\]" CHANGELOG.md | head -n 1 | cut -d: -f1)
         
         # Copy everything up to and including [Unreleased]
         head -n $LINE_NUM CHANGELOG.md > $TEMP_FILE
