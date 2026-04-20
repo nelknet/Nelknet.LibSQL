@@ -315,6 +315,99 @@ public class RemoteIntegrationTests
     }
 
     [Fact]
+    public async Task RemoteConnection_VectorUpdateWithIndex_UpdatesEmbeddingAndReportsAffectedRows()
+    {
+        if (!_testsEnabled)
+        {
+            return;
+        }
+
+        var connectionString = $"Data Source={_testUrl};Auth Token={_testToken}";
+        using var connection = new LibSQLConnection(connectionString);
+        await connection.OpenAsync();
+
+        bool vectorSupported;
+        try
+        {
+            using var checkCmd = connection.CreateCommand();
+            checkCmd.CommandText = "SELECT vector('[1,2,3]')";
+            await checkCmd.ExecuteScalarAsync();
+            vectorSupported = true;
+        }
+        catch
+        {
+            vectorSupported = false;
+        }
+
+        if (!vectorSupported)
+        {
+            return;
+        }
+
+        var tableName = $"test_vectors_{Guid.NewGuid():N}";
+        var indexName = $"{tableName}_idx";
+
+        try
+        {
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = $@"
+                CREATE TABLE {tableName} (
+                    id INTEGER PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    embedding FLOAT32(3)
+                )";
+            await cmd.ExecuteNonQueryAsync();
+
+            cmd.CommandText = $"INSERT INTO {tableName} (id, title, embedding) VALUES (1, 'seed', NULL)";
+            await cmd.ExecuteNonQueryAsync();
+
+            cmd.CommandText = $"CREATE INDEX {indexName} ON {tableName}(libsql_vector_idx(embedding))";
+            await cmd.ExecuteNonQueryAsync();
+
+            cmd.CommandText = $"UPDATE {tableName} SET embedding = vector(@vec) WHERE id = @id";
+            cmd.Parameters.Clear();
+            cmd.Parameters.Add(new LibSQLParameter("@vec", "[4,5,6]"));
+            cmd.Parameters.Add(new LibSQLParameter("@id", 1));
+
+            var rowsAffected = await cmd.ExecuteNonQueryAsync();
+
+            Assert.Equal(1, rowsAffected);
+
+            cmd.CommandText = $"SELECT vector_extract(embedding) FROM {tableName} WHERE id = 1";
+            cmd.Parameters.Clear();
+
+            var extracted = await cmd.ExecuteScalarAsync() as string;
+
+            Assert.NotNull(extracted);
+            Assert.Contains("4", extracted);
+            Assert.Contains("5", extracted);
+            Assert.Contains("6", extracted);
+
+            cmd.CommandText = $@"
+                SELECT t.id
+                FROM vector_top_k('{indexName}', '[4,5,6]', 1) AS knn
+                JOIN {tableName} t ON t.rowid = knn.id";
+
+            var nearestId = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+
+            Assert.Equal(1, nearestId);
+        }
+        finally
+        {
+            try
+            {
+                using var cleanupCmd = connection.CreateCommand();
+                cleanupCmd.CommandText = $"DROP TABLE IF EXISTS {tableName}";
+                await cleanupCmd.ExecuteNonQueryAsync();
+            }
+            catch
+            {
+                // Ignore cleanup errors
+            }
+        }
+    }
+
+    [Fact]
     public async Task RemoteConnection_HandlesConnectionErrors()
     {
         // Test invalid URL
