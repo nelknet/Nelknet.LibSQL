@@ -135,7 +135,7 @@ jobs:
     
     - name: Create GitHub Release
       id: create_release
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       with:
         tag_name: v${{ needs.validate-version.outputs.version }}
         name: v${{ needs.validate-version.outputs.version }}
@@ -174,7 +174,7 @@ jobs:
           --output ./artifacts
     
     - name: Upload packages to release
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       with:
         tag_name: v${{ needs.validate-version.outputs.version }}
         files: artifacts/*.nupkg
