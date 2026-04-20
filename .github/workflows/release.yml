@@ -200,16 +200,6 @@ jobs:
           fi
         done
     
-    - name: Create version tag if manual
-      if: github.event_name == 'workflow_dispatch'
-      run: |
-        git config --global user.name 'github-actions[bot]'
-        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-        
-        VERSION="${{ needs.validate-version.outputs.version }}"
-        git tag -a "v$VERSION" -m "Release v$VERSION"
-        git push origin "v$VERSION"
-  
   update-changelog:
     needs: [validate-version, publish-nuget]
     if: success()
