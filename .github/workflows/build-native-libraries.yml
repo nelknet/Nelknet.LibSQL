@@ -72,19 +72,14 @@ jobs:
           tag_name="$(git describe --exact-match --tags HEAD 2>/dev/null || echo 'no-tag')"
           echo "tag_name=${tag_name}" >> "$GITHUB_OUTPUT"
 
-          cargo_version="$(awk '
-            BEGIN { in_workspace_package = 0 }
-            /^\[workspace\.package\]$/ { in_workspace_package = 1; next }
-            /^\[/ { in_workspace_package = 0 }
-            in_workspace_package && /^version = / {
-              gsub(/"/, "", $3)
-              print $3
-              exit
-            }
-          ' Cargo.toml)"
+          cargo_version="$(perl -0ne 'if (/\[workspace\.package\].*?version\s*=\s*\"([^\"]+)\"/s) { print $1; exit }' Cargo.toml)"
 
-          if [ -z "${cargo_version}" ]; then
-            cargo_version="$(sed -n 's/^version = \"\(.*\)\"/\1/p' Cargo.toml | head -n 1)"
+          if [ -z "${cargo_version}" ] && [ -f libsql/Cargo.toml ]; then
+            cargo_version="$(perl -0ne 'if (/\[package\].*?name\s*=\s*\"libsql\".*?version\s*=\s*\"([^\"]+)\"/s) { print $1; exit }' libsql/Cargo.toml)"
+          fi
+
+          if [ -z "${cargo_version}" ] && [ -f libsql-sys/Cargo.toml ]; then
+            cargo_version="$(perl -0ne 'if (/\[package\].*?name\s*=\s*\"libsql-sys\".*?version\s*=\s*\"([^\"]+)\"/s) { print $1; exit }' libsql-sys/Cargo.toml)"
           fi
 
           if [ -z "${cargo_version}" ]; then
