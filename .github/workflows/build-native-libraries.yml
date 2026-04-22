@@ -108,6 +108,7 @@ jobs:
           rm -f rust-toolchain.toml ../../rust-toolchain.toml
 
           if [ "${{ matrix.target }}" = "x86_64-pc-windows-gnu" ]; then
+            perl -0pi -e 's/crate-type = \["cdylib",\s*"staticlib"\]/crate-type = ["staticlib"]/g' Cargo.toml
             export CC_x86_64_pc_windows_gnu=x86_64-w64-mingw32-gcc
             export AR_x86_64_pc_windows_gnu=x86_64-w64-mingw32-ar
             export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
