@@ -4,11 +4,13 @@ A native .NET client library for [libSQL](https://github.com/tursodatabase/libsq
 
 [![NuGet](https://img.shields.io/nuget/v/Nelknet.LibSQL.Data.svg)](https://www.nuget.org/packages/Nelknet.LibSQL.Data/)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/Nelknet.LibSQL.Data.svg)](https://www.nuget.org/packages/Nelknet.LibSQL.Data/)
+[![Bundled libSQL](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fnelknet%2FNelknet.LibSQL%2Fmain%2F.github%2Fbadges%2Flibsql-version.json)](https://github.com/nelknet/Nelknet.LibSQL/blob/main/src/Nelknet.LibSQL.Bindings/runtimes/LIBSQL_VERSION)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ## Overview
 
 Nelknet.LibSQL is a C# client library that provides native bindings to libSQL, a fork of SQLite that adds support for replication, remote connections, and other distributed features. This library follows the ADO.NET pattern, making it easy to use for developers familiar with other .NET database providers.
+The bundled libSQL badge tracks the exact upstream release tag recorded in `LIBSQL_VERSION`; manual untagged builds fall back to the vendored commit SHA.
 
 ### Key Features
 

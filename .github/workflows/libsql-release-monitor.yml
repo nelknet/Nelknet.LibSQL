@@ -1,0 +1,209 @@
+name: Monitor libSQL Releases
+
+on:
+  schedule:
+    - cron: '17 13 * * *'
+  workflow_dispatch:
+    inputs:
+      tag_override:
+        description: 'Specific upstream libSQL release tag to process instead of the latest published release'
+        required: false
+        default: ''
+        type: string
+      dry_run:
+        description: 'Report the pending update without creating a branch or pull request'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: libsql-release-monitor
+  cancel-in-progress: false
+
+jobs:
+  prepare-update:
+    runs-on: ubuntu-latest
+    outputs:
+      update_required: ${{ steps.release.outputs.update_required }}
+      current_tag: ${{ steps.release.outputs.current_tag }}
+      current_commit: ${{ steps.release.outputs.current_commit }}
+      target_tag: ${{ steps.release.outputs.target_tag }}
+      target_commit: ${{ steps.release.outputs.target_commit }}
+      target_branch: ${{ steps.release.outputs.target_branch }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Determine libSQL release target
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          target_tag="${{ inputs.tag_override }}"
+          if [ -n "${target_tag}" ]; then
+            release_json="$(gh api "repos/tursodatabase/libsql/releases/tags/${target_tag}")"
+          else
+            release_json="$(gh api repos/tursodatabase/libsql/releases/latest)"
+            target_tag="$(jq -r '.tag_name' <<< "${release_json}")"
+          fi
+
+          target_commit="$(jq -r '.target_commitish' <<< "${release_json}")"
+          current_tag="$(sed -n 's/^libSQL Tag: //p' src/Nelknet.LibSQL.Bindings/runtimes/LIBSQL_VERSION)"
+          current_commit="$(sed -n 's/^libSQL Commit: //p' src/Nelknet.LibSQL.Bindings/runtimes/LIBSQL_VERSION)"
+
+          if [ -z "${target_tag}" ] || [ -z "${target_commit}" ]; then
+            echo "Unable to resolve the target libSQL release." >&2
+            exit 1
+          fi
+
+          branch_suffix="${target_tag#libsql-server-}"
+          branch_suffix="${branch_suffix,,}"
+          branch_suffix="${branch_suffix//[^a-z0-9]/-}"
+          target_branch="automation/libsql-${branch_suffix}"
+
+          echo "current_tag=${current_tag}" >> "$GITHUB_OUTPUT"
+          echo "current_commit=${current_commit}" >> "$GITHUB_OUTPUT"
+          echo "target_tag=${target_tag}" >> "$GITHUB_OUTPUT"
+          echo "target_commit=${target_commit}" >> "$GITHUB_OUTPUT"
+          echo "target_branch=${target_branch}" >> "$GITHUB_OUTPUT"
+
+          if [ "${current_tag}" = "${target_tag}" ]; then
+            echo "Bundled libSQL already matches ${target_tag}."
+            echo "update_required=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          existing_pr_number="$(gh pr list --head "${target_branch}" --state open --json number --jq '.[0].number // empty')"
+          if [ -n "${existing_pr_number}" ]; then
+            echo "An automation PR for ${target_tag} is already open (#${existing_pr_number})."
+            echo "update_required=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "Dry run: would update ${current_tag} (${current_commit:0:7}) to ${target_tag} (${target_commit:0:7}) on ${target_branch}."
+            echo "update_required=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git fetch origin main --depth=1
+          git checkout -B "${target_branch}" origin/main
+          git push --force origin "HEAD:${target_branch}"
+
+          echo "update_required=true" >> "$GITHUB_OUTPUT"
+
+  update-native-assets:
+    needs: prepare-update
+    if: needs.prepare-update.outputs.update_required == 'true'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/build-native-libraries.yml
+    with:
+      libsql_ref: ${{ needs.prepare-update.outputs.target_tag }}
+      target_branch: ${{ needs.prepare-update.outputs.target_branch }}
+
+  open-update-pr:
+    needs: [prepare-update, update-native-assets]
+    if: needs.prepare-update.outputs.update_required == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_BRANCH: ${{ needs.prepare-update.outputs.target_branch }}
+      TARGET_TAG: ${{ needs.prepare-update.outputs.target_tag }}
+      TARGET_COMMIT: ${{ needs.prepare-update.outputs.target_commit }}
+      CURRENT_TAG: ${{ needs.prepare-update.outputs.current_tag }}
+      CURRENT_COMMIT: ${{ needs.prepare-update.outputs.current_commit }}
+    steps:
+      - name: Checkout automation branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+
+      - name: Prepare version bump and changelog
+        id: versioning
+        shell: bash
+        run: |
+          chmod +x scripts/generate-libsql-badge.sh scripts/prepare-libsql-release-update.sh
+          next_version="$(bash scripts/prepare-libsql-release-update.sh \
+            --previous-libsql-tag "${CURRENT_TAG}" \
+            --previous-libsql-commit "${CURRENT_COMMIT}" | sed -n 's/^next_version=//p')"
+
+          if [ -z "${next_version}" ]; then
+            echo "Unable to determine next package version." >&2
+            exit 1
+          fi
+
+          bash scripts/generate-libsql-badge.sh --check
+
+          echo "next_version=${next_version}" >> "$GITHUB_OUTPUT"
+
+      - name: Commit release preparation
+        shell: bash
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+          git add Directory.Build.props CHANGELOG.md
+
+          if git diff --cached --quiet; then
+            echo "No release preparation changes to commit."
+            exit 0
+          fi
+
+          git commit -m "chore(release): prepare ${{ steps.versioning.outputs.next_version }} for ${TARGET_TAG}"
+          git push origin "HEAD:${TARGET_BRANCH}"
+
+      - name: Create automation PR
+        shell: bash
+        run: |
+          previous_identity="${CURRENT_TAG}"
+          if [ "${previous_identity}" = "no-tag" ]; then
+            previous_identity="main-${CURRENT_COMMIT:0:7}"
+          fi
+
+          body_file="$(mktemp)"
+          cat > "${body_file}" <<EOF
+          ## Summary
+
+          - update the bundled libSQL native libraries to \`${TARGET_TAG}\`
+          - bump the Nelknet.LibSQL package version to \`${{ steps.versioning.outputs.next_version }}\`
+          - refresh \`LIBSQL_VERSION\`, the README badge metadata, and the changelog
+
+          ## Upstream
+
+          - previous bundled libSQL: \`${previous_identity}\`
+          - target bundled libSQL: \`${TARGET_TAG}\` (\`${TARGET_COMMIT}\`)
+          - upstream release: https://github.com/tursodatabase/libsql/releases/tag/${TARGET_TAG}
+
+          ## Validation
+
+          This PR's CI and commit lint checks are dispatched explicitly after creation because pull requests created with \`GITHUB_TOKEN\` do not trigger \`pull_request\` workflows automatically.
+          EOF
+
+          pr_url="$(gh pr create \
+            --base main \
+            --head "${TARGET_BRANCH}" \
+            --title "chore(native): update bundled libsql to ${TARGET_TAG}" \
+            --body-file "${body_file}" \
+            --label dependencies)"
+
+          echo "Created ${pr_url}"
+
+      - name: Dispatch validation workflows
+        shell: bash
+        run: |
+          gh workflow run ci.yml --ref "${TARGET_BRANCH}"
+          gh workflow run commitlint.yml --ref "${TARGET_BRANCH}" -f base_ref=main
