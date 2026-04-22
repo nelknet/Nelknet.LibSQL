@@ -3,6 +3,13 @@ name: Lint Commit Messages
 on:
   pull_request:
     types: [opened, synchronize, edited]
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: 'Base branch to compare against when linting a branch directly'
+        required: false
+        default: 'main'
+        type: string
 
 jobs:
   commitlint:
@@ -13,15 +20,23 @@ jobs:
         fetch-depth: 0
 
     - name: Skip Dependabot commits
-      if: github.event.pull_request.user.login == 'dependabot[bot]' || startsWith(github.head_ref, 'dependabot/')
+      if: github.event_name == 'pull_request' && (github.event.pull_request.user.login == 'dependabot[bot]' || startsWith(github.head_ref, 'dependabot/'))
       run: echo "Skipping commit message lint for Dependabot PRs"
     
     - name: Check commit messages
-      if: github.event.pull_request.user.login != 'dependabot[bot]' && !startsWith(github.head_ref, 'dependabot/')
+      if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.user.login != 'dependabot[bot]' && !startsWith(github.head_ref, 'dependabot/'))
       run: |
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          BASE_REF="${{ inputs.base_ref }}"
+        else
+          BASE_REF="${{ github.base_ref }}"
+        fi
+
+        git fetch origin "$BASE_REF" --depth=1
+
         # Get all commits in the PR
-        COMMITS=$(git log --format=%s origin/${{ github.base_ref }}..HEAD)
-        
+        COMMITS=$(git log --format=%s "origin/${BASE_REF}..HEAD")
+
         # Conventional commit pattern
         PATTERN='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z]+\))?: .{1,72}$'
         

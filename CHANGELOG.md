@@ -8,8 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Add daily automation to detect new upstream libSQL release tags, open update PRs, auto-merge green PRs, and dispatch NuGet releases
+- Add helper scripts to generate the bundled libSQL badge metadata and prepare automated release update branches
 
 ### Changed
+- Prefer published upstream libSQL release tags over `main` when vendoring native libSQL binaries
+- Update the README bundled libSQL badge to show the vendored upstream release tag instead of the Rust cargo workspace version
 
 ### Deprecated
 

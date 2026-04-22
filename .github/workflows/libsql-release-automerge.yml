@@ -1,0 +1,149 @@
+name: Auto Merge libSQL Release PRs
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+      - Lint Commit Messages
+    types:
+      - completed
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: libsql-release-automerge-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  merge-and-release:
+    if: startsWith(github.event.workflow_run.head_branch, 'automation/libsql-')
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BRANCH_NAME: ${{ github.event.workflow_run.head_branch }}
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Resolve automation PR
+        id: pr
+        shell: bash
+        run: |
+          pr_json="$(gh pr list --head "${BRANCH_NAME}" --state open --json number,isDraft,title,labels --jq '.[0]')"
+          if [ -z "${pr_json}" ] || [ "${pr_json}" = "null" ]; then
+            echo "No open automation PR for ${BRANCH_NAME}."
+            exit 0
+          fi
+
+          is_draft="$(jq -r '.isDraft' <<< "${pr_json}")"
+          if [ "${is_draft}" = "true" ]; then
+            echo "PR is still a draft."
+            exit 0
+          fi
+
+          title="$(jq -r '.title' <<< "${pr_json}")"
+          if [[ "${title}" != chore\(native\):\ update\ bundled\ libsql\ to* ]]; then
+            echo "PR title does not match the automation pattern."
+            exit 0
+          fi
+
+          has_dependencies_label="$(jq -r '[.labels[].name] | index("dependencies") != null' <<< "${pr_json}")"
+          if [ "${has_dependencies_label}" != "true" ]; then
+            echo "PR is missing the dependencies label."
+            exit 0
+          fi
+
+          echo "number=$(jq -r '.number' <<< "${pr_json}")" >> "$GITHUB_OUTPUT"
+
+      - name: Verify required workflows are green
+        id: checks
+        if: steps.pr.outputs.number != ''
+        shell: bash
+        run: |
+          required_workflows=("CI" "Lint Commit Messages")
+
+          for workflow_name in "${required_workflows[@]}"; do
+            run_json="$(gh run list \
+              --workflow "${workflow_name}" \
+              --branch "${BRANCH_NAME}" \
+              --limit 20 \
+              --json databaseId,headSha,status,conclusion \
+              --jq 'map(select(.headSha == "'"${HEAD_SHA}"'")) | sort_by(.databaseId) | last // empty')"
+
+            if [ -z "${run_json}" ]; then
+              echo "No ${workflow_name} run found yet for ${HEAD_SHA}."
+              exit 0
+            fi
+
+            status="$(jq -r '.status' <<< "${run_json}")"
+            conclusion="$(jq -r '.conclusion' <<< "${run_json}")"
+
+            if [ "${status}" != "completed" ]; then
+              echo "${workflow_name} is still running."
+              exit 0
+            fi
+
+            if [ "${conclusion}" != "success" ]; then
+              echo "${workflow_name} concluded with ${conclusion}; not merging."
+              exit 0
+            fi
+          done
+
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+      - name: Read release version from branch
+        id: version
+        if: steps.checks.outputs.ready == 'true'
+        shell: bash
+        run: |
+          git fetch origin "${BRANCH_NAME}" --depth=1
+          version="$(git show "origin/${BRANCH_NAME}:Directory.Build.props" | sed -n 's/.*<VersionPrefix>\([^<]*\)<\/VersionPrefix>.*/\1/p' | tr -d '[:space:]')"
+
+          if [ -z "${version}" ]; then
+            echo "Unable to determine package version from ${BRANCH_NAME}." >&2
+            exit 1
+          fi
+
+          echo "value=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Merge automation PR
+        if: steps.version.outputs.value != ''
+        shell: bash
+        run: |
+          gh pr merge "${{ steps.pr.outputs.number }}" --merge --delete-branch
+
+      - name: Dispatch NuGet release
+        if: steps.version.outputs.value != ''
+        shell: bash
+        run: |
+          dispatched_after="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          gh workflow run release.yml --ref main -f version="${{ steps.version.outputs.value }}"
+
+          run_id=""
+          for _ in {1..20}; do
+            sleep 10
+            run_id="$(gh run list \
+              --workflow release.yml \
+              --branch main \
+              --event workflow_dispatch \
+              --limit 10 \
+              --json databaseId,createdAt \
+              --jq 'map(select(.createdAt >= "'"${dispatched_after}"'")) | sort_by(.createdAt) | last.databaseId // empty')"
+
+            if [ -n "${run_id}" ]; then
+              break
+            fi
+          done
+
+          if [ -z "${run_id}" ]; then
+            echo "Unable to locate the dispatched release workflow run." >&2
+            exit 1
+          fi
+
+          gh run watch "${run_id}" --exit-status

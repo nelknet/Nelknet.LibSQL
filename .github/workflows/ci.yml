@@ -55,6 +55,10 @@ jobs:
       uses: actions/setup-dotnet@v5
       with:
         dotnet-version: 8.0.x
+
+    - name: Check libSQL version badge metadata
+      if: runner.os == 'Linux'
+      run: bash scripts/generate-libsql-badge.sh --check
     
     - name: Restore dependencies
       run: dotnet restore
