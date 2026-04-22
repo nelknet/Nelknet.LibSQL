@@ -111,6 +111,7 @@ jobs:
             perl -0pi -e 's/crate-type = \["cdylib",\s*"staticlib"\]/crate-type = ["staticlib"]/g' Cargo.toml
             perl -0pi -e 's@if let Some\(ref cc\) = cross_cc \{\n        if cc.contains\("aarch64"\) && cc.contains\("linux"\) \{\n            cmake_opts.push\(&cmake_toolchain_opt\);\n            writeln!\(toolchain_file, "set\(CMAKE_SYSTEM_NAME \\"Linux\\"\)"\)\.unwrap\(\);\n            writeln!\(toolchain_file, "set\(CMAKE_SYSTEM_PROCESSOR \\"arm64\\"\)"\)\.unwrap\(\);\n        }\n    \}@if let Some(ref cc) = cross_cc {\n        if cc.contains("aarch64") && cc.contains("linux") {\n            cmake_opts.push(&cmake_toolchain_opt);\n            writeln!(toolchain_file, "set(CMAKE_SYSTEM_NAME \\"Linux\\")").unwrap();\n            writeln!(toolchain_file, "set(CMAKE_SYSTEM_PROCESSOR \\"arm64\\")").unwrap();\n        }\n        if cc.contains("mingw32") {\n            cmake_opts.push(&cmake_toolchain_opt);\n            writeln!(toolchain_file, "set(CMAKE_SYSTEM_NAME \\"Windows\\")").unwrap();\n            writeln!(toolchain_file, "set(CMAKE_SYSTEM_PROCESSOR \\"x86_64\\")").unwrap();\n        }\n    }@s' ../../libsql-ffi/build.rs
             export CC_x86_64_pc_windows_gnu=x86_64-w64-mingw32-gcc
+            export CXX_x86_64_pc_windows_gnu=x86_64-w64-mingw32-g++
             export AR_x86_64_pc_windows_gnu=x86_64-w64-mingw32-ar
             export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
           fi
