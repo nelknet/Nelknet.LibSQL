@@ -1,6 +1,6 @@
-libSQL Reference: e4beacaa266fba930b637515e2082b42c2d6a817
-libSQL Commit: e4beacaa266fba930b637515e2082b42c2d6a817
-libSQL Tag: no-tag
-libSQL Cargo Version: 0.9.30
-Build Date: 2026-04-19 20:17:04 UTC
-Build Workflow Run: https://github.com/nelknet/Nelknet.LibSQL/actions/runs/24638118580
+libSQL Reference: libsql-server-v0.24.32
+libSQL Commit: 40c272de85ee4e62d722c5ccae5da2e76b4253a1
+libSQL Tag: libsql-server-v0.24.32
+libSQL Cargo Version: 0.6.0
+Build Date: 2026-04-22 14:25:07 UTC
+Build Workflow Run: https://github.com/nelknet/Nelknet.LibSQL/actions/runs/24783623722
