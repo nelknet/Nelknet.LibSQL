@@ -8,11 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+## [0.2.6]
+
+### Added
 - Add daily automation to detect new upstream libSQL release tags, open update PRs, auto-merge green PRs, and dispatch NuGet releases
 - Add helper scripts to generate the bundled libSQL badge metadata and prepare automated release update branches
 
 ### Changed
 - Prefer published upstream libSQL release tags over `main` when vendoring native libSQL binaries
+- Update the bundled libSQL native libraries to upstream release tag `libsql-server-v0.24.32`
 - Update the README bundled libSQL badge to show the vendored upstream release tag instead of the Rust cargo workspace version
 
 ### Deprecated
@@ -21,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Skip redundant manual tag creation in the release workflow after the GitHub release step has already created the tag
+- Fix Windows GNU tagged native builds by forcing the MinGW C++ toolchain and Windows CMake hints during libSQL cross-compilation
 
 ### Security
 
