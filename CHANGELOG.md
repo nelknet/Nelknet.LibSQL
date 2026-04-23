@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+- Fix `LibSQLCommand.ExecuteNonQuery`/`ExecuteNonQueryAsync` returning `-1` for UPDATE, INSERT and DELETE statements on local connections by reading the affected-row count via SQLite's `changes()` scalar instead of the experimental `libsql_changes` native function ([#66](https://github.com/nelknet/Nelknet.LibSQL/issues/66))
+- `LibSQLDataReader.RecordsAffected` now reports the Hrana server-provided count when wrapping an HTTP data reader instead of always returning `-1`
 
 ### Security
 

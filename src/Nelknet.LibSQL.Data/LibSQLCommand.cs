@@ -274,8 +274,11 @@ public sealed class LibSQLCommand : DbCommand
             LibSQLErrorHandler.CheckResult(result, null, CommandText, errorMessage);
         }
 
-        // Get the number of changes made
-        return (int)LibSQLNative.libsql_changes(connectionHandle);
+        // Get the number of changes made.
+        // The experimental libSQL C API's libsql_changes does not reliably report the
+        // count after libsql_execute_stmt (it returns u64::MAX, which truncates to -1),
+        // so we query SQLite's changes() scalar directly. See issue #66.
+        return ReadChangesCount(connectionHandle);
     }
 
     /// <summary>
@@ -806,6 +809,54 @@ public sealed class LibSQLCommand : DbCommand
         return statement!;
     }
     
+    /// <summary>
+    /// Reads the number of rows modified by the most recent INSERT, UPDATE or DELETE
+    /// on the given connection by querying SQLite's <c>changes()</c> scalar function.
+    /// </summary>
+    /// <remarks>
+    /// This is used instead of <c>libsql_changes</c> because the experimental libSQL C
+    /// API does not reliably populate <c>libsql_changes</c> for statements executed via
+    /// <c>libsql_execute_stmt</c>, causing <see cref="ExecuteNonQuery"/> to report -1
+    /// for UPDATE and DELETE statements that did affect rows (issue #66).
+    /// </remarks>
+    private static int ReadChangesCount(LibSQLConnectionHandle connectionHandle)
+    {
+        int result = LibSQLNative.libsql_query(connectionHandle, "SELECT changes()", out IntPtr rowsHandle, out IntPtr errorMsg);
+        if (result != 0)
+        {
+            var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
+            LibSQLNative.libsql_free_error_msg(errorMsg);
+            throw new InvalidOperationException($"Failed to read affected-row count: {errorMessage}");
+        }
+
+        using var rows = new LibSQLRowsHandle(rowsHandle);
+
+        result = LibSQLNative.libsql_next_row(rows, out IntPtr rowHandle, out errorMsg);
+        if (result != 0)
+        {
+            var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
+            LibSQLNative.libsql_free_error_msg(errorMsg);
+            throw new InvalidOperationException($"Failed to read affected-row count row: {errorMessage}");
+        }
+
+        if (rowHandle == IntPtr.Zero)
+        {
+            return 0;
+        }
+
+        using var row = new LibSQLRowHandle(rowHandle);
+
+        result = LibSQLNative.libsql_get_int(row, 0, out long count, out errorMsg);
+        if (result != 0)
+        {
+            var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
+            LibSQLNative.libsql_free_error_msg(errorMsg);
+            throw new InvalidOperationException($"Failed to read affected-row count value: {errorMessage}");
+        }
+
+        return count > int.MaxValue ? int.MaxValue : (int)count;
+    }
+
     #region Query Plan Support
     
     /// <summary>

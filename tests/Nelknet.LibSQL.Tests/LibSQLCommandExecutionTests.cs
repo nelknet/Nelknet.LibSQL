@@ -363,7 +363,7 @@ public class LibSQLCommandExecutionTests
     {
         using var connection = new LibSQLConnection("Data Source=:memory:");
         var command = new LibSQLCommand("SELECT 1", connection);
-        
+
         try
         {
             connection.Open();
@@ -373,8 +373,207 @@ public class LibSQLCommandExecutionTests
         {
             // Expected in test environment without native library
         }
-        
+
         // Dispose should not throw even if prepare failed
         command.Dispose();
+    }
+
+    // --- Regression tests for issue #66: ExecuteNonQuery must report affected-row count ---
+
+    [Fact]
+    public void ExecuteNonQuery_UpdateMatchingRow_ReturnsAffectedRowCount()
+    {
+        using var connection = new LibSQLConnection("Data Source=:memory:");
+
+        try
+        {
+            connection.Open();
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Failed to load libSQL native library"))
+        {
+            return;
+        }
+
+        using (var create = connection.CreateCommand())
+        {
+            create.CommandText = "CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT)";
+            create.ExecuteNonQuery();
+        }
+        using (var insert = connection.CreateCommand())
+        {
+            insert.CommandText = "INSERT INTO t (id, name) VALUES (1, 'a')";
+            insert.ExecuteNonQuery();
+        }
+
+        using var update = connection.CreateCommand();
+        update.CommandText = "UPDATE t SET name = @n WHERE id = @id";
+        update.Parameters.AddWithValue("@n", "b");
+        update.Parameters.AddWithValue("@id", 1);
+
+        var affected = update.ExecuteNonQuery();
+
+        Assert.Equal(1, affected);
+    }
+
+    [Fact]
+    public void ExecuteNonQuery_UpdateNoMatch_ReturnsZero()
+    {
+        using var connection = new LibSQLConnection("Data Source=:memory:");
+
+        try
+        {
+            connection.Open();
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Failed to load libSQL native library"))
+        {
+            return;
+        }
+
+        using (var create = connection.CreateCommand())
+        {
+            create.CommandText = "CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT)";
+            create.ExecuteNonQuery();
+        }
+
+        using var update = connection.CreateCommand();
+        update.CommandText = "UPDATE t SET name = @n WHERE id = @id";
+        update.Parameters.AddWithValue("@n", "b");
+        update.Parameters.AddWithValue("@id", 999);
+
+        var affected = update.ExecuteNonQuery();
+
+        Assert.Equal(0, affected);
+    }
+
+    [Fact]
+    public void ExecuteNonQuery_InsertSingleRow_ReturnsOne()
+    {
+        using var connection = new LibSQLConnection("Data Source=:memory:");
+
+        try
+        {
+            connection.Open();
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Failed to load libSQL native library"))
+        {
+            return;
+        }
+
+        using (var create = connection.CreateCommand())
+        {
+            create.CommandText = "CREATE TABLE t (id INTEGER PRIMARY KEY, v TEXT)";
+            create.ExecuteNonQuery();
+        }
+
+        using var insert = connection.CreateCommand();
+        insert.CommandText = "INSERT INTO t (id, v) VALUES (@id, @v)";
+        insert.Parameters.AddWithValue("@id", 1);
+        insert.Parameters.AddWithValue("@v", "hello");
+
+        var affected = insert.ExecuteNonQuery();
+
+        Assert.Equal(1, affected);
+    }
+
+    [Fact]
+    public void ExecuteNonQuery_DeleteMatchingRow_ReturnsOne()
+    {
+        using var connection = new LibSQLConnection("Data Source=:memory:");
+
+        try
+        {
+            connection.Open();
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Failed to load libSQL native library"))
+        {
+            return;
+        }
+
+        using (var create = connection.CreateCommand())
+        {
+            create.CommandText = "CREATE TABLE t (id INTEGER PRIMARY KEY)";
+            create.ExecuteNonQuery();
+        }
+        using (var insert = connection.CreateCommand())
+        {
+            insert.CommandText = "INSERT INTO t (id) VALUES (1), (2), (3)";
+            insert.ExecuteNonQuery();
+        }
+
+        using var delete = connection.CreateCommand();
+        delete.CommandText = "DELETE FROM t WHERE id = @id";
+        delete.Parameters.AddWithValue("@id", 2);
+
+        var affected = delete.ExecuteNonQuery();
+
+        Assert.Equal(1, affected);
+    }
+
+    [Fact]
+    public void ExecuteNonQuery_DeleteMultipleRows_ReturnsTotalAffected()
+    {
+        using var connection = new LibSQLConnection("Data Source=:memory:");
+
+        try
+        {
+            connection.Open();
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Failed to load libSQL native library"))
+        {
+            return;
+        }
+
+        using (var create = connection.CreateCommand())
+        {
+            create.CommandText = "CREATE TABLE t (id INTEGER PRIMARY KEY, flag INTEGER)";
+            create.ExecuteNonQuery();
+        }
+        using (var insert = connection.CreateCommand())
+        {
+            insert.CommandText = "INSERT INTO t (id, flag) VALUES (1, 1), (2, 1), (3, 0)";
+            insert.ExecuteNonQuery();
+        }
+
+        using var delete = connection.CreateCommand();
+        delete.CommandText = "DELETE FROM t WHERE flag = 1";
+
+        var affected = delete.ExecuteNonQuery();
+
+        Assert.Equal(2, affected);
+    }
+
+    [Fact]
+    public async Task ExecuteNonQueryAsync_UpdateMatchingRow_ReturnsOne()
+    {
+        using var connection = new LibSQLConnection("Data Source=:memory:");
+
+        try
+        {
+            await connection.OpenAsync();
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Failed to load libSQL native library"))
+        {
+            return;
+        }
+
+        using (var create = connection.CreateCommand())
+        {
+            create.CommandText = "CREATE TABLE t (id INTEGER PRIMARY KEY, n TEXT)";
+            await create.ExecuteNonQueryAsync();
+        }
+        using (var insert = connection.CreateCommand())
+        {
+            insert.CommandText = "INSERT INTO t (id, n) VALUES (1, 'a')";
+            await insert.ExecuteNonQueryAsync();
+        }
+
+        using var update = connection.CreateCommand();
+        update.CommandText = "UPDATE t SET n = @n WHERE id = @id";
+        update.Parameters.AddWithValue("@n", "b");
+        update.Parameters.AddWithValue("@id", 1);
+
+        var affected = await update.ExecuteNonQueryAsync();
+
+        Assert.Equal(1, affected);
     }
 }

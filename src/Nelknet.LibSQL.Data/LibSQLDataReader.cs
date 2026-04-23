@@ -124,7 +124,22 @@ public sealed class LibSQLDataReader : DbDataReader
     /// <summary>
     /// Gets the number of rows changed, inserted, or deleted by execution of the SQL statement.
     /// </summary>
-    public override int RecordsAffected => -1; // Not applicable for SELECT statements
+    /// <remarks>
+    /// For HTTP (remote) connections the value is taken from the Hrana server response. For
+    /// local connections this returns -1 as per ADO.NET convention for SELECT-style readers;
+    /// affected-row counts for local UPDATE/INSERT/DELETE should be read via
+    /// <see cref="LibSQLCommand.ExecuteNonQuery"/>.
+    /// </remarks>
+    public override int RecordsAffected
+    {
+        get
+        {
+            if (_isHttpReader && _httpDataReader != null)
+                return _httpDataReader.RecordsAffected;
+
+            return -1;
+        }
+    }
 
     /// <summary>
     /// Gets the value of the specified column as an instance of Object.
