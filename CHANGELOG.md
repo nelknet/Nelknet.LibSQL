@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+- Fix `LibSQLCommand` binding named parameters (`@name`, `:name`, `$name`) by collection order instead of by name for local connections, which silently swapped values when `Parameters.Add` was called in a different order than the markers appear in the SQL. Parameters are now resolved by name using SQLite's first-occurrence rule ([#65](https://github.com/nelknet/Nelknet.LibSQL/issues/65))
 
 ### Security
 

@@ -290,11 +290,202 @@ public class LibSQLCommandParameterBindingTests
     {
         using var connection = new LibSQLConnection("Data Source=:memory:");
         using var command = new LibSQLCommand("SELECT @value", connection);
-        
+
         command.Parameters.AddWithValue("@value", 42);
-        
+
         // Command should validate that connection is open before attempting to bind parameters
         var exception = Assert.Throws<InvalidOperationException>(() => command.ExecuteNonQuery());
         Assert.Contains("Connection must be open", exception.Message);
+    }
+
+    // --- Regression tests for issue #65: BindParameters must resolve by name, not by collection order ---
+
+    [Fact]
+    public void ExecuteScalar_NamedParametersAddedOutOfOrder_BindsByName()
+    {
+        using var connection = new LibSQLConnection("Data Source=:memory:");
+
+        try
+        {
+            connection.Open();
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Failed to load libSQL native library"))
+        {
+            return;
+        }
+
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT @a || '|' || @b";
+
+        var pB = cmd.CreateParameter();
+        pB.ParameterName = "@b";
+        pB.Value = "BEE";
+        cmd.Parameters.Add(pB);
+
+        var pA = cmd.CreateParameter();
+        pA.ParameterName = "@a";
+        pA.Value = "AYE";
+        cmd.Parameters.Add(pA);
+
+        var result = cmd.ExecuteScalar();
+
+        Assert.Equal("AYE|BEE", result);
+    }
+
+    [Fact]
+    public void ExecuteScalar_RepeatedNamedParameter_BindsSingleValueToAllOccurrences()
+    {
+        using var connection = new LibSQLConnection("Data Source=:memory:");
+
+        try
+        {
+            connection.Open();
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Failed to load libSQL native library"))
+        {
+            return;
+        }
+
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT @v || '-' || @v";
+        cmd.Parameters.AddWithValue("@v", "X");
+
+        var result = cmd.ExecuteScalar();
+
+        Assert.Equal("X-X", result);
+    }
+
+    [Fact]
+    public void ExecuteScalar_ParameterMarkerInStringLiteral_NotTreatedAsParameter()
+    {
+        using var connection = new LibSQLConnection("Data Source=:memory:");
+
+        try
+        {
+            connection.Open();
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Failed to load libSQL native library"))
+        {
+            return;
+        }
+
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT '@a=' || @a";
+        cmd.Parameters.AddWithValue("@a", "42");
+
+        var result = cmd.ExecuteScalar();
+
+        Assert.Equal("@a=42", result);
+    }
+
+    [Fact]
+    public void ExecuteScalar_ParameterMarkerInBlockComment_NotTreatedAsParameter()
+    {
+        using var connection = new LibSQLConnection("Data Source=:memory:");
+
+        try
+        {
+            connection.Open();
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Failed to load libSQL native library"))
+        {
+            return;
+        }
+
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT /* @ignored */ @a";
+        cmd.Parameters.AddWithValue("@a", 7);
+
+        var result = cmd.ExecuteScalar();
+
+        Assert.Equal(7L, result);
+    }
+
+    [Fact]
+    public void ExecuteNonQuery_UpdateWithParametersAddedOutOfOrder_AppliesCorrectValues()
+    {
+        using var connection = new LibSQLConnection("Data Source=:memory:");
+
+        try
+        {
+            connection.Open();
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Failed to load libSQL native library"))
+        {
+            return;
+        }
+
+        using (var create = connection.CreateCommand())
+        {
+            create.CommandText = "CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT)";
+            create.ExecuteNonQuery();
+        }
+        using (var insert = connection.CreateCommand())
+        {
+            insert.CommandText = "INSERT INTO t (id, name) VALUES (1, 'old')";
+            insert.ExecuteNonQuery();
+        }
+
+        using var update = connection.CreateCommand();
+        update.CommandText = "UPDATE t SET name = @name WHERE id = @id";
+        // Parameters intentionally added in reverse order relative to how they appear in the SQL.
+        update.Parameters.AddWithValue("@id", 1);
+        update.Parameters.AddWithValue("@name", "updated");
+
+        var affected = update.ExecuteNonQuery();
+        Assert.Equal(1, affected);
+
+        using var verify = connection.CreateCommand();
+        verify.CommandText = "SELECT name FROM t WHERE id = 1";
+        var name = verify.ExecuteScalar() as string;
+
+        Assert.Equal("updated", name);
+    }
+
+    [Fact]
+    public void ExecuteScalar_NamedParameterInCollectionNotReferencedInSql_SilentlyIgnored()
+    {
+        using var connection = new LibSQLConnection("Data Source=:memory:");
+
+        try
+        {
+            connection.Open();
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Failed to load libSQL native library"))
+        {
+            return;
+        }
+
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT @a";
+        cmd.Parameters.AddWithValue("@a", 1);
+        cmd.Parameters.AddWithValue("@unused", 999);
+
+        var result = cmd.ExecuteScalar();
+
+        Assert.Equal(1L, result);
+    }
+
+    [Fact]
+    public void ExecuteScalar_NamedParameterCaseInsensitiveMatch_Binds()
+    {
+        using var connection = new LibSQLConnection("Data Source=:memory:");
+
+        try
+        {
+            connection.Open();
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Failed to load libSQL native library"))
+        {
+            return;
+        }
+
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT @Value";
+        cmd.Parameters.AddWithValue("@value", 123);
+
+        var result = cmd.ExecuteScalar();
+
+        Assert.Equal(123L, result);
     }
 }

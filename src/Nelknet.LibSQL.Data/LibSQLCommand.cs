@@ -1,6 +1,7 @@
 #nullable disable warnings
 
 using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Runtime.CompilerServices;
@@ -659,23 +660,48 @@ public sealed class LibSQLCommand : DbCommand
     /// Binds parameters to the prepared statement.
     /// </summary>
     /// <param name="statement">The prepared statement handle.</param>
+    /// <remarks>
+    /// Named parameters (<c>@name</c>, <c>:name</c>, <c>$name</c>) are resolved by name via a
+    /// positional map built from <see cref="CommandText"/>, matching SQLite's first-occurrence
+    /// rule. When the SQL uses only anonymous <c>?</c> markers, parameters fall back to the
+    /// order they were added to the collection. See issue #65.
+    /// </remarks>
     private void BindParameters(LibSQLStatementHandle statement)
     {
         // Validate all parameters before binding
         Parameters.ValidateParameters();
-        
+
+        var namedPositions = BuildNamedParameterPositions(CommandText);
+
         for (int i = 0; i < Parameters.Count; i++)
         {
             var parameter = Parameters[i];
             IntPtr errorMsg;
             int result;
 
+            // Resolve the 1-based bind position: by name if the SQL contains the marker,
+            // otherwise fall back to the parameter's position in the collection.
+            int position;
+            if (namedPositions.Count > 0)
+            {
+                if (!namedPositions.TryGetValue(parameter.ParameterName, out position))
+                {
+                    // Parameter not referenced in the SQL text — skip silently, matching the
+                    // behavior of Microsoft.Data.Sqlite.
+                    continue;
+                }
+            }
+            else
+            {
+                position = i + 1;
+            }
+
             // Get the converted value for libSQL
             var libSQLValue = parameter.GetLibSQLValue();
 
             if (LibSQLTypeConverter.IsNull(libSQLValue))
             {
-                result = LibSQLNative.libsql_bind_null(statement, i + 1, out errorMsg);
+                result = LibSQLNative.libsql_bind_null(statement, position, out errorMsg);
             }
             else
             {
@@ -683,17 +709,17 @@ public sealed class LibSQLCommand : DbCommand
                 {
                     case LibSQLDbType.Integer:
                         var longValue = (long)libSQLValue;
-                        result = LibSQLNative.libsql_bind_int(statement, i + 1, longValue, out errorMsg);
+                        result = LibSQLNative.libsql_bind_int(statement, position, longValue, out errorMsg);
                         break;
 
                     case LibSQLDbType.Real:
                         var doubleValue = (double)libSQLValue;
-                        result = LibSQLNative.libsql_bind_float(statement, i + 1, doubleValue, out errorMsg);
+                        result = LibSQLNative.libsql_bind_float(statement, position, doubleValue, out errorMsg);
                         break;
 
                     case LibSQLDbType.Text:
                         var stringValue = (string)libSQLValue;
-                        result = LibSQLNative.libsql_bind_string(statement, i + 1, stringValue, out errorMsg);
+                        result = LibSQLNative.libsql_bind_string(statement, position, stringValue, out errorMsg);
                         break;
 
                     case LibSQLDbType.Blob:
@@ -701,7 +727,7 @@ public sealed class LibSQLCommand : DbCommand
                         var pinnedBlob = GCHandle.Alloc(blobValue, GCHandleType.Pinned);
                         try
                         {
-                            result = LibSQLNative.libsql_bind_blob(statement, i + 1, pinnedBlob.AddrOfPinnedObject(), blobValue.Length, out errorMsg);
+                            result = LibSQLNative.libsql_bind_blob(statement, position, pinnedBlob.AddrOfPinnedObject(), blobValue.Length, out errorMsg);
                         }
                         finally
                         {
@@ -718,9 +744,135 @@ public sealed class LibSQLCommand : DbCommand
             {
                 var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
                 LibSQLNative.libsql_free_error_msg(errorMsg);
-                throw new InvalidOperationException($"Failed to bind parameter {i + 1}: {errorMessage}");
+                throw new InvalidOperationException($"Failed to bind parameter '{parameter.ParameterName}' (position {position}): {errorMessage}");
             }
         }
+    }
+
+    /// <summary>
+    /// Scans the SQL text and returns a map of named parameter markers
+    /// (<c>@name</c>, <c>:name</c>, <c>$name</c>) to their 1-based bind position.
+    /// </summary>
+    /// <remarks>
+    /// Positions follow SQLite's first-occurrence rule. String literals, quoted
+    /// identifiers and comments are skipped so that parameter-looking tokens inside
+    /// them are not mistaken for markers.
+    /// </remarks>
+    private static Dictionary<string, int> BuildNamedParameterPositions(string sql)
+    {
+        var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        if (string.IsNullOrEmpty(sql))
+            return map;
+
+        int nextPosition = 1;
+        int i = 0;
+        int length = sql.Length;
+
+        while (i < length)
+        {
+            char c = sql[i];
+
+            // Line comment: -- ... \n
+            if (c == '-' && i + 1 < length && sql[i + 1] == '-')
+            {
+                int newline = sql.IndexOf('\n', i + 2);
+                i = newline < 0 ? length : newline + 1;
+                continue;
+            }
+
+            // Block comment: /* ... */
+            if (c == '/' && i + 1 < length && sql[i + 1] == '*')
+            {
+                int close = sql.IndexOf("*/", i + 2, StringComparison.Ordinal);
+                i = close < 0 ? length : close + 2;
+                continue;
+            }
+
+            // Single-quoted string literal: '...' with '' escape
+            if (c == '\'')
+            {
+                i++;
+                while (i < length)
+                {
+                    if (sql[i] == '\'')
+                    {
+                        if (i + 1 < length && sql[i + 1] == '\'')
+                        {
+                            i += 2;
+                            continue;
+                        }
+                        i++;
+                        break;
+                    }
+                    i++;
+                }
+                continue;
+            }
+
+            // Double-quoted identifier: "..." with "" escape
+            if (c == '"')
+            {
+                i++;
+                while (i < length)
+                {
+                    if (sql[i] == '"')
+                    {
+                        if (i + 1 < length && sql[i + 1] == '"')
+                        {
+                            i += 2;
+                            continue;
+                        }
+                        i++;
+                        break;
+                    }
+                    i++;
+                }
+                continue;
+            }
+
+            // Bracket-quoted identifier: [...]
+            if (c == '[')
+            {
+                int close = sql.IndexOf(']', i + 1);
+                i = close < 0 ? length : close + 1;
+                continue;
+            }
+
+            // Backtick-quoted identifier: `...`
+            if (c == '`')
+            {
+                int close = sql.IndexOf('`', i + 1);
+                i = close < 0 ? length : close + 1;
+                continue;
+            }
+
+            // Named parameter marker: @name, :name, $name
+            if (c == '@' || c == ':' || c == '$')
+            {
+                int start = i;
+                i++;
+                while (i < length && (char.IsLetterOrDigit(sql[i]) || sql[i] == '_'))
+                {
+                    i++;
+                }
+
+                // Must have at least one name character after the prefix.
+                if (i > start + 1)
+                {
+                    var name = sql.Substring(start, i - start);
+                    if (!map.ContainsKey(name))
+                    {
+                        map[name] = nextPosition++;
+                    }
+                }
+                continue;
+            }
+
+            i++;
+        }
+
+        return map;
     }
     
     /// <summary>
