@@ -1,5 +1,7 @@
 using Nelknet.LibSQL.Bindings;
 using System;
+using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using Xunit;
 
@@ -111,7 +113,7 @@ public class LibSQLNativeLibraryTests
     {
         // We can't directly test the private method, but we can verify
         // that the expected library names would be correct for the current platform
-        
+
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             // On Windows, should look for .dll files
@@ -119,7 +121,7 @@ public class LibSQLNativeLibraryTests
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            // On macOS, should look for .dylib files  
+            // On macOS, should look for .dylib files
             Assert.True(true); // libsql.dylib, libsqlite3.dylib, sqlite3.dylib would be expected
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
@@ -127,5 +129,75 @@ public class LibSQLNativeLibraryTests
             // On Linux, should look for .so files
             Assert.True(true); // libsql.so, libsqlite3.so, sqlite3.so would be expected
         }
+    }
+
+    // --- Regression tests for issue #64: single-file publish support ---
+
+    [Fact]
+    public void EnumerateSearchPaths_IncludesAppContextBaseDirectory()
+    {
+        var paths = LibSQLNativeLibrary.EnumerateSearchPaths("win-x64").ToArray();
+
+        Assert.Contains(AppContext.BaseDirectory, paths);
+    }
+
+    [Fact]
+    public void EnumerateSearchPaths_StartsWithAppContextBaseDirectoryDerivedPaths()
+    {
+        var paths = LibSQLNativeLibrary.EnumerateSearchPaths("win-x64").ToArray();
+
+        // The first yielded path must be rooted at AppContext.BaseDirectory; this is
+        // the path that works in single-file publishes.
+        Assert.NotEmpty(paths);
+        Assert.Equal(
+            Path.Combine(AppContext.BaseDirectory, "runtimes", "win-x64", "native"),
+            paths[0]);
+    }
+
+    [Fact]
+    public void EnumerateSearchPaths_IncludesNuGetRuntimesNativeLayout()
+    {
+        var paths = LibSQLNativeLibrary.EnumerateSearchPaths("linux-x64").ToArray();
+
+        Assert.Contains(
+            paths,
+            p => p.EndsWith(Path.Combine("runtimes", "linux-x64", "native"), StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void EnumerateSearchPaths_NeverReturnsNullOrEmptyEntries()
+    {
+        var paths = LibSQLNativeLibrary.EnumerateSearchPaths("osx-arm64").ToArray();
+
+        Assert.All(paths, p => Assert.False(string.IsNullOrEmpty(p)));
+    }
+
+    [Fact]
+    public void EnumerateSearchPaths_DoesNotIncludeCurrentDirectory()
+    {
+        var originalDirectory = Environment.CurrentDirectory;
+        var currentDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(currentDirectory);
+
+        try
+        {
+            Environment.CurrentDirectory = currentDirectory;
+
+            var paths = LibSQLNativeLibrary.EnumerateSearchPaths("osx-arm64").ToArray();
+
+            Assert.DoesNotContain(currentDirectory, paths);
+        }
+        finally
+        {
+            Environment.CurrentDirectory = originalDirectory;
+            Directory.Delete(currentDirectory);
+        }
+    }
+
+    [Fact]
+    public void EnumerateSearchPaths_ThrowsOnNullRid()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            LibSQLNativeLibrary.EnumerateSearchPaths(null!).ToArray());
     }
 }

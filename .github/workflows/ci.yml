@@ -87,6 +87,17 @@ jobs:
         } else {
           echo "Runtime directory not found"
         }
+
+    - name: Single-file publish smoke test
+      if: runner.os == 'Linux'
+      run: |
+        dotnet publish examples/BasicExample/BasicExample.csproj \
+          --configuration Release \
+          --runtime linux-x64 \
+          -p:PublishSingleFile=true \
+          --self-contained true \
+          --output artifacts/single-file-smoke
+        ./artifacts/single-file-smoke/BasicExample
     
     # Start sqld server for remote integration tests (Linux only)
     - name: Start sqld server
