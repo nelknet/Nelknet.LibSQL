@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
-- Fix `LibSQLNativeLibrary.TryInitialize` failing to locate `libsql` in single-file (`PublishSingleFile=true`) publishes, blocking the first `LibSQLConnection.Open`. `AppContext.BaseDirectory` is now probed before `Assembly.Location`-derived paths, a `NativeLibrary.SetDllImportResolver` reuses the explicit native handle, and current-directory probing has been removed from the native search path. This partially addresses [#64](https://github.com/nelknet/Nelknet.LibSQL/issues/64); NativeAOT still has separate trim/AOT issues.
+- Fix single-file and NativeAOT publishes by making native library probing bundle-safe, using source-generated Hrana JSON serialization, matching `DbDataReader.GetFieldType` trim annotations, and adding a NativeAOT smoke test for local and HTTP connections ([#64](https://github.com/nelknet/Nelknet.LibSQL/issues/64))
 - Fix local and HTTP command binding for named parameters (`@name`, `:name`, `$name`) so values are resolved by SQL marker name and position instead of collection order, preventing silent value swaps when `Parameters.Add` order differs from SQL marker order ([#65](https://github.com/nelknet/Nelknet.LibSQL/issues/65))
 
 ### Security

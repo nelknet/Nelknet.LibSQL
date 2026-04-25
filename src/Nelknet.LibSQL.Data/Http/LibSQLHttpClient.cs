@@ -16,7 +16,6 @@ namespace Nelknet.LibSQL.Data.Http;
 internal sealed class LibSQLHttpClient : IDisposable
 {
     private readonly HttpClient _httpClient;
-    private readonly JsonSerializerOptions _jsonOptions;
     private readonly string _authToken;
     private readonly string _baseUrl;
     private bool _disposed;
@@ -43,13 +42,6 @@ internal sealed class LibSQLHttpClient : IDisposable
         }
         
         _httpClient.DefaultRequestHeaders.Add("User-Agent", "Nelknet.LibSQL/1.0");
-
-        _jsonOptions = new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-            WriteIndented = false,
-            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
-        };
     }
 
     /// <summary>
@@ -61,7 +53,7 @@ internal sealed class LibSQLHttpClient : IDisposable
 
         try
         {
-            var json = JsonSerializer.Serialize(batch, _jsonOptions);
+            var json = JsonSerializer.Serialize(batch, HranaJsonSerializerContext.Default.HranaBatchRequest);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             var response = await _httpClient.PostAsync("v2/pipeline", content, cancellationToken).ConfigureAwait(false);
@@ -77,7 +69,7 @@ internal sealed class LibSQLHttpClient : IDisposable
             }
 
             var responseJson = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            var result = JsonSerializer.Deserialize<HranaBatchResponse>(responseJson, _jsonOptions);
+            var result = JsonSerializer.Deserialize(responseJson, HranaJsonSerializerContext.Default.HranaBatchResponse);
             
             if (result == null)
                 throw new LibSQLException("Failed to deserialize response from server");

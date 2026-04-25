@@ -56,6 +56,12 @@ jobs:
       with:
         dotnet-version: 8.0.x
 
+    - name: Install NativeAOT prerequisites
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang zlib1g-dev
+
     - name: Check libSQL version badge metadata
       if: runner.os == 'Linux'
       run: bash scripts/generate-libsql-badge.sh --check
@@ -117,6 +123,20 @@ jobs:
           fi
         done
         echo "sqld is ready!"
+
+    - name: NativeAOT publish smoke test
+      if: runner.os == 'Linux'
+      env:
+        LIBSQL_TEST_URL: http://localhost:8080
+        LIBSQL_TEST_TOKEN: ""
+      run: |
+        dotnet publish examples/NativeAotSmoke/NativeAotSmoke.csproj \
+          --configuration Release \
+          --runtime linux-x64 \
+          -p:PublishAot=true \
+          --self-contained true \
+          --output artifacts/nativeaot-smoke
+        ./artifacts/nativeaot-smoke/NativeAotSmoke
     
     # Run tests without remote integration tests first
     - name: Test (excluding remote integration)

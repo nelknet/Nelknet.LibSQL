@@ -6,6 +6,7 @@ using System;
 using System.Collections;
 using System.Data;
 using System.Data.Common;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 
 namespace Nelknet.LibSQL.Data;
@@ -380,6 +381,7 @@ public sealed class LibSQLDataReader : DbDataReader
     /// </summary>
     /// <param name="ordinal">The zero-based column ordinal.</param>
     /// <returns>The data type of the specified column.</returns>
+    [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicFields | DynamicallyAccessedMemberTypes.PublicProperties)]
     public override Type GetFieldType(int ordinal)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -685,6 +687,10 @@ public sealed class LibSQLDataReader : DbDataReader
     /// Returns a DataTable that describes the column metadata of the LibSQLDataReader.
     /// </summary>
     /// <returns>A DataTable that describes the column metadata.</returns>
+    [UnconditionalSuppressMessage(
+        "ReflectionAnalysis",
+        "IL2111",
+        Justification = "ADO.NET schema tables require a System.Type-valued DataType column; values are fixed BCL type literals.")]
     public override DataTable? GetSchemaTable()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
