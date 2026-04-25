@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -16,6 +17,8 @@ internal static class LibSQLNativeLibrary
     internal const string LibraryName = "libsql";
 
     private static bool _isInitialized;
+    private static bool _resolverRegistered;
+    private static IntPtr _libraryHandle = IntPtr.Zero;
     private static readonly object _lock = new();
 
     /// <summary>
@@ -34,32 +37,13 @@ internal static class LibSQLNativeLibrary
 
             try
             {
+                EnsureResolverRegistered();
+
                 var rid = GetRuntimeIdentifier();
                 if (rid == null)
                     return false;
 
-                var assemblyDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-                if (assemblyDirectory == null)
-                    return false;
-
-                // Try multiple locations in order of preference
-                var searchPaths = new[]
-                {
-                    // 1. Runtime-specific path (NuGet convention)
-                    Path.Combine(assemblyDirectory, "runtimes", rid, "native"),
-                    // 2. Direct runtime path (for local development)
-                    Path.Combine(assemblyDirectory, rid),
-                    // 3. Main assembly directory
-                    assemblyDirectory,
-                    // 4. Parent directory (for bin/Debug/net8.0 scenarios)
-                    Path.GetDirectoryName(assemblyDirectory) ?? assemblyDirectory,
-                    // 5. Application base directory
-                    AppDomain.CurrentDomain.BaseDirectory,
-                    // 6. Current directory
-                    Environment.CurrentDirectory
-                };
-
-                foreach (var path in searchPaths)
+                foreach (var path in EnumerateSearchPaths(rid))
                 {
                     if (TryLoadFromDirectory(path))
                     {
@@ -82,6 +66,55 @@ internal static class LibSQLNativeLibrary
                 return false;
             }
         }
+    }
+
+    /// <summary>
+    /// Enumerates the directories searched for the native library, in order of preference.
+    /// </summary>
+    /// <param name="rid">The runtime identifier for the current platform (e.g. <c>win-x64</c>).</param>
+    /// <remarks>
+    /// <para>
+    /// <see cref="AppContext.BaseDirectory"/> is checked first because it is the API that
+    /// works reliably in single-file publishes. In those scenarios <see cref="Assembly.Location"/>
+    /// returns an empty string for bundled assemblies, so paths derived from it collapse
+    /// and must be treated as non-load-bearing. See issue #64.
+    /// </para>
+    /// <para>Null and empty entries are never yielded.</para>
+    /// </remarks>
+    internal static IEnumerable<string> EnumerateSearchPaths(string rid)
+    {
+        ArgumentNullException.ThrowIfNull(rid);
+
+        var baseDirectory = AppContext.BaseDirectory;
+        if (!string.IsNullOrEmpty(baseDirectory))
+        {
+            // NuGet runtimes convention, rooted at the app's base directory.
+            yield return Path.Combine(baseDirectory, "runtimes", rid, "native");
+            // Direct runtime-named subdirectory (common for local development layouts).
+            yield return Path.Combine(baseDirectory, rid);
+            // Base directory itself (where single-file publishes place native assets).
+            yield return baseDirectory;
+        }
+
+        // The IsNullOrEmpty guard below is precisely the documented mitigation for
+        // the IL3000 warning: Assembly.Location returns an empty string in single-file
+        // bundles, which this code treats as "skip the assembly-directory fallbacks".
+        // AppContext.BaseDirectory above already covers single-file publishes; this
+        // block only contributes when the assembly lives on disk at a resolvable path.
+#pragma warning disable IL3000
+        var assemblyDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+#pragma warning restore IL3000
+        if (!string.IsNullOrEmpty(assemblyDirectory))
+        {
+            yield return Path.Combine(assemblyDirectory, "runtimes", rid, "native");
+            yield return Path.Combine(assemblyDirectory, rid);
+            yield return assemblyDirectory;
+
+            var parent = Path.GetDirectoryName(assemblyDirectory);
+            if (!string.IsNullOrEmpty(parent))
+                yield return parent;
+        }
+
     }
 
     /// <summary>
@@ -132,11 +165,11 @@ internal static class LibSQLNativeLibrary
     /// <returns>True if the library was successfully loaded.</returns>
     private static bool TryLoadFromDirectory(string directory)
     {
-        if (!Directory.Exists(directory))
+        if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
             return false;
 
         var libraryNames = GetPlatformSpecificLibraryNames();
-        
+
         foreach (var libraryName in libraryNames)
         {
             var libraryPath = Path.Combine(directory, libraryName);
@@ -144,8 +177,11 @@ internal static class LibSQLNativeLibrary
             {
                 try
                 {
-                    if (NativeLibrary.TryLoad(libraryPath, out _))
+                    if (NativeLibrary.TryLoad(libraryPath, out var handle))
+                    {
+                        _libraryHandle = handle;
                         return true;
+                    }
                 }
                 catch
                 {
@@ -160,11 +196,12 @@ internal static class LibSQLNativeLibrary
             try
             {
                 if (NativeLibrary.TryLoad(
-                    libraryName, 
-                    Assembly.GetExecutingAssembly(), 
-                    DllImportSearchPath.SafeDirectories, 
-                    out _))
+                    libraryName,
+                    Assembly.GetExecutingAssembly(),
+                    DllImportSearchPath.SafeDirectories,
+                    out var handle))
                 {
+                    _libraryHandle = handle;
                     return true;
                 }
             }
@@ -204,15 +241,18 @@ internal static class LibSQLNativeLibrary
     private static bool TryLoadSystemWide()
     {
         var libraryNames = GetPlatformSpecificLibraryNames();
-        
+
         // Try loading each library name without a specific path
         // This allows the system loader to search standard paths
         foreach (var libraryName in libraryNames)
         {
             try
             {
-                if (NativeLibrary.TryLoad(libraryName, out _))
+                if (NativeLibrary.TryLoad(libraryName, out var handle))
+                {
+                    _libraryHandle = handle;
                     return true;
+                }
             }
             catch
             {
@@ -221,5 +261,34 @@ internal static class LibSQLNativeLibrary
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Registers a <see cref="NativeLibrary.SetDllImportResolver"/> delegate so that
+    /// P/Invoke lookups for <c>libsql</c> in this assembly resolve to the handle we
+    /// loaded explicitly.
+    /// </summary>
+    /// <remarks>
+    /// On single-file builds the default P/Invoke resolution does not
+    /// always locate a module that has already been loaded via
+    /// <see cref="NativeLibrary.TryLoad(string, out IntPtr)"/> with an absolute path.
+    /// Routing through our own resolver closes that gap without changing call sites.
+    /// </remarks>
+    private static void EnsureResolverRegistered()
+    {
+        if (_resolverRegistered)
+            return;
+
+        NativeLibrary.SetDllImportResolver(typeof(LibSQLNativeLibrary).Assembly, ResolveLibrary);
+        _resolverRegistered = true;
+    }
+
+    private static IntPtr ResolveLibrary(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
+    {
+        if (string.Equals(libraryName, LibraryName, StringComparison.Ordinal) && _libraryHandle != IntPtr.Zero)
+            return _libraryHandle;
+
+        // Fall through to the default P/Invoke resolver.
+        return IntPtr.Zero;
     }
 }
