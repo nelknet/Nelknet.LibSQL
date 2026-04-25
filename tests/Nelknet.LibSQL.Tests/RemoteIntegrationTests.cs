@@ -87,6 +87,68 @@ public class RemoteIntegrationTests
     }
 
     [Fact]
+    public async Task RemoteConnection_NamedParametersAddedOutOfOrder_BindsByName()
+    {
+        if (!_testsEnabled)
+        {
+            return;
+        }
+
+        var connectionString = $"Data Source={_testUrl};Auth Token={_testToken}";
+        using var connection = new LibSQLConnection(connectionString);
+        await connection.OpenAsync();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT @a || '|' || @b";
+        command.Parameters.Add(new LibSQLParameter("@b", "BEE"));
+        command.Parameters.Add(new LibSQLParameter("@a", "AYE"));
+
+        var result = await command.ExecuteScalarAsync();
+        Assert.Equal("AYE|BEE", result);
+    }
+
+    [Fact]
+    public async Task RemoteConnection_MixedNumberedAndNamedParameters_BindsCorrectPositions()
+    {
+        if (!_testsEnabled)
+        {
+            return;
+        }
+
+        var connectionString = $"Data Source={_testUrl};Auth Token={_testToken}";
+        using var connection = new LibSQLConnection(connectionString);
+        await connection.OpenAsync();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT ?1 || '|' || @b";
+        command.Parameters.Add(new LibSQLParameter("?1", "first"));
+        command.Parameters.Add(new LibSQLParameter("@b", "second"));
+
+        var result = await command.ExecuteScalarAsync();
+        Assert.Equal("first|second", result);
+    }
+
+    [Fact]
+    public async Task RemoteConnection_ParameterMarkerInStringLiteral_IsNotRewritten()
+    {
+        if (!_testsEnabled)
+        {
+            return;
+        }
+
+        var connectionString = $"Data Source={_testUrl};Auth Token={_testToken}";
+        using var connection = new LibSQLConnection(connectionString);
+        await connection.OpenAsync();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT '@a=' || @a";
+        command.Parameters.Add(new LibSQLParameter("@a", "42"));
+
+        var result = await command.ExecuteScalarAsync();
+        Assert.Equal("@a=42", result);
+    }
+
+    [Fact]
     public async Task RemoteConnection_CanCreateTableAndInsertData()
     {
         if (!_testsEnabled)

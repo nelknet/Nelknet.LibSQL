@@ -488,4 +488,74 @@ public class LibSQLCommandParameterBindingTests
 
         Assert.Equal(123L, result);
     }
+
+    [Fact]
+    public void ExecuteScalar_MixedNumberedAndNamedParameters_BindsCorrectPositions()
+    {
+        using var connection = new LibSQLConnection("Data Source=:memory:");
+
+        try
+        {
+            connection.Open();
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Failed to load libSQL native library"))
+        {
+            return;
+        }
+
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT ?1 || '|' || @b";
+        cmd.Parameters.AddWithValue("?1", "first");
+        cmd.Parameters.AddWithValue("@b", "second");
+
+        var result = cmd.ExecuteScalar();
+
+        Assert.Equal("first|second", result);
+    }
+
+    [Fact]
+    public void ExecuteScalar_DollarNamedParameter_Binds()
+    {
+        using var connection = new LibSQLConnection("Data Source=:memory:");
+
+        try
+        {
+            connection.Open();
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Failed to load libSQL native library"))
+        {
+            return;
+        }
+
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT $value";
+        cmd.Parameters.AddWithValue("$value", "bound");
+
+        var result = cmd.ExecuteScalar();
+
+        Assert.Equal("bound", result);
+    }
+
+    [Fact]
+    public void ExecuteScalar_MissingNamedParameter_Throws()
+    {
+        using var connection = new LibSQLConnection("Data Source=:memory:");
+
+        try
+        {
+            connection.Open();
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Failed to load libSQL native library"))
+        {
+            return;
+        }
+
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT @a || @missing";
+        cmd.Parameters.AddWithValue("@a", "AYE");
+
+        var exception = Assert.Throws<InvalidOperationException>(() => cmd.ExecuteScalar());
+
+        Assert.Contains("@missing", exception.Message, StringComparison.Ordinal);
+    }
 }
