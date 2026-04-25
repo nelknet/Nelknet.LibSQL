@@ -42,6 +42,40 @@ public sealed class SqlParameterLayoutTests
     }
 
     [Fact]
+    public void Parse_OverlappingNamedParameters_RewritesOnlyExactMarkers()
+    {
+        const string sql = "SELECT @id2 || '|' || @id";
+        var layout = SqlParameterLayout.Parse(sql);
+        var parameters = new LibSQLParameterCollection();
+        parameters.AddWithValue("@id", "one");
+        parameters.AddWithValue("@id2", "two");
+
+        var bindings = layout.ResolveBindings(parameters).ToArray();
+
+        Assert.Equal("SELECT ?1 || '|' || ?2", layout.ToIndexedParameterSql(sql));
+        Assert.Collection(
+            bindings,
+            binding => Assert.Equal(2, binding.Position),
+            binding => Assert.Equal(1, binding.Position));
+    }
+
+    [Fact]
+    public void ResolveBindings_PurePositionalSql_PreservesCollectionOrder()
+    {
+        var layout = SqlParameterLayout.Parse("SELECT ? || '|' || ?");
+        var parameters = new LibSQLParameterCollection();
+        parameters.AddWithValue("@first", "first");
+        parameters.AddWithValue("@second", "second");
+
+        var bindings = layout.ResolveBindings(parameters).ToArray();
+
+        Assert.Collection(
+            bindings,
+            binding => Assert.Equal(1, binding.Position),
+            binding => Assert.Equal(2, binding.Position));
+    }
+
+    [Fact]
     public void ResolveBindings_MissingSqlParameter_Throws()
     {
         var layout = SqlParameterLayout.Parse("SELECT @a || @b");

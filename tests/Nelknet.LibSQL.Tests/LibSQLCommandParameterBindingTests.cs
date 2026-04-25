@@ -537,6 +537,30 @@ public class LibSQLCommandParameterBindingTests
     }
 
     [Fact]
+    public void ExecuteScalar_PurePositionalParameters_PreserveCollectionOrder()
+    {
+        using var connection = new LibSQLConnection("Data Source=:memory:");
+
+        try
+        {
+            connection.Open();
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Failed to load libSQL native library"))
+        {
+            return;
+        }
+
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT ? || '|' || ?";
+        cmd.Parameters.AddWithValue("@first", "first");
+        cmd.Parameters.AddWithValue("@second", "second");
+
+        var result = cmd.ExecuteScalar();
+
+        Assert.Equal("first|second", result);
+    }
+
+    [Fact]
     public void ExecuteScalar_MissingNamedParameter_Throws()
     {
         using var connection = new LibSQLConnection("Data Source=:memory:");

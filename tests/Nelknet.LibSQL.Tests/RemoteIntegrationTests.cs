@@ -149,6 +149,27 @@ public class RemoteIntegrationTests
     }
 
     [Fact]
+    public async Task RemoteConnection_OverlappingNamedParameters_RewritesExactMarkers()
+    {
+        if (!_testsEnabled)
+        {
+            return;
+        }
+
+        var connectionString = $"Data Source={_testUrl};Auth Token={_testToken}";
+        using var connection = new LibSQLConnection(connectionString);
+        await connection.OpenAsync();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT @id2 || '|' || @id";
+        command.Parameters.Add(new LibSQLParameter("@id", "one"));
+        command.Parameters.Add(new LibSQLParameter("@id2", "two"));
+
+        var result = await command.ExecuteScalarAsync();
+        Assert.Equal("two|one", result);
+    }
+
+    [Fact]
     public async Task RemoteConnection_CanCreateTableAndInsertData()
     {
         if (!_testsEnabled)
