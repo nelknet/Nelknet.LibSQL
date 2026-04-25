@@ -65,6 +65,15 @@ public class LibSQLParameterValidationTests
     }
 
     [Fact]
+    public void Parameter_WithValidDollarPrefix_ShouldPassValidation()
+    {
+        var parameter = new LibSQLParameter("$validname", "value");
+
+        // Should not throw
+        parameter.Validate();
+    }
+
+    [Fact]
     public void Parameter_PrecisionAndScale_CanBeSet()
     {
         var parameter = new LibSQLParameter("@decimal", 123.45m);

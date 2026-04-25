@@ -659,14 +659,23 @@ public sealed class LibSQLCommand : DbCommand
     /// Binds parameters to the prepared statement.
     /// </summary>
     /// <param name="statement">The prepared statement handle.</param>
+    /// <remarks>
+    /// Named parameters (<c>@name</c>, <c>:name</c>, <c>$name</c>) are resolved by name via a
+    /// positional map built from <see cref="CommandText"/>, matching SQLite's first-occurrence
+    /// rule. When the SQL uses only anonymous <c>?</c> markers, parameters fall back to the
+    /// order they were added to the collection. See issue #65.
+    /// </remarks>
     private void BindParameters(LibSQLStatementHandle statement)
     {
         // Validate all parameters before binding
         Parameters.ValidateParameters();
-        
-        for (int i = 0; i < Parameters.Count; i++)
+
+        var parameterLayout = SqlParameterLayout.Parse(CommandText);
+
+        foreach (var binding in parameterLayout.ResolveBindings(Parameters))
         {
-            var parameter = Parameters[i];
+            var parameter = binding.Parameter;
+            var position = binding.Position;
             IntPtr errorMsg;
             int result;
 
@@ -675,7 +684,7 @@ public sealed class LibSQLCommand : DbCommand
 
             if (LibSQLTypeConverter.IsNull(libSQLValue))
             {
-                result = LibSQLNative.libsql_bind_null(statement, i + 1, out errorMsg);
+                result = LibSQLNative.libsql_bind_null(statement, position, out errorMsg);
             }
             else
             {
@@ -683,17 +692,17 @@ public sealed class LibSQLCommand : DbCommand
                 {
                     case LibSQLDbType.Integer:
                         var longValue = (long)libSQLValue;
-                        result = LibSQLNative.libsql_bind_int(statement, i + 1, longValue, out errorMsg);
+                        result = LibSQLNative.libsql_bind_int(statement, position, longValue, out errorMsg);
                         break;
 
                     case LibSQLDbType.Real:
                         var doubleValue = (double)libSQLValue;
-                        result = LibSQLNative.libsql_bind_float(statement, i + 1, doubleValue, out errorMsg);
+                        result = LibSQLNative.libsql_bind_float(statement, position, doubleValue, out errorMsg);
                         break;
 
                     case LibSQLDbType.Text:
                         var stringValue = (string)libSQLValue;
-                        result = LibSQLNative.libsql_bind_string(statement, i + 1, stringValue, out errorMsg);
+                        result = LibSQLNative.libsql_bind_string(statement, position, stringValue, out errorMsg);
                         break;
 
                     case LibSQLDbType.Blob:
@@ -701,7 +710,7 @@ public sealed class LibSQLCommand : DbCommand
                         var pinnedBlob = GCHandle.Alloc(blobValue, GCHandleType.Pinned);
                         try
                         {
-                            result = LibSQLNative.libsql_bind_blob(statement, i + 1, pinnedBlob.AddrOfPinnedObject(), blobValue.Length, out errorMsg);
+                            result = LibSQLNative.libsql_bind_blob(statement, position, pinnedBlob.AddrOfPinnedObject(), blobValue.Length, out errorMsg);
                         }
                         finally
                         {
@@ -718,7 +727,7 @@ public sealed class LibSQLCommand : DbCommand
             {
                 var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
                 LibSQLNative.libsql_free_error_msg(errorMsg);
-                throw new InvalidOperationException($"Failed to bind parameter {i + 1}: {errorMessage}");
+                throw new InvalidOperationException($"Failed to bind parameter '{parameter.ParameterName}' (position {position}): {errorMessage}");
             }
         }
     }

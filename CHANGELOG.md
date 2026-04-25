@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+- Fix local and HTTP command binding for named parameters (`@name`, `:name`, `$name`) so values are resolved by SQL marker name and position instead of collection order, preventing silent value swaps when `Parameters.Add` order differs from SQL marker order ([#65](https://github.com/nelknet/Nelknet.LibSQL/issues/65))
 
 ### Security
 

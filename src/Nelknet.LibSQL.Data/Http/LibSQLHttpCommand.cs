@@ -198,11 +198,13 @@ internal sealed class LibSQLHttpCommand : DbCommand
         }
         else
         {
+            var parameterLayout = SqlParameterLayout.Parse(sql);
+
             // Use execute request for single statement or statements with parameters
             var statement = new HranaStatement
             {
-                Sql = ProcessSql(sql),
-                Args = CreateArgs()
+                Sql = parameterLayout.ToIndexedParameterSql(sql),
+                Args = CreateArgs(parameterLayout)
             };
 
             batch.Requests.Add(new HranaRequest
@@ -227,38 +229,23 @@ internal sealed class LibSQLHttpCommand : DbCommand
     }
 
 
-    private string ProcessSql(string sql)
-    {
-        // Convert named parameters to positional parameters
-        if (_parameters.Count == 0)
-            return sql;
-
-        var processedSql = sql;
-        var paramIndex = 1;
-        
-        foreach (LibSQLParameter param in _parameters)
-        {
-            if (!string.IsNullOrEmpty(param.ParameterName))
-            {
-                var paramName = param.ParameterName.StartsWith('@') ? param.ParameterName : "@" + param.ParameterName;
-                processedSql = processedSql.Replace(paramName, $"?{paramIndex}");
-                paramIndex++;
-            }
-        }
-
-        return processedSql;
-    }
-
-    private List<HranaValue>? CreateArgs()
+    private List<HranaValue>? CreateArgs(SqlParameterLayout parameterLayout)
     {
         if (_parameters.Count == 0)
             return null;
 
-        var args = new List<HranaValue>();
-        
-        foreach (LibSQLParameter param in _parameters)
+        var bindings = parameterLayout.ResolveBindings(_parameters);
+        if (bindings.Count == 0)
+            return null;
+
+        var args = Enumerable
+            .Range(0, parameterLayout.MaxPosition)
+            .Select(_ => new HranaValue { Type = HranaTypes.Null, Value = null })
+            .ToList();
+
+        foreach (var binding in bindings)
         {
-            args.Add(ConvertParameter(param));
+            args[binding.Position - 1] = ConvertParameter(binding.Parameter);
         }
 
         return args;
