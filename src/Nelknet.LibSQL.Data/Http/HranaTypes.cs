@@ -51,6 +51,7 @@ internal sealed class HranaStatement
 /// <summary>
 /// Represents a parameter value in Hrana protocol.
 /// </summary>
+[JsonConverter(typeof(HranaValueJsonConverter))]
 internal sealed class HranaValue
 {
     [JsonPropertyName("type")]

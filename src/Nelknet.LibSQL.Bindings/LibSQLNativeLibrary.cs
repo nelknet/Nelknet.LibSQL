@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -81,6 +82,10 @@ internal static class LibSQLNativeLibrary
     /// </para>
     /// <para>Null and empty entries are never yielded.</para>
     /// </remarks>
+    [UnconditionalSuppressMessage(
+        "SingleFile",
+        "IL3000:Avoid accessing Assembly file path when publishing as a single file",
+        Justification = "AppContext.BaseDirectory is probed first; Assembly.Location is only used when it is non-empty for non-bundled layouts.")]
     internal static IEnumerable<string> EnumerateSearchPaths(string rid)
     {
         ArgumentNullException.ThrowIfNull(rid);

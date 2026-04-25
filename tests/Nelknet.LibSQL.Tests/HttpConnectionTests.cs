@@ -1,6 +1,8 @@
 #nullable disable warnings
 
 using System;
+using System.Collections.Generic;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Xunit;
 using Nelknet.LibSQL.Data;
@@ -112,6 +114,91 @@ public class HttpConnectionTests
         Assert.Equal("close", HranaTypes.Close);
         Assert.Equal("ok", HranaTypes.Ok);
         Assert.Equal("error", HranaTypes.Error);
+    }
+
+    /// <summary>
+    /// Tests that Hrana requests serialize through the NativeAOT-safe source-generated context.
+    /// </summary>
+    [Fact]
+    public void HranaJsonSerializerContext_SerializesRequests()
+    {
+        var request = new HranaBatchRequest
+        {
+            Requests =
+            {
+                new HranaRequest
+                {
+                    Type = HranaTypes.Execute,
+                    Statement = new HranaStatement
+                    {
+                        Sql = "SELECT ?1, ?2, ?3",
+                        Args = new List<HranaValue>
+                        {
+                            new() { Type = HranaTypes.Integer, Value = 42 },
+                            new() { Type = HranaTypes.Text, Value = "nativeaot" },
+                            new() { Type = HranaTypes.Blob, Base64 = "AQID" }
+                        }
+                    }
+                }
+            }
+        };
+
+        var json = JsonSerializer.Serialize(request, HranaJsonSerializerContext.Default.HranaBatchRequest);
+
+        using var document = JsonDocument.Parse(json);
+        var statement = document.RootElement.GetProperty("requests")[0].GetProperty("stmt");
+        var args = statement.GetProperty("args");
+
+        Assert.Equal("SELECT ?1, ?2, ?3", statement.GetProperty("sql").GetString());
+        Assert.Equal(42, args[0].GetProperty("value").GetInt32());
+        Assert.Equal("nativeaot", args[1].GetProperty("value").GetString());
+        Assert.Equal("AQID", args[2].GetProperty("base64").GetString());
+    }
+
+    /// <summary>
+    /// Tests that Hrana responses deserialize through the NativeAOT-safe source-generated context.
+    /// </summary>
+    [Fact]
+    public void HranaJsonSerializerContext_DeserializesResponses()
+    {
+        const string json = """
+        {
+          "results": [
+            {
+              "type": "ok",
+              "response": {
+                "type": "ok",
+                "result": {
+                  "cols": [
+                    { "name": "answer", "decltype": "INTEGER" },
+                    { "name": "name", "decltype": "TEXT" },
+                    { "name": "payload", "decltype": "BLOB" }
+                  ],
+                  "rows": [
+                    [
+                      { "type": "integer", "value": "42" },
+                      { "type": "text", "value": "nativeaot" },
+                      { "type": "blob", "base64": "AQID" }
+                    ]
+                  ],
+                  "affected_row_count": "0"
+                }
+              }
+            }
+          ]
+        }
+        """;
+
+        var response = JsonSerializer.Deserialize(json, HranaJsonSerializerContext.Default.HranaBatchResponse);
+
+        Assert.NotNull(response);
+        var result = response!.Results[0].Response!.Result!;
+        using var reader = new LibSQLHttpDataReader(result);
+
+        Assert.True(reader.Read());
+        Assert.Equal(42, reader.GetInt64(0));
+        Assert.Equal("nativeaot", reader.GetString(1));
+        Assert.Equal(new byte[] { 1, 2, 3 }, (byte[])reader.GetValue(2));
     }
 
     /// <summary>

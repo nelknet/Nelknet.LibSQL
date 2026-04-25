@@ -19,6 +19,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EmbeddedReplicaExample", "e
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RemoteConnectionExample", "examples\RemoteConnectionExample\RemoteConnectionExample.csproj", "{991B2CA2-0AA3-4306-8E12-25F098ACF983}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NativeAotSmoke", "examples\NativeAotSmoke\NativeAotSmoke.csproj", "{68A6CE7D-5E09-4368-9D17-78107EDE56D9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -101,6 +103,18 @@ Global
 		{991B2CA2-0AA3-4306-8E12-25F098ACF983}.Release|x64.Build.0 = Release|Any CPU
 		{991B2CA2-0AA3-4306-8E12-25F098ACF983}.Release|x86.ActiveCfg = Release|Any CPU
 		{991B2CA2-0AA3-4306-8E12-25F098ACF983}.Release|x86.Build.0 = Release|Any CPU
+		{68A6CE7D-5E09-4368-9D17-78107EDE56D9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{68A6CE7D-5E09-4368-9D17-78107EDE56D9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{68A6CE7D-5E09-4368-9D17-78107EDE56D9}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{68A6CE7D-5E09-4368-9D17-78107EDE56D9}.Debug|x64.Build.0 = Debug|Any CPU
+		{68A6CE7D-5E09-4368-9D17-78107EDE56D9}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{68A6CE7D-5E09-4368-9D17-78107EDE56D9}.Debug|x86.Build.0 = Debug|Any CPU
+		{68A6CE7D-5E09-4368-9D17-78107EDE56D9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{68A6CE7D-5E09-4368-9D17-78107EDE56D9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{68A6CE7D-5E09-4368-9D17-78107EDE56D9}.Release|x64.ActiveCfg = Release|Any CPU
+		{68A6CE7D-5E09-4368-9D17-78107EDE56D9}.Release|x64.Build.0 = Release|Any CPU
+		{68A6CE7D-5E09-4368-9D17-78107EDE56D9}.Release|x86.ActiveCfg = Release|Any CPU
+		{68A6CE7D-5E09-4368-9D17-78107EDE56D9}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -112,5 +126,6 @@ Global
 		{8C102D11-744C-40EB-B7FE-202DA7C497FD} = {B36A84DF-456D-A817-6EDD-3EC3E7F6E11F}
 		{93313064-CBAF-460B-97EE-438F8413E2B8} = {B36A84DF-456D-A817-6EDD-3EC3E7F6E11F}
 		{991B2CA2-0AA3-4306-8E12-25F098ACF983} = {B36A84DF-456D-A817-6EDD-3EC3E7F6E11F}
+		{68A6CE7D-5E09-4368-9D17-78107EDE56D9} = {B36A84DF-456D-A817-6EDD-3EC3E7F6E11F}
 	EndGlobalSection
 EndGlobal
