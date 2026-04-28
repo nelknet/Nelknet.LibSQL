@@ -220,8 +220,12 @@ jobs:
         VERSION="${{ needs.validate-version.outputs.version }}"
         DATE=$(date +%Y-%m-%d)
         
-        # Update the released version with date
-        sed -i "s/## \[$VERSION\]/## [$VERSION] - $DATE/" CHANGELOG.md
+        # Update the released version with date if release prep did not already do it.
+        if grep -qF "## [$VERSION] - " CHANGELOG.md; then
+          echo "CHANGELOG section for $VERSION already has a release date"
+        else
+          sed -i "s/^## \[$VERSION\]$/## [$VERSION] - $DATE/" CHANGELOG.md
+        fi
         
         # Add new Unreleased section
         {
