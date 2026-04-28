@@ -115,9 +115,9 @@ jobs:
         VERSION="${{ needs.validate-version.outputs.version }}"
         
         # Find the section for this version and extract until the next version or end
-        awk -v ver="[$VERSION]" '
-          $0 ~ ver { flag=1; next }
-          flag && /^## \[/ { exit }
+        awk -v version="$VERSION" '
+          index($0, "## [" version "]") == 1 { flag=1; next }
+          flag && index($0, "## [") == 1 { exit }
           flag { print }
         ' CHANGELOG.md > release_notes.md
         
