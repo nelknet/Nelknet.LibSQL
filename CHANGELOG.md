@@ -16,6 +16,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+
+### Security
+
+## [0.2.7] - 2026-04-28
+
+### Added
+
+### Changed
+- Bump `Microsoft.Extensions.Http` and `System.Text.Json` to `10.0.7`
+
+### Deprecated
+
+### Removed
+
+### Fixed
 - Fix single-file and NativeAOT publishes by making native library probing bundle-safe, using source-generated Hrana JSON serialization, matching `DbDataReader.GetFieldType` trim annotations, and adding a NativeAOT smoke test for local and HTTP connections ([#64](https://github.com/nelknet/Nelknet.LibSQL/issues/64))
 - Fix local and HTTP command binding for named parameters (`@name`, `:name`, `$name`) so values are resolved by SQL marker name and position instead of collection order, preventing silent value swaps when `Parameters.Add` order differs from SQL marker order ([#65](https://github.com/nelknet/Nelknet.LibSQL/issues/65))
 
@@ -152,7 +167,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Backup/restore functionality is not available (requires sqlite3* handle)
 - Extended error codes are not accessible (requires sqlite3* handle)
 
-[Unreleased]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.5...HEAD
+[Unreleased]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.7...HEAD
+[0.2.7]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.6...v0.2.7
+[0.2.6]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.2...v0.2.3
