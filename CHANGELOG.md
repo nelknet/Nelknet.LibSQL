@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+- Fix release workflow notes extraction so GitHub release notes include only the requested changelog version section
 - Fix single-file and NativeAOT publishes by making native library probing bundle-safe, using source-generated Hrana JSON serialization, matching `DbDataReader.GetFieldType` trim annotations, and adding a NativeAOT smoke test for local and HTTP connections ([#64](https://github.com/nelknet/Nelknet.LibSQL/issues/64))
 - Fix local and HTTP command binding for named parameters (`@name`, `:name`, `$name`) so values are resolved by SQL marker name and position instead of collection order, preventing silent value swaps when `Parameters.Add` order differs from SQL marker order ([#65](https://github.com/nelknet/Nelknet.LibSQL/issues/65))
 
