@@ -2,7 +2,7 @@ name: Weekly Dependabot Maintenance
 
 on:
   schedule:
-    - cron: '0 14 * * 1'
+    - cron: '0 14 * * 2'
   workflow_dispatch:
     inputs:
       dry_run:

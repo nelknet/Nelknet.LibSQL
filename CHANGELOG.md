@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Add a seven-day Dependabot cooldown for NuGet and GitHub Actions version updates
+- Run weekly Dependabot maintenance on Tuesdays so Monday Dependabot PRs exceed the seven-day merge threshold before automation evaluates them
 
 ### Deprecated
 
