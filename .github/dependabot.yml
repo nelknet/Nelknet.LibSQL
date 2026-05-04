@@ -7,6 +7,8 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "09:00"
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
@@ -33,6 +35,8 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "09:00"
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
