@@ -1,0 +1,318 @@
+name: Weekly Dependabot Maintenance
+
+on:
+  schedule:
+    - cron: '0 14 * * 1'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Report eligible PRs without merging or releasing'
+        required: false
+        default: false
+        type: boolean
+      min_age_days:
+        description: 'Minimum PR age before merging'
+        required: false
+        default: '7'
+        type: string
+      release_after_merge:
+        description: 'Create and publish a NuGet patch/minor release after package dependency updates'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: weekly-dependabot-maintenance
+  cancel-in-progress: false
+
+jobs:
+  maintain:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DRY_RUN: ${{ inputs.dry_run }}
+      MIN_AGE_DAYS: ${{ inputs.min_age_days }}
+      RELEASE_AFTER_MERGE: ${{ inputs.release_after_merge }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Find eligible Dependabot PRs
+        id: eligible
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p .maintenance
+          : > .maintenance/eligible.tsv
+          : > .maintenance/package-prs.tsv
+          : > .maintenance/release-summary.txt
+          MIN_AGE_DAYS="${MIN_AGE_DAYS:-7}"
+
+          cutoff_epoch="$(date -u -d "${MIN_AGE_DAYS} days ago" +%s)"
+          prs_json="$(gh pr list \
+            --state open \
+            --author "app/dependabot" \
+            --label dependencies \
+            --base main \
+            --json number,title,createdAt,isDraft,mergeable,headRefName,url,statusCheckRollup)"
+
+          echo "$prs_json" > .maintenance/open-dependabot-prs.json
+
+          while IFS= read -r encoded; do
+            pr_json="$(printf '%s' "$encoded" | base64 -d)"
+            number="$(jq -r '.number' <<< "$pr_json")"
+            title="$(jq -r '.title' <<< "$pr_json")"
+            url="$(jq -r '.url' <<< "$pr_json")"
+            created_at="$(jq -r '.createdAt' <<< "$pr_json")"
+            created_epoch="$(date -u -d "$created_at" +%s)"
+            is_draft="$(jq -r '.isDraft' <<< "$pr_json")"
+            mergeable="$(jq -r '.mergeable' <<< "$pr_json")"
+            head_ref="$(jq -r '.headRefName' <<< "$pr_json")"
+
+            if (( created_epoch > cutoff_epoch )); then
+              echo "PR #$number is newer than ${MIN_AGE_DAYS} days; skipping."
+              continue
+            fi
+
+            if [[ "$is_draft" == "true" || "$mergeable" != "MERGEABLE" || "$head_ref" != dependabot/* ]]; then
+              echo "PR #$number is not an eligible Dependabot merge candidate; skipping."
+              continue
+            fi
+
+            checks_ok="$(jq -r '
+              (.statusCheckRollup | length) > 0 and
+              ([.statusCheckRollup[] |
+                select(
+                  .status != "COMPLETED" or
+                  ((["SUCCESS", "SKIPPED", "NEUTRAL"] | index(.conclusion)) == null)
+                )
+              ] | length == 0)
+            ' <<< "$pr_json")"
+
+            if [[ "$checks_ok" != "true" ]]; then
+              echo "PR #$number does not have all checks green; skipping."
+              continue
+            fi
+
+            files="$(gh pr view "$number" --json files --jq '.files[].path')"
+            unsafe_file="false"
+            package_relevant="false"
+
+            while IFS= read -r file; do
+              case "$file" in
+                Directory.Packages.props|*.csproj|*.fsproj|*.vbproj|*.props|*.targets|.github/dependabot.yml|.github/workflows/*.yml|.github/workflows/*.yaml)
+                  ;;
+                *)
+                  unsafe_file="true"
+                  echo "PR #$number changes non-allowlisted file: $file"
+                  ;;
+              esac
+
+              case "$file" in
+                .github/workflows/*.yml|.github/workflows/*.yaml|.github/dependabot.yml)
+                  ;;
+                *)
+                  package_relevant="true"
+                  ;;
+              esac
+            done <<< "$files"
+
+            if [[ "$unsafe_file" == "true" ]]; then
+              echo "PR #$number failed file allowlist; skipping."
+              continue
+            fi
+
+            body="$(gh pr view "$number" --json body --jq '.body')"
+            bump_type="patch"
+            if grep -q 'update-type: version-update:semver-major' <<< "$body"; then
+              bump_type="minor"
+            fi
+
+            printf '%s\t%s\t%s\t%s\n' "$number" "$bump_type" "$url" "$title" >> .maintenance/eligible.tsv
+
+            if [[ "$package_relevant" == "true" ]]; then
+              printf '%s\t%s\t%s\t%s\n' "$number" "$bump_type" "$url" "$title" >> .maintenance/package-prs.tsv
+            fi
+          done < <(jq -r '.[] | @base64' <<< "$prs_json")
+
+          eligible_count="$(wc -l < .maintenance/eligible.tsv | tr -d '[:space:]')"
+          package_count="$(wc -l < .maintenance/package-prs.tsv | tr -d '[:space:]')"
+
+          release_required="false"
+          release_bump="patch"
+
+          if [[ "$package_count" != "0" ]]; then
+            release_required="true"
+            if cut -f2 .maintenance/package-prs.tsv | grep -q '^minor$'; then
+              release_bump="minor"
+            fi
+
+            pr_list="$(awk -F '\t' '{ printf "%s#%s", sep, $1; sep=", " }' .maintenance/package-prs.tsv)"
+            echo "Merge weekly Dependabot package dependency updates (${pr_list})" > .maintenance/release-summary.txt
+          fi
+
+          {
+            echo "eligible_count=$eligible_count"
+            echo "package_count=$package_count"
+            echo "release_required=$release_required"
+            echo "release_bump=$release_bump"
+          } >> "$GITHUB_OUTPUT"
+
+          if [[ "$eligible_count" == "0" ]]; then
+            echo "No eligible Dependabot PRs."
+          else
+            echo "Eligible Dependabot PRs:"
+            cat .maintenance/eligible.tsv
+          fi
+
+      - name: Merge eligible Dependabot PRs
+        if: steps.eligible.outputs.eligible_count != '0' && env.DRY_RUN != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          while IFS=$'\t' read -r number _bump _url _title; do
+            echo "Merging Dependabot PR #$number"
+            gh pr merge "$number" --merge --delete-branch
+          done < .maintenance/eligible.tsv
+
+      - name: Dispatch and watch main CI after Dependabot merges
+        if: steps.eligible.outputs.eligible_count != '0' && env.DRY_RUN != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          dispatched_after="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          gh workflow run ci.yml --ref main
+
+          run_id=""
+          for _ in {1..30}; do
+            sleep 10
+            run_id="$(gh run list \
+              --workflow ci.yml \
+              --branch main \
+              --event workflow_dispatch \
+              --limit 20 \
+              --json databaseId,createdAt \
+              --jq 'map(select(.createdAt >= "'"${dispatched_after}"'")) | sort_by(.createdAt) | last.databaseId // empty')"
+
+            if [[ -n "$run_id" ]]; then
+              break
+            fi
+          done
+
+          if [[ -z "$run_id" ]]; then
+            echo "Unable to locate dispatched CI workflow run." >&2
+            exit 1
+          fi
+
+          gh run watch "$run_id" --exit-status
+
+      - name: Prepare dependency release
+        id: release_prep
+        if: steps.eligible.outputs.release_required == 'true' && env.DRY_RUN != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${RELEASE_AFTER_MERGE:-true}" != "true" ]]; then
+            echo "Dependency release creation is disabled for this run."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout main
+          git reset --hard origin/main
+
+          chmod +x scripts/prepare-dependency-release.sh
+          output="$(scripts/prepare-dependency-release.sh \
+            --version-type "${{ steps.eligible.outputs.release_bump }}" \
+            --summary-file .maintenance/release-summary.txt)"
+          echo "$output"
+          next_version="$(sed -n 's/^next_version=//p' <<< "$output")"
+
+          if [[ -z "$next_version" ]]; then
+            echo "Unable to determine prepared release version." >&2
+            exit 1
+          fi
+
+          dotnet restore
+          dotnet build --no-restore --configuration Release
+          dotnet test --no-build --configuration Release -m:1
+
+          git add Directory.Build.props CHANGELOG.md
+          git commit -m "chore(release): prepare ${next_version} after dependency updates"
+          git push origin main
+
+          echo "next_version=$next_version" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch and watch main CI after release prep
+        if: steps.release_prep.outputs.next_version != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          dispatched_after="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          gh workflow run ci.yml --ref main
+
+          run_id=""
+          for _ in {1..30}; do
+            sleep 10
+            run_id="$(gh run list \
+              --workflow ci.yml \
+              --branch main \
+              --event workflow_dispatch \
+              --limit 20 \
+              --json databaseId,createdAt \
+              --jq 'map(select(.createdAt >= "'"${dispatched_after}"'")) | sort_by(.createdAt) | last.databaseId // empty')"
+
+            if [[ -n "$run_id" ]]; then
+              break
+            fi
+          done
+
+          if [[ -z "$run_id" ]]; then
+            echo "Unable to locate dispatched CI workflow run." >&2
+            exit 1
+          fi
+
+          gh run watch "$run_id" --exit-status
+
+      - name: Dispatch and watch NuGet release
+        if: steps.release_prep.outputs.next_version != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          dispatched_after="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          gh workflow run release.yml --ref main -f version="${{ steps.release_prep.outputs.next_version }}" -f prerelease=false
+
+          run_id=""
+          for _ in {1..30}; do
+            sleep 10
+            run_id="$(gh run list \
+              --workflow release.yml \
+              --branch main \
+              --event workflow_dispatch \
+              --limit 20 \
+              --json databaseId,createdAt \
+              --jq 'map(select(.createdAt >= "'"${dispatched_after}"'")) | sort_by(.createdAt) | last.databaseId // empty')"
+
+            if [[ -n "$run_id" ]]; then
+              break
+            fi
+          done
+
+          if [[ -z "$run_id" ]]; then
+            echo "Unable to locate dispatched release workflow run." >&2
+            exit 1
+          fi
+
+          gh run watch "$run_id" --exit-status

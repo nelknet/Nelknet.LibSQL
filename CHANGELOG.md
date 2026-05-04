@@ -8,8 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Add weekly Dependabot maintenance automation that merges eligible green Dependabot PRs after a seven-day cooling-off window and publishes a NuGet release for package dependency updates
 
 ### Changed
+- Add a seven-day Dependabot cooldown for NuGet and GitHub Actions version updates
 
 ### Deprecated
 
