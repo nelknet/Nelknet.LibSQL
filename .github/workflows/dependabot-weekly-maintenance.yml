@@ -92,7 +92,8 @@ jobs:
               ([.statusCheckRollup[] |
                 select(
                   .status != "COMPLETED" or
-                  ((["SUCCESS", "SKIPPED", "NEUTRAL"] | index(.conclusion)) == null)
+                  (.conclusion as $conclusion |
+                    (["SUCCESS", "SKIPPED", "NEUTRAL"] | index($conclusion)) == null)
                 )
               ] | length == 0)
             ' <<< "$pr_json")"

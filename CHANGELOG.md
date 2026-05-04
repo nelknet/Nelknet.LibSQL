@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+- Fix weekly Dependabot maintenance dry runs so status-check evaluation handles completed check conclusions correctly
 - Fix release workflow changelog maintenance so the post-release PR does not duplicate an already dated release heading
 
 ### Security
