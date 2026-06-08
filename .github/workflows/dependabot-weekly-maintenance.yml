@@ -40,7 +40,7 @@ jobs:
       RELEASE_AFTER_MERGE: ${{ inputs.release_after_merge }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
         with:
           fetch-depth: 0
 
