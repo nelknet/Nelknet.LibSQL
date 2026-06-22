@@ -37,7 +37,7 @@ jobs:
       target_branch: ${{ steps.release.outputs.target_branch }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.3
         with:
           fetch-depth: 0
 
@@ -127,7 +127,7 @@ jobs:
       CURRENT_COMMIT: ${{ needs.prepare-update.outputs.current_commit }}
     steps:
       - name: Checkout automation branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.3
         with:
           ref: ${{ env.TARGET_BRANCH }}
           fetch-depth: 0

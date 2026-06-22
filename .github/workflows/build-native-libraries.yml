@@ -51,10 +51,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.3
 
       - name: Checkout libSQL
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.3
         with:
           repository: tursodatabase/libsql
           ref: ${{ inputs.libsql_ref }}
@@ -197,7 +197,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.3
         with:
           ref: ${{ inputs.target_branch != '' && inputs.target_branch || github.ref_name }}
           fetch-depth: 0
