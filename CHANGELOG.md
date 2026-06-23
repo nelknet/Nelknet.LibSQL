@@ -19,6 +19,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.2.9] - 2026-06-23
+
+### Added
+
+### Changed
+- Merge weekly Dependabot package dependency updates (#89)
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
 ## [0.2.8] - 2026-05-19
 
 ### Added
@@ -189,7 +204,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extended error codes are not accessible (requires sqlite3* handle)
 
 
-[Unreleased]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.8...HEAD
+
+[Unreleased]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.9...HEAD
+[0.2.9]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.8...v0.2.9
 [0.2.8]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.5...v0.2.6
