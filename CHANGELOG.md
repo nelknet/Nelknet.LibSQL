@@ -16,6 +16,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+
+### Security
+
+## [0.2.11] - 2026-07-15
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
 - Preserve Hrana HTTP stream state across requests, honor server-provided
   pipeline URLs, and surface top-level protocol errors so remote transactions
   commit and roll back correctly.
@@ -227,7 +241,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
-[Unreleased]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.10...HEAD
+[Unreleased]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.11...HEAD
+[0.2.11]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.10...v0.2.11
 [0.2.10]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.9...v0.2.10
 [0.2.9]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.8...v0.2.9
 [0.2.8]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.7...v0.2.8
