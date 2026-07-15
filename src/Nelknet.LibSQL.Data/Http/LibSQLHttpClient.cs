@@ -74,9 +74,16 @@ internal sealed class LibSQLHttpClient : IDisposable
             if (result == null)
                 throw new LibSQLException("Failed to deserialize response from server");
 
-            // Check for errors in the batch results
+            // Check for errors in the batch results. Hrana can report failures as:
+            //   { "type": "error", "error": { "message": "..." } }          (pipeline-level)
+            //   { "type": "ok", "response": { "type": "error", "error": … }} (nested)
             foreach (var batchResult in result.Results)
             {
+                if (batchResult.Type == HranaTypes.Error && batchResult.Error != null)
+                {
+                    throw new LibSQLException($"SQL Error: {batchResult.Error.Message}");
+                }
+
                 if (batchResult.Response?.Type == HranaTypes.Error && batchResult.Response.Error != null)
                 {
                     throw new LibSQLException($"SQL Error: {batchResult.Response.Error.Message}");

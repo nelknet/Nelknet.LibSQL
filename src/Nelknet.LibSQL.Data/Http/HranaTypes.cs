@@ -89,8 +89,19 @@ internal sealed class HranaResult
     [JsonPropertyName("type")]
     public string Type { get; set; }
 
+    /// <summary>
+    /// Present when <see cref="Type"/> is <c>ok</c>.
+    /// </summary>
     [JsonPropertyName("response")]
     public HranaResponse? Response { get; set; }
+
+    /// <summary>
+    /// Present when <see cref="Type"/> is <c>error</c> (pipeline-level failure).
+    /// Hrana returns <c>{"type":"error","error":{...}}</c> rather than nesting under
+    /// <see cref="Response"/>.
+    /// </summary>
+    [JsonPropertyName("error")]
+    public HranaError? Error { get; set; }
 }
 
 /// <summary>

@@ -135,6 +135,13 @@ internal sealed class LibSQLHttpCommand : DbCommand
             throw new LibSQLException("No results returned from server");
 
         var result = response.Results[0];
+
+        // Pipeline-level errors should already be thrown by LibSQLHttpClient; keep a
+        // defensive check for callers that bypass that path.
+        if (result.Type == HranaTypes.Error)
+        {
+            throw new LibSQLException($"SQL Error: {result.Error?.Message ?? "Unknown error"}");
+        }
         
         // Handle sequence response
         if (result.Type == HranaTypes.Sequence)
@@ -148,10 +155,23 @@ internal sealed class LibSQLHttpCommand : DbCommand
                 AffectedRowCount = 0
             });
         }
-        
-        // Handle single execute response
+
+        // INSERT/UPDATE/DELETE with no RETURNING still return an execute result
+        // (empty cols/rows + affected_row_count). EF SaveChanges uses ExecuteReader for
+        // those statements, so treat a missing result as empty rather than invalid when
+        // the pipeline entry was otherwise ok.
         if (result.Response?.Result == null)
         {
+            if (result.Type == HranaTypes.Ok || result.Response?.Type == HranaTypes.Execute)
+            {
+                return new LibSQLHttpDataReader(new HranaQueryResult
+                {
+                    Cols = new List<HranaColumn>(),
+                    Rows = new List<List<HranaValue>>(),
+                    AffectedRowCount = 0
+                });
+            }
+
             throw new LibSQLException("Invalid response from server");
         }
 

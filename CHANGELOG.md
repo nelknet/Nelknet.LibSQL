@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and avoids double-free of row/rows handles in `ExecuteScalar`. Without this,
   commits fail with "SQL statements in progress" / rows do not persist after
   reconnect (common with EF Core `SaveChanges`).
+- Surface Hrana pipeline-level errors (`{"type":"error","error":{…}}`) from
+  HTTP batch responses instead of reporting a generic "Invalid response from
+  server". Nested `response.type == error` continues to work as before.
 
 ### Security
 
