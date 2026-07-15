@@ -11,6 +11,10 @@ namespace Nelknet.LibSQL.Data.Http;
 /// </summary>
 internal sealed class HranaBatchRequest
 {
+    [JsonPropertyName("baton")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Baton { get; set; }
+
     [JsonPropertyName("requests")]
     public List<HranaRequest> Requests { get; set; } = new();
 }
@@ -91,6 +95,9 @@ internal sealed class HranaResult
 
     [JsonPropertyName("response")]
     public HranaResponse? Response { get; set; }
+
+    [JsonPropertyName("error")]
+    public HranaError? Error { get; set; }
 }
 
 /// <summary>

@@ -16,8 +16,9 @@ namespace Nelknet.LibSQL.Data.Http;
 internal sealed class LibSQLHttpClient : IDisposable
 {
     private readonly HttpClient _httpClient;
-    private readonly string _authToken;
-    private readonly string _baseUrl;
+    private readonly SemaphoreSlim _pipelineLock = new(1, 1);
+    private Uri _streamBaseUri;
+    private string? _baton;
     private bool _disposed;
 
     public LibSQLHttpClient(string url, string authToken)
@@ -25,20 +26,18 @@ internal sealed class LibSQLHttpClient : IDisposable
         if (string.IsNullOrWhiteSpace(url))
             throw new ArgumentException("URL cannot be null or empty", nameof(url));
 
-        _authToken = authToken;
-        _baseUrl = NormalizeUrl(url);
+        _streamBaseUri = ParseStreamBaseUri(NormalizeUrl(url), currentBaseUri: null);
         
         _httpClient = new HttpClient
         {
-            BaseAddress = new Uri(_baseUrl),
             Timeout = TimeSpan.FromSeconds(30)
         };
         
         // Only add authorization header if token is provided
-        if (!string.IsNullOrWhiteSpace(_authToken))
+        if (!string.IsNullOrWhiteSpace(authToken))
         {
             _httpClient.DefaultRequestHeaders.Authorization = 
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _authToken);
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authToken);
         }
         
         _httpClient.DefaultRequestHeaders.Add("User-Agent", "Nelknet.LibSQL/1.0");
@@ -50,13 +49,19 @@ internal sealed class LibSQLHttpClient : IDisposable
     public async Task<HranaBatchResponse> ExecuteBatchAsync(HranaBatchRequest batch, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(batch);
 
+        await _pipelineLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var json = JsonSerializer.Serialize(batch, HranaJsonSerializerContext.Default.HranaBatchRequest);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            batch.Baton = _baton;
 
-            var response = await _httpClient.PostAsync("v2/pipeline", content, cancellationToken).ConfigureAwait(false);
+            var json = JsonSerializer.Serialize(batch, HranaJsonSerializerContext.Default.HranaBatchRequest);
+            using var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var pipelineUri = new Uri(_streamBaseUri, "v2/pipeline");
+
+            using var response = await _httpClient.PostAsync(pipelineUri, content, cancellationToken).ConfigureAwait(false);
             
             if (!response.IsSuccessStatusCode)
             {
@@ -74,12 +79,27 @@ internal sealed class LibSQLHttpClient : IDisposable
             if (result == null)
                 throw new LibSQLException("Failed to deserialize response from server");
 
+            if (result.Results == null)
+                throw new LibSQLException("Server returned an invalid Hrana response");
+
+            _baton = result.Baton;
+
+            if (!string.IsNullOrWhiteSpace(result.BaseUrl))
+            {
+                _streamBaseUri = ParseStreamBaseUri(result.BaseUrl, _streamBaseUri);
+            }
+
             // Check for errors in the batch results
             foreach (var batchResult in result.Results)
             {
-                if (batchResult.Response?.Type == HranaTypes.Error && batchResult.Response.Error != null)
+                if (batchResult.Type == HranaTypes.Error)
                 {
-                    throw new LibSQLException($"SQL Error: {batchResult.Response.Error.Message}");
+                    throw CreateHranaException(batchResult.Error);
+                }
+
+                if (batchResult.Response?.Type == HranaTypes.Error)
+                {
+                    throw CreateHranaException(batchResult.Response.Error);
                 }
             }
 
@@ -96,6 +116,10 @@ internal sealed class LibSQLHttpClient : IDisposable
         catch (JsonException ex)
         {
             throw new LibSQLException("Failed to parse response from server", ex);
+        }
+        finally
+        {
+            _pipelineLock.Release();
         }
     }
 
@@ -137,22 +161,46 @@ internal sealed class LibSQLHttpClient : IDisposable
             url = string.Concat("https://", url.AsSpan(9));
         }
 
-        // Ensure it ends with a slash for proper BaseAddress
-        if (!url.EndsWith('/'))
+        return url;
+    }
+
+    private static Uri ParseStreamBaseUri(string baseUrl, Uri? currentBaseUri)
+    {
+        if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri)
+            || (baseUri.Scheme != Uri.UriSchemeHttp && baseUri.Scheme != Uri.UriSchemeHttps)
+            || !string.IsNullOrEmpty(baseUri.UserInfo)
+            || (currentBaseUri?.Scheme == Uri.UriSchemeHttps && baseUri.Scheme != Uri.UriSchemeHttps))
         {
-            url += "/";
+            throw new LibSQLException("Server returned an invalid Hrana base URL");
         }
 
-        return url;
+        var builder = new UriBuilder(baseUri)
+        {
+            Fragment = string.Empty,
+            Query = string.Empty,
+            Path = baseUri.AbsolutePath.EndsWith('/')
+                ? baseUri.AbsolutePath
+                : baseUri.AbsolutePath + "/",
+        };
+        return builder.Uri;
+    }
+
+    private static LibSQLException CreateHranaException(HranaError? error)
+    {
+        var message = string.IsNullOrWhiteSpace(error?.Message)
+            ? "Unknown server error"
+            : error.Message;
+        return new LibSQLException($"SQL Error: {message}");
     }
 
     public void Dispose()
     {
-        if (!_disposed)
-        {
-            _httpClient?.Dispose();
-            _disposed = true;
-        }
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        _baton = null;
+        _httpClient.Dispose();
     }
 }
 
