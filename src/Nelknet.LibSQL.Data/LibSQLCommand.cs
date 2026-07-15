@@ -302,6 +302,8 @@ public sealed class LibSQLCommand : DbCommand
         IntPtr rowsHandle;
         IntPtr errorMsg;
         int result;
+        LibSQLStatementHandle? scalarStatement = null;
+        var disposeScalarStatement = false;
 
         if (_isPrepared && _preparedStatement != null)
         {
@@ -322,25 +324,11 @@ public sealed class LibSQLCommand : DbCommand
         }
         else if (Parameters.Count > 0)
         {
-            // We have parameters but no prepared statement - use helper method
-            var statement = GetOrPrepareStatement(connectionHandle, out var usingCachedStatement);
-            
-            try
-            {
-                // Bind parameters
-                BindParameters(statement);
-                
-                // Query using the prepared statement
-                result = LibSQLNative.libsql_query_stmt(statement, out rowsHandle, out errorMsg);
-            }
-            finally
-            {
-                // Only dispose if not cached
-                if (!usingCachedStatement)
-                {
-                    statement?.Dispose();
-                }
-            }
+            // Keep statement alive until after rows are read (see ExecuteReader RETURNING notes).
+            scalarStatement = GetOrPrepareStatement(connectionHandle, out var usingCachedStatement);
+            disposeScalarStatement = !usingCachedStatement;
+            BindParameters(scalarStatement);
+            result = LibSQLNative.libsql_query_stmt(scalarStatement, out rowsHandle, out errorMsg);
         }
         else
         {
@@ -350,6 +338,11 @@ public sealed class LibSQLCommand : DbCommand
 
         if (result != 0)
         {
+            if (disposeScalarStatement)
+            {
+                scalarStatement?.Dispose();
+            }
+
             var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
             LibSQLNative.libsql_free_error_msg(errorMsg);
             throw new InvalidOperationException($"Failed to execute query: {errorMessage}");
@@ -358,11 +351,11 @@ public sealed class LibSQLCommand : DbCommand
         try
         {
             using var rows = new LibSQLRowsHandle(rowsHandle);
-            
+
             // Get the first row
             IntPtr rowHandle;
             result = LibSQLNative.libsql_next_row(rows, out rowHandle, out errorMsg);
-            
+
             if (result != 0)
             {
                 var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
@@ -370,97 +363,114 @@ public sealed class LibSQLCommand : DbCommand
                 throw new InvalidOperationException($"Failed to get first row: {errorMessage}");
             }
 
-            if (rowHandle == IntPtr.Zero)
+            object? scalar = null;
+            if (rowHandle != IntPtr.Zero)
             {
-                // No rows returned
-                return null;
-            }
-
-            try
-            {
-                using var row = new LibSQLRowHandle(rowHandle);
-                
-                // Get the column type first
-                result = LibSQLNative.libsql_column_type(rows, row, 0, out int columnType, out errorMsg);
-                if (result != 0)
+                using (var row = new LibSQLRowHandle(rowHandle))
                 {
-                    var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
-                    LibSQLNative.libsql_free_error_msg(errorMsg);
-                    throw new InvalidOperationException($"Failed to get column type: {errorMessage}");
+                    result = LibSQLNative.libsql_column_type(rows, row, 0, out int columnType, out errorMsg);
+                    if (result != 0)
+                    {
+                        var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
+                        LibSQLNative.libsql_free_error_msg(errorMsg);
+                        throw new InvalidOperationException($"Failed to get column type: {errorMessage}");
+                    }
+
+                    switch (columnType)
+                    {
+                        case 1: // INTEGER
+                            result = LibSQLNative.libsql_get_int(row, 0, out long intValue, out errorMsg);
+                            if (result != 0)
+                            {
+                                var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
+                                LibSQLNative.libsql_free_error_msg(errorMsg);
+                                throw new InvalidOperationException($"Failed to get integer value: {errorMessage}");
+                            }
+                            scalar = intValue;
+                            break;
+
+                        case 2: // FLOAT
+                            result = LibSQLNative.libsql_get_float(row, 0, out double floatValue, out errorMsg);
+                            if (result != 0)
+                            {
+                                var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
+                                LibSQLNative.libsql_free_error_msg(errorMsg);
+                                throw new InvalidOperationException($"Failed to get float value: {errorMessage}");
+                            }
+                            scalar = floatValue;
+                            break;
+
+                        case 3: // TEXT
+                            result = LibSQLNative.libsql_get_string(row, 0, out IntPtr valuePtr, out errorMsg);
+                            if (result != 0)
+                            {
+                                var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
+                                LibSQLNative.libsql_free_error_msg(errorMsg);
+                                throw new InvalidOperationException($"Failed to get string value: {errorMessage}");
+                            }
+                            if (valuePtr != IntPtr.Zero)
+                            {
+                                try
+                                {
+                                    scalar = System.Runtime.InteropServices.Marshal.PtrToStringUTF8(valuePtr);
+                                }
+                                finally
+                                {
+                                    LibSQLNative.libsql_free_string(valuePtr);
+                                }
+                            }
+                            break;
+
+                        case 4: // BLOB
+                            result = LibSQLNative.libsql_get_blob(row, 0, out LibSQLBlob blob, out errorMsg);
+                            if (result != 0)
+                            {
+                                var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
+                                LibSQLNative.libsql_free_error_msg(errorMsg);
+                                throw new InvalidOperationException($"Failed to get blob value: {errorMessage}");
+                            }
+                            scalar = blob.ToByteArray();
+                            LibSQLNative.libsql_free_blob(blob);
+                            break;
+
+                        case 5: // NULL
+                            scalar = null;
+                            break;
+
+                        default:
+                            throw new NotSupportedException($"Unknown column type: {columnType}");
+                    }
                 }
 
-                // Get value based on column type
-                switch (columnType)
+                // Step through remaining rows so the statement reaches SQLITE_DONE
+                // (required for INSERT…RETURNING under an open transaction).
+                while (true)
                 {
-                    case 1: // INTEGER
-                        result = LibSQLNative.libsql_get_int(row, 0, out long intValue, out errorMsg);
-                        if (result != 0)
-                        {
-                            var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
-                            LibSQLNative.libsql_free_error_msg(errorMsg);
-                            throw new InvalidOperationException($"Failed to get integer value: {errorMessage}");
-                        }
-                        return intValue;
+                    result = LibSQLNative.libsql_next_row(rows, out rowHandle, out errorMsg);
+                    if (result != 0)
+                    {
+                        var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
+                        LibSQLNative.libsql_free_error_msg(errorMsg);
+                        throw new InvalidOperationException($"Failed to drain scalar result rows: {errorMessage}");
+                    }
 
-                    case 2: // FLOAT
-                        result = LibSQLNative.libsql_get_float(row, 0, out double floatValue, out errorMsg);
-                        if (result != 0)
-                        {
-                            var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
-                            LibSQLNative.libsql_free_error_msg(errorMsg);
-                            throw new InvalidOperationException($"Failed to get float value: {errorMessage}");
-                        }
-                        return floatValue;
+                    if (rowHandle == IntPtr.Zero)
+                    {
+                        break;
+                    }
 
-                    case 3: // TEXT
-                        IntPtr valuePtr;
-                        result = LibSQLNative.libsql_get_string(row, 0, out valuePtr, out errorMsg);
-                        if (result != 0)
-                        {
-                            var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
-                            LibSQLNative.libsql_free_error_msg(errorMsg);
-                            throw new InvalidOperationException($"Failed to get string value: {errorMessage}");
-                        }
-                        if (valuePtr == IntPtr.Zero)
-                        {
-                            return null;
-                        }
-                        try
-                        {
-                            return System.Runtime.InteropServices.Marshal.PtrToStringUTF8(valuePtr);
-                        }
-                        finally
-                        {
-                            LibSQLNative.libsql_free_string(valuePtr);
-                        }
-
-                    case 4: // BLOB
-                        result = LibSQLNative.libsql_get_blob(row, 0, out LibSQLBlob blob, out errorMsg);
-                        if (result != 0)
-                        {
-                            var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
-                            LibSQLNative.libsql_free_error_msg(errorMsg);
-                            throw new InvalidOperationException($"Failed to get blob value: {errorMessage}");
-                        }
-                        var blobData = blob.ToByteArray();
-                        LibSQLNative.libsql_free_blob(blob);
-                        return blobData;
-
-                    case 5: // NULL
-                        return null;
-
-                    default:
-                        throw new NotSupportedException($"Unknown column type: {columnType}");
+                    new LibSQLRowHandle(rowHandle).Dispose();
                 }
             }
-            finally
-            {
-                LibSQLNative.libsql_free_row(rowHandle);
-            }
+
+            return scalar;
         }
         finally
         {
-            LibSQLNative.libsql_free_rows(rowsHandle);
+            if (disposeScalarStatement)
+            {
+                scalarStatement?.Dispose();
+            }
         }
     }
 
@@ -501,6 +511,7 @@ public sealed class LibSQLCommand : DbCommand
         IntPtr rowsHandle;
         IntPtr errorMsg;
         int result;
+        LibSQLStatementHandle? ownedStatement = null;
 
         if (_isPrepared && _preparedStatement != null)
         {
@@ -516,29 +527,41 @@ public sealed class LibSQLCommand : DbCommand
             // Bind parameters to prepared statement
             BindParameters(_preparedStatement);
             
-            // Query using prepared statement
+            // Query using prepared statement (command retains ownership for the statement's lifetime)
             result = LibSQLNative.libsql_query_stmt(_preparedStatement, out rowsHandle, out errorMsg);
         }
         else if (Parameters.Count > 0)
         {
-            // We have parameters but no prepared statement - use helper method
-            var statement = GetOrPrepareStatement(connectionHandle, out var usingCachedStatement);
-            
+            // Prepare a statement we own for the duration of the reader. Do not use the
+            // statement cache here: disposing/resetting mid-reader breaks INSERT…RETURNING
+            // (SQL statements in progress / writes that do not persist under EF SaveChanges).
+            IntPtr stmtHandle;
+            result = LibSQLNative.libsql_prepare(connectionHandle, CommandText, out stmtHandle, out errorMsg);
+            if (result != 0)
+            {
+                var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
+                LibSQLNative.libsql_free_error_msg(errorMsg);
+                throw new InvalidOperationException($"Failed to prepare statement: {errorMessage}");
+            }
+
+            ownedStatement = new LibSQLStatementHandle(stmtHandle);
             try
             {
-                // Bind parameters
-                BindParameters(statement);
-                
-                // Query using the prepared statement
-                result = LibSQLNative.libsql_query_stmt(statement, out rowsHandle, out errorMsg);
+                BindParameters(ownedStatement);
+                result = LibSQLNative.libsql_query_stmt(ownedStatement, out rowsHandle, out errorMsg);
             }
-            finally
+            catch
             {
-                // Only dispose if not cached
-                if (!usingCachedStatement)
-                {
-                    statement?.Dispose();
-                }
+                ownedStatement.Dispose();
+                throw;
+            }
+
+            if (result != 0)
+            {
+                ownedStatement.Dispose();
+                var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
+                LibSQLNative.libsql_free_error_msg(errorMsg);
+                throw new InvalidOperationException($"Failed to execute query: {errorMessage}");
             }
         }
         else
@@ -554,9 +577,9 @@ public sealed class LibSQLCommand : DbCommand
             throw new InvalidOperationException($"Failed to execute query: {errorMessage}");
         }
 
-        // Create LibSQLDataReader with the rows handle
+        // Create LibSQLDataReader with the rows handle; transfer statement ownership when needed
         var rowsHandleWrapper = new LibSQLRowsHandle(rowsHandle);
-        return new LibSQLDataReader(rowsHandleWrapper, behavior);
+        return new LibSQLDataReader(rowsHandleWrapper, behavior, ownedStatement, ownsStatement: ownedStatement != null);
     }
 
     /// <summary>

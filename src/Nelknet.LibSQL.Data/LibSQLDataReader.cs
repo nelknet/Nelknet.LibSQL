@@ -28,6 +28,8 @@ public sealed class LibSQLDataReader : DbDataReader
     private readonly LibSQLRowsHandle? _rowsHandle;
     private readonly LibSQLHttpDataReader? _httpDataReader;
     private readonly CommandBehavior _behavior;
+    private readonly LibSQLStatementHandle? _statementHandle;
+    private readonly bool _ownsStatement;
     private LibSQLRowHandle? _currentRow;
     private bool _disposed;
     private bool _closed;
@@ -50,10 +52,23 @@ public sealed class LibSQLDataReader : DbDataReader
     /// </summary>
     /// <param name="rowsHandle">The handle to the libSQL rows result set.</param>
     /// <param name="behavior">The command behavior that controls the reader.</param>
-    internal LibSQLDataReader(LibSQLRowsHandle rowsHandle, CommandBehavior behavior = CommandBehavior.Default)
+    /// <param name="statementHandle">
+    /// Optional prepared statement that produced <paramref name="rowsHandle"/>.
+    /// Must remain alive until the reader is closed (e.g. INSERT…RETURNING).
+    /// </param>
+    /// <param name="ownsStatement">
+    /// When true, the reader disposes <paramref name="statementHandle"/> on close.
+    /// </param>
+    internal LibSQLDataReader(
+        LibSQLRowsHandle rowsHandle,
+        CommandBehavior behavior = CommandBehavior.Default,
+        LibSQLStatementHandle? statementHandle = null,
+        bool ownsStatement = false)
     {
         _rowsHandle = rowsHandle ?? throw new ArgumentNullException(nameof(rowsHandle));
         _behavior = behavior;
+        _statementHandle = statementHandle;
+        _ownsStatement = ownsStatement;
         _closed = false;
         _isHttpReader = false;
     }
@@ -148,20 +163,46 @@ public sealed class LibSQLDataReader : DbDataReader
     {
         if (!_closed)
         {
-            _closed = true;
-            
             if (_isHttpReader && _httpDataReader != null)
             {
+                _closed = true;
                 _httpDataReader.Close();
                 return;
             }
-            
+
+            // Drain remaining rows before releasing handles. libSQL/SQLite keeps the
+            // producing statement "in progress" (rollback journal) until stepped to
+            // SQLITE_DONE. EF SaveChanges reads INSERT…RETURNING once and closes the
+            // reader without a final Read(); without draining, COMMIT fails and writes
+            // do not persist after the connection closes.
+            if (!_disposed && _rowsHandle != null && !_rowsHandle.IsInvalid)
+            {
+                try
+                {
+                    while (Read())
+                    {
+                    }
+                }
+                catch
+                {
+                    // Best-effort finalize; still release native handles below.
+                }
+            }
+
+            _closed = true;
+
             // Clean up current row if we have one
             _currentRow?.Dispose();
             _currentRow = null;
             
             // Clean up rows handle
             _rowsHandle?.Dispose();
+
+            // Release the producing statement after rows are freed.
+            if (_ownsStatement)
+            {
+                _statementHandle?.Dispose();
+            }
         }
     }
 
