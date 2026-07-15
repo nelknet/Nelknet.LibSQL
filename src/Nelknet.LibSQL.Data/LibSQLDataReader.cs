@@ -16,6 +16,12 @@ namespace Nelknet.LibSQL.Data;
 /// </summary>
 public sealed class LibSQLDataReader : DbDataReader
 {
+    internal enum ReaderCloseBehavior
+    {
+        Release,
+        Drain,
+    }
+
     private enum LibSQLColumnType
     {
         Integer = 1,
@@ -28,6 +34,8 @@ public sealed class LibSQLDataReader : DbDataReader
     private readonly LibSQLRowsHandle? _rowsHandle;
     private readonly LibSQLHttpDataReader? _httpDataReader;
     private readonly CommandBehavior _behavior;
+    private readonly LibSQLStatementHandle? _ownedStatement;
+    private readonly ReaderCloseBehavior _closeBehavior;
     private LibSQLRowHandle? _currentRow;
     private bool _disposed;
     private bool _closed;
@@ -50,10 +58,18 @@ public sealed class LibSQLDataReader : DbDataReader
     /// </summary>
     /// <param name="rowsHandle">The handle to the libSQL rows result set.</param>
     /// <param name="behavior">The command behavior that controls the reader.</param>
-    internal LibSQLDataReader(LibSQLRowsHandle rowsHandle, CommandBehavior behavior = CommandBehavior.Default)
+    /// <param name="ownedStatement">The prepared statement whose ownership transfers to the reader.</param>
+    /// <param name="closeBehavior">Whether closing releases the result immediately or drains it first.</param>
+    internal LibSQLDataReader(
+        LibSQLRowsHandle rowsHandle,
+        CommandBehavior behavior = CommandBehavior.Default,
+        LibSQLStatementHandle? ownedStatement = null,
+        ReaderCloseBehavior closeBehavior = ReaderCloseBehavior.Release)
     {
         _rowsHandle = rowsHandle ?? throw new ArgumentNullException(nameof(rowsHandle));
         _behavior = behavior;
+        _ownedStatement = ownedStatement;
+        _closeBehavior = closeBehavior;
         _closed = false;
         _isHttpReader = false;
     }
@@ -146,22 +162,41 @@ public sealed class LibSQLDataReader : DbDataReader
     /// </summary>
     public override void Close()
     {
-        if (!_closed)
+        if (_closed)
+            return;
+
+        if (_isHttpReader && _httpDataReader != null)
         {
             _closed = true;
-            
-            if (_isHttpReader && _httpDataReader != null)
+            _httpDataReader.Close();
+            return;
+        }
+
+        try
+        {
+            if (_closeBehavior == ReaderCloseBehavior.Drain
+                && !_disposed
+                && _rowsHandle != null
+                && !_rowsHandle.IsInvalid)
             {
-                _httpDataReader.Close();
-                return;
+                while (Read())
+                {
+                }
             }
-            
+        }
+        finally
+        {
+            _closed = true;
+
             // Clean up current row if we have one
             _currentRow?.Dispose();
             _currentRow = null;
-            
+
             // Clean up rows handle
             _rowsHandle?.Dispose();
+
+            // Parameterized queries transfer their statement to the reader.
+            _ownedStatement?.Dispose();
         }
     }
 
