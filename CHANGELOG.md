@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+- Preserve Hrana HTTP stream state across requests, honor server-provided
+  pipeline URLs, and surface top-level protocol errors so remote transactions
+  commit and roll back correctly.
+- Complete local `INSERT`, `UPDATE`, `DELETE`, and `REPLACE` statements with a
+  `RETURNING` clause when readers are closed early, keeping statement handles
+  alive long enough for transaction commits to persist their writes.
 
 ### Security
 
