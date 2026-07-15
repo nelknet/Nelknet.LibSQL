@@ -26,6 +26,21 @@ public sealed class HranaHttpProtocolTests
     }
 
     [Fact]
+    public async Task ExecuteBatchAsync_TopLevelErrorWithoutDetails_StillThrows()
+    {
+        const string responseBody =
+            "{\"baton\":null,\"base_url\":null,\"results\":[{\"type\":\"error\"}]}";
+
+        await using var server = new ScriptedHttpServer(responseBody);
+        using var client = new LibSQLHttpClient(server.BaseUri.ToString(), string.Empty);
+
+        var exception = await Assert.ThrowsAsync<LibSQLException>(
+            () => client.ExecuteBatchAsync(CreateSelectBatch()));
+
+        Assert.Contains("Unknown server error", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ExecuteBatchAsync_ResponseBaseUrl_RoutesNextRequestWithBaton()
     {
         await using var redirectedServer = new ScriptedHttpServer(SuccessResponse());
@@ -43,6 +58,40 @@ public sealed class HranaHttpProtocolTests
 
         using var document = JsonDocument.Parse(redirectedRequest);
         Assert.Equal("baton-1", document.RootElement.GetProperty("baton").GetString());
+    }
+
+    [Fact]
+    public async Task ExecuteBatchAsync_ConcurrentRequests_SerializesStreamState()
+    {
+        await using var redirectedServer = new ScriptedHttpServer(SuccessResponse());
+        var firstResponse = SuccessResponse(
+            baton: "baton-1",
+            baseUrl: redirectedServer.BaseUri.ToString());
+        await using var originalServer = new ScriptedHttpServer(firstResponse, SuccessResponse());
+        using var client = new LibSQLHttpClient(originalServer.BaseUri.ToString(), string.Empty);
+
+        await Task.WhenAll(
+            client.ExecuteBatchAsync(CreateSelectBatch()),
+            client.ExecuteBatchAsync(CreateSelectBatch()));
+
+        Assert.Single(originalServer.RequestBodies);
+        var redirectedRequest = Assert.Single(redirectedServer.RequestBodies);
+
+        using var document = JsonDocument.Parse(redirectedRequest);
+        Assert.Equal("baton-1", document.RootElement.GetProperty("baton").GetString());
+    }
+
+    [Fact]
+    public async Task ExecuteBatchAsync_NonHttpBaseUrl_RejectsRedirect()
+    {
+        await using var server = new ScriptedHttpServer(
+            SuccessResponse(baton: "baton-1", baseUrl: "file:///tmp/libsql/"));
+        using var client = new LibSQLHttpClient(server.BaseUri.ToString(), string.Empty);
+
+        var exception = await Assert.ThrowsAsync<LibSQLException>(
+            () => client.ExecuteBatchAsync(CreateSelectBatch()));
+
+        Assert.Contains("invalid Hrana base URL", exception.Message, StringComparison.Ordinal);
     }
 
     private static HranaBatchRequest CreateSelectBatch()
