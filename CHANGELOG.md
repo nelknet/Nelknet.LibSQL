@@ -25,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Surface Hrana pipeline-level errors (`{"type":"error","error":{…}}`) from
   HTTP batch responses instead of reporting a generic "Invalid response from
   server". Nested `response.type == error` continues to work as before.
+- Round-trip the Hrana `baton` (and honor `base_url`) on HTTP pipeline requests
+  so BEGIN/COMMIT and other connection state survive across requests. Also treat
+  COMMIT/ROLLBACK when no transaction is active as a no-op (sqld auto-commits
+  DDL; EF CreateTables issues COMMIT around SuppressTransaction commands).
 
 ### Security
 

@@ -11,6 +11,15 @@ namespace Nelknet.LibSQL.Data.Http;
 /// </summary>
 internal sealed class HranaBatchRequest
 {
+    /// <summary>
+    /// Opaque stream identifier. Omit (null) to open a new stream; afterwards echo the
+    /// <see cref="HranaBatchResponse.Baton"/> from the previous response so transactions
+    /// and other connection state survive across HTTP requests.
+    /// </summary>
+    [JsonPropertyName("baton")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Baton { get; set; }
+
     [JsonPropertyName("requests")]
     public List<HranaRequest> Requests { get; set; } = new();
 }

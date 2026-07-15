@@ -18,6 +18,8 @@ internal sealed class LibSQLHttpClient : IDisposable
     private readonly HttpClient _httpClient;
     private readonly string _authToken;
     private readonly string _baseUrl;
+    private readonly SemaphoreSlim _pipelineLock = new(1, 1);
+    private string? _baton;
     private bool _disposed;
 
     public LibSQLHttpClient(string url, string authToken)
@@ -50,9 +52,14 @@ internal sealed class LibSQLHttpClient : IDisposable
     public async Task<HranaBatchResponse> ExecuteBatchAsync(HranaBatchRequest batch, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(batch);
 
+        // Hrana streams require serialized requests that carry the previous response baton.
+        await _pipelineLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            batch.Baton = _baton;
+
             var json = JsonSerializer.Serialize(batch, HranaJsonSerializerContext.Default.HranaBatchRequest);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
@@ -73,6 +80,17 @@ internal sealed class LibSQLHttpClient : IDisposable
             
             if (result == null)
                 throw new LibSQLException("Failed to deserialize response from server");
+
+            // Advance / clear the stream baton. A null baton means the server closed the stream.
+            _baton = result.Baton;
+
+            if (!string.IsNullOrEmpty(result.BaseUrl)
+                && Uri.TryCreate(result.BaseUrl, UriKind.Absolute, out var baseUri))
+            {
+                _httpClient.BaseAddress = baseUri.AbsolutePath.EndsWith('/')
+                    ? baseUri
+                    : new Uri(baseUri.AbsoluteUri.TrimEnd('/') + "/");
+            }
 
             // Check for errors in the batch results. Hrana can report failures as:
             //   { "type": "error", "error": { "message": "..." } }          (pipeline-level)
@@ -103,6 +121,10 @@ internal sealed class LibSQLHttpClient : IDisposable
         catch (JsonException ex)
         {
             throw new LibSQLException("Failed to parse response from server", ex);
+        }
+        finally
+        {
+            _pipelineLock.Release();
         }
     }
 
@@ -155,9 +177,30 @@ internal sealed class LibSQLHttpClient : IDisposable
 
     public void Dispose()
     {
-        if (!_disposed)
+        if (_disposed)
         {
+            return;
+        }
+
+        try
+        {
+            // Best-effort stream close so the server can release the baton promptly.
+            if (_baton != null)
+            {
+                var closeBatch = new HranaBatchRequest();
+                closeBatch.Requests.Add(new HranaRequest { Type = HranaTypes.Close });
+                ExecuteBatchAsync(closeBatch).GetAwaiter().GetResult();
+            }
+        }
+        catch
+        {
+            // Suppress dispose-time network failures.
+        }
+        finally
+        {
+            _baton = null;
             _httpClient?.Dispose();
+            _pipelineLock.Dispose();
             _disposed = true;
         }
     }

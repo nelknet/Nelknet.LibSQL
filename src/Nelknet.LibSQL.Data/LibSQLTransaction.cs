@@ -70,7 +70,15 @@ public sealed class LibSQLTransaction : DbTransaction
                 // For HTTP connections, use SQL commands
                 using var command = _connection.CreateCommand();
                 command.CommandText = "COMMIT";
-                command.ExecuteNonQuery();
+                try
+                {
+                    command.ExecuteNonQuery();
+                }
+                catch (LibSQLException ex) when (IsInactiveTransactionError(ex))
+                {
+                    // SQLite/libSQL auto-commits DDL; EF CreateTables also COMMITs before
+                    // SuppressTransaction commands. Treat an already-closed txn as success.
+                }
             }
             else
             {
@@ -109,7 +117,14 @@ public sealed class LibSQLTransaction : DbTransaction
                 // For HTTP connections, use SQL commands
                 using var command = _connection.CreateCommand();
                 command.CommandText = "ROLLBACK";
-                command.ExecuteNonQuery();
+                try
+                {
+                    command.ExecuteNonQuery();
+                }
+                catch (LibSQLException ex) when (IsInactiveTransactionError(ex))
+                {
+                    // Already closed by DDL autocommit or prior COMMIT.
+                }
             }
             else
             {
@@ -131,6 +146,9 @@ public sealed class LibSQLTransaction : DbTransaction
             throw new LibSQLException("An error occurred while rolling back the transaction.", ex);
         }
     }
+
+    private static bool IsInactiveTransactionError(LibSQLException ex)
+        => ex.Message.Contains("no transaction is active", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Validates that the transaction is in a valid state for operations.
