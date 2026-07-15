@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+- Fix `INSERT…RETURNING` (and other result-producing writes) so disposing a
+  `LibSQLDataReader` after a single `Read()` drains remaining rows to
+  `SQLITE_DONE`, keeps parameterized statements alive for the reader lifetime,
+  and avoids double-free of row/rows handles in `ExecuteScalar`. Without this,
+  commits fail with "SQL statements in progress" / rows do not persist after
+  reconnect (common with EF Core `SaveChanges`).
 
 ### Security
 
