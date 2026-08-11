@@ -19,6 +19,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.2.12] - 2026-08-11
+
+### Added
+
+### Changed
+- Merge weekly Dependabot package dependency updates (#106)
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
 ## [0.2.11] - 2026-07-15
 
 ### Added
@@ -241,7 +256,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
-[Unreleased]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.11...HEAD
+
+[Unreleased]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.12...HEAD
+[0.2.12]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.11...v0.2.12
 [0.2.11]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.10...v0.2.11
 [0.2.10]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.9...v0.2.10
 [0.2.9]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.8...v0.2.9
