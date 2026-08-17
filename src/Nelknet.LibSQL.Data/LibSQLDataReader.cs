@@ -14,6 +14,10 @@ namespace Nelknet.LibSQL.Data;
 /// <summary>
 /// Provides a way of reading a forward-only stream of rows from a libSQL database.
 /// </summary>
+/// <remarks>
+/// This type supports one active operation at a time.
+/// Its instance members do not support concurrent use.
+/// </remarks>
 public sealed class LibSQLDataReader : DbDataReader
 {
     internal readonly record struct StatementCleanup

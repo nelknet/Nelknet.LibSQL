@@ -269,6 +269,14 @@ The library implements the standard ADO.NET interfaces to ensure compatibility w
 - Follows Microsoft.Data.Sqlite patterns where applicable
 - Supports both synchronous and asynchronous operations
 
+### Concurrency
+
+A connection, command, or data reader supports one active operation at a time.
+
+Do not use one instance from multiple threads at the same time.
+Close each data reader before another command uses the same connection.
+Use one connection for each concurrent database operation.
+
 ## Performance Tips
 
 1. **Use Prepared Statements**: For repeated queries, prepare statements or enable statement caching
