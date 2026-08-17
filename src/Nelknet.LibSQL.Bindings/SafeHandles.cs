@@ -34,7 +34,7 @@ internal sealed class LibSQLDatabaseHandle : LibSQLSafeHandle
 
     protected override bool ReleaseHandle()
     {
-        if (!IsInvalid && !IsClosed)
+        if (!IsInvalid)
         {
             LibSQLNative.libsql_close(handle);
         }
@@ -57,7 +57,7 @@ internal sealed class LibSQLConnectionHandle : LibSQLSafeHandle
 
     protected override bool ReleaseHandle()
     {
-        if (!IsInvalid && !IsClosed)
+        if (!IsInvalid)
         {
             LibSQLNative.libsql_disconnect(handle);
         }
@@ -80,7 +80,7 @@ internal sealed class LibSQLStatementHandle : LibSQLSafeHandle
 
     protected override bool ReleaseHandle()
     {
-        if (!IsInvalid && !IsClosed)
+        if (!IsInvalid)
         {
             LibSQLNative.libsql_free_stmt(handle);
         }
@@ -103,7 +103,7 @@ internal sealed class LibSQLRowsHandle : LibSQLSafeHandle
 
     protected override bool ReleaseHandle()
     {
-        if (!IsInvalid && !IsClosed)
+        if (!IsInvalid)
         {
             LibSQLNative.libsql_free_rows(handle);
         }
@@ -126,7 +126,7 @@ internal sealed class LibSQLRowHandle : LibSQLSafeHandle
 
     protected override bool ReleaseHandle()
     {
-        if (!IsInvalid && !IsClosed)
+        if (!IsInvalid)
         {
             LibSQLNative.libsql_free_row(handle);
         }
@@ -151,7 +151,7 @@ internal sealed class LibSQLAllocatedPointerHandle : SafeHandleZeroOrMinusOneIsI
 
     protected override bool ReleaseHandle()
     {
-        if (!IsInvalid && !IsClosed)
+        if (!IsInvalid)
         {
             // Use standard C library free() for generic allocated pointers
             // This handle is used for error messages and similar allocated strings
@@ -177,7 +177,7 @@ internal sealed class LibSQLStringHandle : SafeHandleZeroOrMinusOneIsInvalid
 
     protected override bool ReleaseHandle()
     {
-        if (!IsInvalid && !IsClosed)
+        if (!IsInvalid)
         {
             LibSQLNative.libsql_free_string(handle);
         }
@@ -200,7 +200,7 @@ internal sealed class LibSQLBackupHandle : LibSQLSafeHandle
 
     protected override bool ReleaseHandle()
     {
-        if (!IsInvalid && !IsClosed)
+        if (!IsInvalid)
         {
             // sqlite3_backup_finish can return an error code, but in the context of cleanup
             // we can't do much about it. We log it for debugging purposes.

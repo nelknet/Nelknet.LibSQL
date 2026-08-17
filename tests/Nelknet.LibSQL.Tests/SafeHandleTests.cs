@@ -59,6 +59,14 @@ public class SafeHandleTests
         Assert.False(rowHandle.IsInvalid);
         Assert.False(stringHandle.IsInvalid);
         Assert.False(allocatedHandle.IsInvalid);
+
+        dbHandle.SetHandleAsInvalid();
+        connHandle.SetHandleAsInvalid();
+        stmtHandle.SetHandleAsInvalid();
+        rowsHandle.SetHandleAsInvalid();
+        rowHandle.SetHandleAsInvalid();
+        stringHandle.SetHandleAsInvalid();
+        allocatedHandle.SetHandleAsInvalid();
     }
 
     [Fact]
