@@ -99,5 +99,6 @@ dotnet run \
 Measure a public behavior or an internal reusable abstraction.
 Keep setup outside the benchmark method.
 Reuse destination buffers when allocation is not part of the target behavior.
+Consume a destination buffer when a benchmark measures a copy operation.
 Add a category that identifies the affected subsystem.
 Include the benchmark filter and comparison table in the pull request.

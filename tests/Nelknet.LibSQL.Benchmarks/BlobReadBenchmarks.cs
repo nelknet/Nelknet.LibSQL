@@ -60,14 +60,21 @@ public class BlobReadBenchmarks : IDisposable
     public long GetBytesSlice()
     {
         using var reader = OpenReader();
-        return reader.GetBytes(0, _sliceOffset, _sliceBuffer, 0, _sliceBuffer.Length);
+        var bytesRead = reader.GetBytes(0, _sliceOffset, _sliceBuffer, 0, _sliceBuffer.Length);
+        return ConsumeBuffer(bytesRead, _sliceBuffer);
     }
 
     [Benchmark]
     public long GetBytesFull()
     {
         using var reader = OpenReader();
-        return reader.GetBytes(0, 0, _fullBuffer, 0, _fullBuffer.Length);
+        var bytesRead = reader.GetBytes(0, 0, _fullBuffer, 0, _fullBuffer.Length);
+        return ConsumeBuffer(bytesRead, _fullBuffer);
+    }
+
+    private static long ConsumeBuffer(long bytesRead, byte[] buffer)
+    {
+        return bytesRead + buffer[0] + buffer[^1];
     }
 
     private LibSQLDataReader OpenReader()
