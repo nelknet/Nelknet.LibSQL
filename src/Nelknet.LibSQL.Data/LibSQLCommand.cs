@@ -302,7 +302,7 @@ public sealed class LibSQLCommand : DbCommand
         using var reader = new LibSQLDataReader(
             query.Rows,
             CommandBehavior.SingleRow,
-            query.OwnedStatement);
+            query.StatementCleanup);
 
         if (!reader.Read() || reader.FieldCount == 0)
             return null;
@@ -348,7 +348,7 @@ public sealed class LibSQLCommand : DbCommand
         return new LibSQLDataReader(
             query.Rows,
             behavior,
-            query.OwnedStatement);
+            query.StatementCleanup);
     }
 
     /// <summary>
@@ -438,12 +438,14 @@ public sealed class LibSQLCommand : DbCommand
     {
         var connectionHandle = Connection!.ConnectionHandle!;
         LibSQLStatementHandle? ownedStatement = null;
+        LibSQLStatementHandle? borrowedStatement = null;
         IntPtr rowsHandle;
         IntPtr errorMsg;
         int result;
 
         if (_isPrepared && _preparedStatement != null)
         {
+            borrowedStatement = _preparedStatement;
             var resetResult = LibSQLNative.libsql_reset_stmt(_preparedStatement, out var resetErrorMsg);
             if (resetResult != 0)
             {
@@ -464,6 +466,10 @@ public sealed class LibSQLCommand : DbCommand
                 if (!usingCachedStatement)
                 {
                     ownedStatement = statement;
+                }
+                else
+                {
+                    borrowedStatement = statement;
                 }
             }
             else
@@ -496,7 +502,13 @@ public sealed class LibSQLCommand : DbCommand
             throw new InvalidOperationException($"Failed to execute query: {errorMessage}");
         }
 
-        return new NativeQuery(new LibSQLRowsHandle(rowsHandle), ownedStatement);
+        var statementCleanup = ownedStatement != null
+            ? LibSQLDataReader.StatementCleanup.Owned(ownedStatement)
+            : borrowedStatement != null
+                ? LibSQLDataReader.StatementCleanup.Borrowed(borrowedStatement)
+                : default;
+
+        return new NativeQuery(new LibSQLRowsHandle(rowsHandle), statementCleanup);
     }
 
     private LibSQLStatementHandle PrepareStatement(LibSQLConnectionHandle connectionHandle)
@@ -519,7 +531,7 @@ public sealed class LibSQLCommand : DbCommand
 
     private readonly record struct NativeQuery(
         LibSQLRowsHandle Rows,
-        LibSQLStatementHandle? OwnedStatement);
+        LibSQLDataReader.StatementCleanup StatementCleanup);
 
     /// <summary>
     /// Binds parameters to the prepared statement.

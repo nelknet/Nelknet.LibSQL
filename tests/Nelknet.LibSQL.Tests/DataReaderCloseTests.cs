@@ -82,6 +82,36 @@ public sealed class DataReaderCloseTests : IDisposable
         AssertOtherConnectionCanWrite();
     }
 
+    [Fact]
+    public void ExecuteReader_PreparedSelectDisposedBeforeEnd_ReleasesLockForOtherConnection()
+    {
+        using var readerConnection = OpenConnection();
+        using var readCommand = readerConnection.CreateCommand();
+        readCommand.CommandText = "SELECT Id, Name FROM Items WHERE Id = 1";
+        readCommand.Prepare();
+
+        using (var reader = readCommand.ExecuteReader())
+        {
+            Assert.True(reader.Read());
+            Assert.Equal(1L, reader.GetInt64(0));
+        }
+
+        AssertOtherConnectionCanWrite();
+    }
+
+    [Fact]
+    public void ExecuteScalar_CachedSelectReturnsValue_ReleasesLockForOtherConnection()
+    {
+        using var readerConnection = OpenConnection(enableStatementCaching: true);
+        using var readCommand = readerConnection.CreateCommand();
+        readCommand.CommandText = "SELECT Name FROM Items WHERE Id = @id";
+        readCommand.Parameters.Add(new LibSQLParameter("@id", 1));
+
+        Assert.Equal("ada", readCommand.ExecuteScalar());
+
+        AssertOtherConnectionCanWrite();
+    }
+
     private void AssertOtherConnectionCanWrite()
     {
         using var writerConnection = OpenConnection();
@@ -91,9 +121,12 @@ public sealed class DataReaderCloseTests : IDisposable
         Assert.Equal(1, writeCommand.ExecuteNonQuery());
     }
 
-    private LibSQLConnection OpenConnection()
+    private LibSQLConnection OpenConnection(bool enableStatementCaching = false)
     {
-        var connection = new LibSQLConnection($"Data Source={_databasePath}");
+        var connection = new LibSQLConnection($"Data Source={_databasePath}")
+        {
+            EnableStatementCaching = enableStatementCaching,
+        };
         connection.Open();
 
         using var command = connection.CreateCommand();

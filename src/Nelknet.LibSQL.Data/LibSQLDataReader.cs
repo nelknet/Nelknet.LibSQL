@@ -16,6 +16,64 @@ namespace Nelknet.LibSQL.Data;
 /// </summary>
 public sealed class LibSQLDataReader : DbDataReader
 {
+    internal readonly record struct StatementCleanup
+    {
+        private enum StatementOwnership
+        {
+            None,
+            Owned,
+            Borrowed,
+        }
+
+        private readonly LibSQLStatementHandle? _statement;
+        private readonly StatementOwnership _ownership;
+
+        private StatementCleanup(
+            LibSQLStatementHandle statement,
+            StatementOwnership ownership)
+        {
+            _statement = statement;
+            _ownership = ownership;
+        }
+
+        internal static StatementCleanup Owned(LibSQLStatementHandle statement) =>
+            new(statement, StatementOwnership.Owned);
+
+        internal static StatementCleanup Borrowed(LibSQLStatementHandle statement) =>
+            new(statement, StatementOwnership.Borrowed);
+
+        internal void Release()
+        {
+            switch (_ownership)
+            {
+                case StatementOwnership.None:
+                    return;
+                case StatementOwnership.Owned:
+                    _statement!.Dispose();
+                    return;
+                case StatementOwnership.Borrowed:
+                    ResetStatement(_statement!);
+                    return;
+                default:
+                    throw new InvalidOperationException("Unknown statement ownership.");
+            }
+        }
+
+        private static void ResetStatement(LibSQLStatementHandle statement)
+        {
+            if (statement.IsClosed || statement.IsInvalid)
+                return;
+
+            var result = LibSQLNative.libsql_reset_stmt(statement, out var errorMsg);
+            if (result == 0)
+                return;
+
+            var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
+            LibSQLNative.libsql_free_error_msg(errorMsg);
+            throw new InvalidOperationException($"Failed to reset statement after reader close: {errorMessage}");
+        }
+    }
+
     private enum LibSQLColumnType
     {
         Integer = 1,
@@ -28,7 +86,7 @@ public sealed class LibSQLDataReader : DbDataReader
     private readonly LibSQLRowsHandle? _rowsHandle;
     private readonly LibSQLHttpDataReader? _httpDataReader;
     private readonly CommandBehavior _behavior;
-    private readonly LibSQLStatementHandle? _ownedStatement;
+    private readonly StatementCleanup _statementCleanup;
     private LibSQLRowHandle? _currentRow;
     private bool _disposed;
     private bool _closed;
@@ -51,15 +109,15 @@ public sealed class LibSQLDataReader : DbDataReader
     /// </summary>
     /// <param name="rowsHandle">The handle to the libSQL rows result set.</param>
     /// <param name="behavior">The command behavior that controls the reader.</param>
-    /// <param name="ownedStatement">The prepared statement whose ownership transfers to the reader.</param>
+    /// <param name="statementCleanup">The cleanup action for the prepared statement.</param>
     internal LibSQLDataReader(
         LibSQLRowsHandle rowsHandle,
         CommandBehavior behavior = CommandBehavior.Default,
-        LibSQLStatementHandle? ownedStatement = null)
+        StatementCleanup statementCleanup = default)
     {
         _rowsHandle = rowsHandle ?? throw new ArgumentNullException(nameof(rowsHandle));
         _behavior = behavior;
-        _ownedStatement = ownedStatement;
+        _statementCleanup = statementCleanup;
         _closed = false;
         _isHttpReader = false;
     }
@@ -162,32 +220,16 @@ public sealed class LibSQLDataReader : DbDataReader
             return;
         }
 
-        try
-        {
-            if (!_disposed
-                && _rowsHandle != null
-                && !_rowsHandle.IsInvalid)
-            {
-                // Row completion releases the statement because the C API cannot reset a rows handle.
-                while (Read())
-                {
-                }
-            }
-        }
-        finally
-        {
-            _closed = true;
+        _closed = true;
 
-            // Clean up current row if we have one
-            _currentRow?.Dispose();
-            _currentRow = null;
+        // Clean up current row if we have one
+        _currentRow?.Dispose();
+        _currentRow = null;
 
-            // Clean up rows handle
-            _rowsHandle?.Dispose();
+        // Clean up rows handle
+        _rowsHandle?.Dispose();
 
-            // Parameterized queries transfer their statement to the reader.
-            _ownedStatement?.Dispose();
-        }
+        _statementCleanup.Release();
     }
 
     /// <summary>
