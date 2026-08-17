@@ -10,7 +10,6 @@ using System.Threading.Tasks;
 using Nelknet.LibSQL.Bindings;
 using Nelknet.LibSQL.Data.Exceptions;
 using Nelknet.LibSQL.Data.Http;
-using Nelknet.LibSQL.Data.Internal;
 
 namespace Nelknet.LibSQL.Data;
 
@@ -300,12 +299,10 @@ public sealed class LibSQLCommand : DbCommand
         }
 
         var query = ExecuteNativeQuery(allowStatementCache: true);
-        var closeBehavior = GetReaderCloseBehavior();
         using var reader = new LibSQLDataReader(
             query.Rows,
             CommandBehavior.SingleRow,
-            query.OwnedStatement,
-            closeBehavior);
+            query.OwnedStatement);
 
         if (!reader.Read() || reader.FieldCount == 0)
             return null;
@@ -351,8 +348,7 @@ public sealed class LibSQLCommand : DbCommand
         return new LibSQLDataReader(
             query.Rows,
             behavior,
-            query.OwnedStatement,
-            GetReaderCloseBehavior());
+            query.OwnedStatement);
     }
 
     /// <summary>
@@ -519,13 +515,6 @@ public sealed class LibSQLCommand : DbCommand
         }
 
         return new LibSQLStatementHandle(statementHandle);
-    }
-
-    private LibSQLDataReader.ReaderCloseBehavior GetReaderCloseBehavior()
-    {
-        return SqlStatementClassifier.RequiresDrainOnReaderClose(CommandText)
-            ? LibSQLDataReader.ReaderCloseBehavior.Drain
-            : LibSQLDataReader.ReaderCloseBehavior.Release;
     }
 
     private readonly record struct NativeQuery(
