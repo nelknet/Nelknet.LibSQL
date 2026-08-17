@@ -10,6 +10,7 @@ The suite covers these paths:
 - Parameter parse and resolution
 - Repeated parameter command execution
 - Statement cache reuse
+- HTTP statement detection
 
 ## Run a smoke test
 
