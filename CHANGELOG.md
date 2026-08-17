@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add a BenchmarkDotNet regression suite for native BLOB, parameter, and statement cache performance.
+
 ### Changed
 
 ### Deprecated
