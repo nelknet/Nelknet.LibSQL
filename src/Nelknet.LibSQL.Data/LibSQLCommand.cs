@@ -16,6 +16,10 @@ namespace Nelknet.LibSQL.Data;
 /// <summary>
 /// Represents a SQL command to execute against a libSQL database.
 /// </summary>
+/// <remarks>
+/// This type supports one active operation at a time.
+/// Its instance members do not support concurrent use.
+/// </remarks>
 public sealed class LibSQLCommand : DbCommand
 {
     private LibSQLConnection? _connection;
@@ -649,11 +653,16 @@ public sealed class LibSQLCommand : DbCommand
         // Don't cache statements with positional parameters (?) as they're often used
         // for bulk operations where the same statement is executed many times
         bool hasPositionalParameters = CommandText.Contains('?') && !CommandText.Contains('@');
+        var statementCache = Connection!.StatementCache;
+        var canUseStatementCache = _enableStatementCaching
+            && Connection.EnableStatementCaching
+            && statementCache != null
+            && !hasPositionalParameters;
         
         // Try to get from cache if enabled at both connection and command level, and not using positional parameters
-        if (_enableStatementCaching && Connection!.EnableStatementCaching && Connection.StatementCache != null && !hasPositionalParameters)
+        if (canUseStatementCache)
         {
-            usingCachedStatement = Connection.StatementCache.TryGetStatement(CommandText, out statement);
+            usingCachedStatement = statementCache!.TryGetStatement(CommandText, out statement);
         }
         
         if (!usingCachedStatement)
@@ -661,9 +670,9 @@ public sealed class LibSQLCommand : DbCommand
             statement = PrepareStatement(connectionHandle);
             
             // Add to cache if enabled
-            if (Connection.EnableStatementCaching && Connection.StatementCache != null)
+            if (canUseStatementCache)
             {
-                Connection.StatementCache.AddStatement(CommandText, statement);
+                statementCache!.AddStatement(CommandText, statement);
                 usingCachedStatement = true; // Don't dispose since it's now cached
             }
         }

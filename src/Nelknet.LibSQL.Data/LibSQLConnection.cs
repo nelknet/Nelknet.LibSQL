@@ -17,6 +17,10 @@ namespace Nelknet.LibSQL.Data;
 /// <summary>
 /// Represents a connection to a libSQL database.
 /// </summary>
+/// <remarks>
+/// This type supports one active operation at a time.
+/// Its instance members do not support concurrent use.
+/// </remarks>
 public sealed class LibSQLConnection : DbConnection
 {
     private readonly object _lockObject = new();
