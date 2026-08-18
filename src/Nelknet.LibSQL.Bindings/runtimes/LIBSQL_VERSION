@@ -2,5 +2,6 @@ libSQL Reference: libsql-server-v0.24.32
 libSQL Commit: 40c272de85ee4e62d722c5ccae5da2e76b4253a1
 libSQL Tag: libsql-server-v0.24.32
 libSQL Cargo Version: 0.6.0
+Rust Compiler: rustc 1.97.1 (8bab26f4f 2026-07-14)
 Build Date: 2026-08-18 15:51:16 UTC
 Build Workflow Run: https://github.com/nelknet/Nelknet.LibSQL/actions/runs/32156095618

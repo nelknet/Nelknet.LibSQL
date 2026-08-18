@@ -104,6 +104,11 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Get Rust compiler version
+        id: rust_version
+        shell: bash
+        run: echo "rust_version=$(rustc --version)" >> "$GITHUB_OUTPUT"
+
       - name: Add Rust target
         run: rustup target add ${{ matrix.target }}
 
@@ -191,6 +196,7 @@ jobs:
           echo "COMMIT_SHA=${{ steps.version_info.outputs.commit_sha }}" > version-info/version.env
           echo "TAG_NAME=${{ steps.version_info.outputs.tag_name }}" >> version-info/version.env
           echo "CARGO_VERSION=${{ steps.version_info.outputs.cargo_version }}" >> version-info/version.env
+          echo "RUST_VERSION=${{ steps.rust_version.outputs.rust_version }}" >> version-info/version.env
 
       - name: Upload version info
         if: matrix.os == 'ubuntu-latest' && matrix.target == 'x86_64-unknown-linux-gnu'
@@ -234,6 +240,7 @@ jobs:
           echo "commit_sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
           echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
           echo "cargo_version=${CARGO_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "rust_version=${RUST_VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Copy libraries to project
         shell: bash
@@ -253,6 +260,7 @@ jobs:
             echo "libSQL Commit: ${{ steps.read_version.outputs.commit_sha }}"
             echo "libSQL Tag: ${{ steps.read_version.outputs.tag_name }}"
             echo "libSQL Cargo Version: ${{ steps.read_version.outputs.cargo_version }}"
+            echo "Rust Compiler: ${{ steps.read_version.outputs.rust_version }}"
             echo "Build Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
             echo "Build Workflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           } > src/Nelknet.LibSQL.Bindings/runtimes/LIBSQL_VERSION
