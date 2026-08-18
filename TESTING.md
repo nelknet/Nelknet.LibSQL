@@ -218,18 +218,18 @@ env:
 
 ## Performance Testing
 
-For performance analysis:
+Use BenchmarkDotNet for performance measurements. Run benchmarks in the Release configuration.
 
 ```bash
-# Run with detailed timing
-dotnet test --logger:console --verbosity:detailed
+# Run all benchmarks.
+dotnet run --project tests/Nelknet.LibSQL.Benchmarks --configuration Release -- --artifacts artifacts/benchmarks
 
-# Profile memory usage
-dotnet test --collect:"XPlat Code Coverage"
-
-# Benchmark specific operations
-dotnet run --project tests/Nelknet.LibSQL.Benchmarks
+# Run the BLOB benchmarks.
+dotnet run --project tests/Nelknet.LibSQL.Benchmarks --configuration Release -- --anyCategories Blob --artifacts artifacts/benchmarks-blob
 ```
+
+Use `scripts/compare-benchmark-worktrees.sh` to compare two branches on one computer.
+Read [the benchmark guide](tests/Nelknet.LibSQL.Benchmarks/README.md) for the complete procedure.
 
 ## Contributing Tests
 

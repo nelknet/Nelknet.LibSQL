@@ -71,6 +71,28 @@ jobs:
     
     - name: Build
       run: dotnet build --no-restore --configuration Release
+
+    - name: Benchmark smoke test
+      if: runner.os == 'Linux'
+      run: |
+        dotnet run \
+          --project tests/Nelknet.LibSQL.Benchmarks \
+          --configuration Release \
+          --no-build \
+          -- \
+          --job Dry \
+          --filter '*SqlParameterLayoutBenchmarks.Parse*' \
+          --artifacts artifacts/benchmark-smoke
+        dotnet run \
+          --project tests/Nelknet.LibSQL.Benchmarks \
+          --configuration Release \
+          --no-build \
+          -- \
+          compare \
+          artifacts/benchmark-smoke \
+          artifacts/benchmark-smoke \
+          --max-regression 0 \
+          --fail-on-allocation-increase
     
     # Debug: Check if native libraries are present after build (Unix)
     - name: Check native libraries (Unix)
