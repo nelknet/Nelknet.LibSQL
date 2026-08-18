@@ -180,3 +180,58 @@ jobs:
     - name: Stop sqld server
       if: always() && runner.os == 'Linux'
       run: docker compose down -v
+
+  linux-arm64:
+    needs: [changelog-check]
+    if: always() && (needs.changelog-check.result == 'success' || needs.changelog-check.result == 'skipped')
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v6.0.0
+      with:
+        dotnet-version: 8.0.x
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build
+      run: dotnet build --no-restore --configuration Release
+
+    - name: Verify Linux ARM64 native library
+      run: |
+        bash scripts/verify-linux-native-library.sh \
+          src/Nelknet.LibSQL.Bindings/runtimes/linux-arm64/native/libsql.so \
+          AArch64
+
+    - name: Test native library
+      run: dotnet test --no-build --configuration Release --verbosity normal --filter "FullyQualifiedName!~RemoteIntegration"
+
+    - name: Pack native packages
+      run: |
+        dotnet pack src/Nelknet.LibSQL.Bindings/Nelknet.LibSQL.Bindings.csproj \
+          --configuration Release \
+          --no-build \
+          --output artifacts/packages
+        dotnet pack src/Nelknet.LibSQL.Data/Nelknet.LibSQL.Data.csproj \
+          --configuration Release \
+          --no-build \
+          -p:BuildType=Full \
+          --output artifacts/packages
+
+    - name: Verify Linux ARM64 package assets
+      shell: bash
+      run: |
+        bindings_package="$(find artifacts/packages -name 'Nelknet.LibSQL.Bindings.*.nupkg' -type f | head -n 1)"
+        full_package="$(find artifacts/packages -name 'Nelknet.LibSQL.Data.Full.*.nupkg' -type f | head -n 1)"
+
+        for package in "${bindings_package}" "${full_package}"; do
+          if [ -z "${package}" ]; then
+            echo "The expected package does not exist." >&2
+            exit 1
+          fi
+
+          unzip -Z1 "${package}" | grep -Fx 'runtimes/linux-arm64/native/libsql.so'
+        done
