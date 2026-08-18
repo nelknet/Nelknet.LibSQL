@@ -2,12 +2,14 @@
 
 set -euo pipefail
 
-readonly version_file="src/Nelknet.LibSQL.Bindings/runtimes/LIBSQL_VERSION"
+readonly build_info_file="src/Nelknet.LibSQL.Bindings/runtimes/LIBSQL_BUILD_INFO"
 readonly badge_file=".github/badges/libsql-version.json"
+
+bash scripts/libsql-build-info.sh verify
 
 extract_value() {
   local key="$1"
-  sed -n "s/^${key}: //p" "$version_file"
+  sed -n "s/^${key}: //p" "$build_info_file"
 }
 
 require_value() {
@@ -15,7 +17,7 @@ require_value() {
   local value="$2"
 
   if [[ -z "$value" ]]; then
-    echo "Missing '${name}' in ${version_file}" >&2
+    echo "Missing '${name}' in ${build_info_file}" >&2
     exit 1
   fi
 }

@@ -2,13 +2,15 @@
 
 set -euo pipefail
 
-readonly version_file="src/Nelknet.LibSQL.Bindings/runtimes/LIBSQL_VERSION"
+readonly build_info_file="src/Nelknet.LibSQL.Bindings/runtimes/LIBSQL_BUILD_INFO"
 readonly build_props_file="Directory.Build.props"
 readonly changelog_file="CHANGELOG.md"
 
+bash scripts/libsql-build-info.sh verify
+
 extract_version_value() {
   local key="$1"
-  sed -n "s/^${key}: //p" "$version_file"
+  sed -n "s/^${key}: //p" "$build_info_file"
 }
 
 usage() {

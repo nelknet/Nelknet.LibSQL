@@ -234,4 +234,9 @@ jobs:
           fi
 
           unzip -Z1 "${package}" | grep -Fx 'runtimes/linux-arm64/native/libsql.so'
+
+          if unzip -Z1 "${package}" | grep -q 'LIBSQL_BUILD_INFO'; then
+            echo "The build information file must not be in a runtime package." >&2
+            exit 1
+          fi
         done

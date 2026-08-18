@@ -255,15 +255,22 @@ jobs:
           cp artifacts/libsql-win-x64/libsql.dll src/Nelknet.LibSQL.Bindings/runtimes/win-x64/native/
           cp artifacts/libsql-osx-arm64/libsql.dylib src/Nelknet.LibSQL.Bindings/runtimes/osx-arm64/native/
 
-          {
-            echo "libSQL Reference: ${LIBSQL_REF}"
-            echo "libSQL Commit: ${{ steps.read_version.outputs.commit_sha }}"
-            echo "libSQL Tag: ${{ steps.read_version.outputs.tag_name }}"
-            echo "libSQL Cargo Version: ${{ steps.read_version.outputs.cargo_version }}"
-            echo "Rust Compiler: ${{ steps.read_version.outputs.rust_version }}"
-            echo "Build Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-            echo "Build Workflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          } > src/Nelknet.LibSQL.Bindings/runtimes/LIBSQL_VERSION
+      - name: Write build information
+        shell: bash
+        env:
+          LIBSQL_COMMIT: ${{ steps.read_version.outputs.commit_sha }}
+          LIBSQL_TAG: ${{ steps.read_version.outputs.tag_name }}
+          LIBSQL_CARGO_VERSION: ${{ steps.read_version.outputs.cargo_version }}
+          RUST_COMPILER: ${{ steps.read_version.outputs.rust_version }}
+          BUILD_WORKFLOW_RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          bash scripts/libsql-build-info.sh write \
+            "$LIBSQL_REF" \
+            "$LIBSQL_COMMIT" \
+            "$LIBSQL_TAG" \
+            "$LIBSQL_CARGO_VERSION" \
+            "$RUST_COMPILER" \
+            "$BUILD_WORKFLOW_RUN"
 
       - name: Generate libSQL badge metadata
         run: bash scripts/generate-libsql-badge.sh
