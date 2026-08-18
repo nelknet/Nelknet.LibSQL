@@ -13,12 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Copy native BLOB ranges directly into caller buffers.
+
 ### Deprecated
 
 ### Removed
 
 ### Fixed
 
+- Return an empty byte array for an empty native BLOB value.
 - Fixed native handle disposal that did not release owned libSQL resources.
 - Fixed local readers that kept file locks after they closed before the final row ([#103](https://github.com/nelknet/Nelknet.LibSQL/issues/103)).
 

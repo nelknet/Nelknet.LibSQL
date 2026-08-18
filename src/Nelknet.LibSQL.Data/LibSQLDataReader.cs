@@ -277,19 +277,33 @@ public sealed class LibSQLDataReader : DbDataReader
         
         ValidateOrdinal(ordinal);
         
-        var data = GetBlobBytes(ordinal);
-        if (data == null)
-            return 0;
-            
-        if (buffer == null)
-            return data.Length;
-            
-        long actualLength = Math.Min(length, data.Length - dataOffset);
-        if (actualLength <= 0)
-            return 0;
-            
-        Array.Copy(data, dataOffset, buffer, bufferOffset, actualLength);
-        return actualLength;
+        var blob = GetBlob(ordinal);
+        try
+        {
+            if (buffer == null)
+                return blob.Len;
+
+            long actualLength = Math.Min(length, blob.Len - dataOffset);
+            if (actualLength <= 0)
+                return 0;
+
+            ArgumentOutOfRangeException.ThrowIfNegative(dataOffset);
+            ArgumentOutOfRangeException.ThrowIfNegative(bufferOffset);
+
+            int bytesToCopy = (int)actualLength;
+            if (bufferOffset > buffer.Length - bytesToCopy)
+                throw new ArgumentException("The destination buffer is too small.", nameof(buffer));
+
+            if (blob.Ptr == IntPtr.Zero)
+                throw new InvalidOperationException("The native BLOB pointer is null for a nonempty value.");
+
+            Marshal.Copy(IntPtr.Add(blob.Ptr, (int)dataOffset), buffer, bufferOffset, bytesToCopy);
+            return bytesToCopy;
+        }
+        finally
+        {
+            LibSQLNative.libsql_free_blob(blob);
+        }
     }
 
     /// <summary>
@@ -968,7 +982,7 @@ public sealed class LibSQLDataReader : DbDataReader
     /// </summary>
     /// <param name="ordinal">The zero-based column ordinal.</param>
     /// <returns>The value of the specified column as a byte array.</returns>
-    private byte[]? GetBlobBytes(int ordinal)
+    private byte[] GetBlobBytes(int ordinal)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_closed || _rowsHandle == null || _currentRow == null)
@@ -976,7 +990,25 @@ public sealed class LibSQLDataReader : DbDataReader
 
         ValidateOrdinal(ordinal);
 
-        int result = LibSQLNative.libsql_get_blob(_currentRow, ordinal, out LibSQLBlob blob, out IntPtr errorMsg);
+        var blob = GetBlob(ordinal);
+        try
+        {
+            return blob.ToByteArray();
+        }
+        finally
+        {
+            LibSQLNative.libsql_free_blob(blob);
+        }
+    }
+
+    /// <summary>
+    /// Gets an owned native BLOB for the specified column.
+    /// </summary>
+    /// <param name="ordinal">The zero-based column ordinal.</param>
+    /// <returns>The owned native BLOB. The caller must free it.</returns>
+    private LibSQLBlob GetBlob(int ordinal)
+    {
+        int result = LibSQLNative.libsql_get_blob(_currentRow!, ordinal, out LibSQLBlob blob, out IntPtr errorMsg);
         if (result != 0)
         {
             var errorMessage = LibSQLHelper.GetErrorMessage(errorMsg);
@@ -984,19 +1016,7 @@ public sealed class LibSQLDataReader : DbDataReader
             throw new InvalidOperationException($"Failed to get blob value: {errorMessage}");
         }
 
-        try
-        {
-            if (blob.Ptr == IntPtr.Zero || blob.Len == 0)
-                return null;
-
-            var data = new byte[blob.Len];
-            Marshal.Copy(blob.Ptr, data, 0, blob.Len);
-            return data;
-        }
-        finally
-        {
-            LibSQLNative.libsql_free_blob(blob);
-        }
+        return blob;
     }
 
     /// <summary>
