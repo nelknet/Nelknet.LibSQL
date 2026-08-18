@@ -47,6 +47,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
+          bash scripts/libsql-build-info.sh verify
+
           target_tag="${{ inputs.tag_override }}"
           if [ -n "${target_tag}" ]; then
             release_json="$(gh api "repos/tursodatabase/libsql/releases/tags/${target_tag}")"
@@ -56,8 +58,8 @@ jobs:
           fi
 
           target_commit="$(jq -r '.target_commitish' <<< "${release_json}")"
-          current_tag="$(sed -n 's/^libSQL Tag: //p' src/Nelknet.LibSQL.Bindings/runtimes/LIBSQL_VERSION)"
-          current_commit="$(sed -n 's/^libSQL Commit: //p' src/Nelknet.LibSQL.Bindings/runtimes/LIBSQL_VERSION)"
+          current_tag="$(sed -n 's/^libSQL Tag: //p' src/Nelknet.LibSQL.Bindings/runtimes/LIBSQL_BUILD_INFO)"
+          current_commit="$(sed -n 's/^libSQL Commit: //p' src/Nelknet.LibSQL.Bindings/runtimes/LIBSQL_BUILD_INFO)"
 
           if [ -z "${target_tag}" ] || [ -z "${target_commit}" ]; then
             echo "Unable to resolve the target libSQL release." >&2
@@ -180,7 +182,7 @@ jobs:
 
           - update the bundled libSQL native libraries to \`${TARGET_TAG}\`
           - bump the Nelknet.LibSQL package version to \`${{ steps.versioning.outputs.next_version }}\`
-          - refresh \`LIBSQL_VERSION\`, the README badge metadata, and the changelog
+          - refresh \`LIBSQL_BUILD_INFO\`, the README badge metadata, and the changelog
 
           ## Upstream
 

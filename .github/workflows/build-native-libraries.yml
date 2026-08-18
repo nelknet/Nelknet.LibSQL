@@ -37,6 +37,12 @@ jobs:
             target: x86_64-unknown-linux-gnu
             output: linux-x64
             ext: so
+            elf_machine: Advanced Micro Devices X86-64
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            output: linux-arm64
+            ext: so
+            elf_machine: AArch64
           - os: ubuntu-latest
             target: x86_64-pc-windows-gnu
             output: win-x64
@@ -98,6 +104,11 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Get Rust compiler version
+        id: rust_version
+        shell: bash
+        run: echo "rust_version=$(rustc --version)" >> "$GITHUB_OUTPUT"
+
       - name: Add Rust target
         run: rustup target add ${{ matrix.target }}
 
@@ -119,13 +130,20 @@ jobs:
           LIBSQLITE3_FLAGS="-DSQLITE_ENABLE_COLUMN_METADATA" LIBSQL_BUNDLED=1 cargo build --release --target "${{ matrix.target }}"
 
       - name: Create shared library (Linux)
-        if: matrix.os == 'ubuntu-latest' && matrix.target == 'x86_64-unknown-linux-gnu'
+        if: matrix.ext == 'so'
         run: |
           cd libsql/target/${{ matrix.target }}/release
           ar -x libsql_experimental.a
           gcc -shared -o libsql.so *.o -lpthread -ldl -lm
           mkdir -p "${{ github.workspace }}/artifacts/${{ matrix.output }}/native"
           cp libsql.so "${{ github.workspace }}/artifacts/${{ matrix.output }}/native/"
+
+      - name: Verify shared library (Linux)
+        if: matrix.ext == 'so'
+        run: |
+          bash scripts/verify-linux-native-library.sh \
+            "artifacts/${{ matrix.output }}/native/libsql.so" \
+            "${{ matrix.elf_machine }}"
 
       - name: Create shared library (Windows)
         if: matrix.target == 'x86_64-pc-windows-gnu'
@@ -178,6 +196,7 @@ jobs:
           echo "COMMIT_SHA=${{ steps.version_info.outputs.commit_sha }}" > version-info/version.env
           echo "TAG_NAME=${{ steps.version_info.outputs.tag_name }}" >> version-info/version.env
           echo "CARGO_VERSION=${{ steps.version_info.outputs.cargo_version }}" >> version-info/version.env
+          echo "RUST_VERSION=${{ steps.rust_version.outputs.rust_version }}" >> version-info/version.env
 
       - name: Upload version info
         if: matrix.os == 'ubuntu-latest' && matrix.target == 'x86_64-unknown-linux-gnu'
@@ -221,26 +240,37 @@ jobs:
           echo "commit_sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
           echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
           echo "cargo_version=${CARGO_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "rust_version=${RUST_VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Copy libraries to project
         shell: bash
         run: |
           mkdir -p src/Nelknet.LibSQL.Bindings/runtimes/linux-x64/native
+          mkdir -p src/Nelknet.LibSQL.Bindings/runtimes/linux-arm64/native
           mkdir -p src/Nelknet.LibSQL.Bindings/runtimes/win-x64/native
           mkdir -p src/Nelknet.LibSQL.Bindings/runtimes/osx-arm64/native
 
           cp artifacts/libsql-linux-x64/libsql.so src/Nelknet.LibSQL.Bindings/runtimes/linux-x64/native/
+          cp artifacts/libsql-linux-arm64/libsql.so src/Nelknet.LibSQL.Bindings/runtimes/linux-arm64/native/
           cp artifacts/libsql-win-x64/libsql.dll src/Nelknet.LibSQL.Bindings/runtimes/win-x64/native/
           cp artifacts/libsql-osx-arm64/libsql.dylib src/Nelknet.LibSQL.Bindings/runtimes/osx-arm64/native/
 
-          {
-            echo "libSQL Reference: ${LIBSQL_REF}"
-            echo "libSQL Commit: ${{ steps.read_version.outputs.commit_sha }}"
-            echo "libSQL Tag: ${{ steps.read_version.outputs.tag_name }}"
-            echo "libSQL Cargo Version: ${{ steps.read_version.outputs.cargo_version }}"
-            echo "Build Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-            echo "Build Workflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          } > src/Nelknet.LibSQL.Bindings/runtimes/LIBSQL_VERSION
+      - name: Write build information
+        shell: bash
+        env:
+          LIBSQL_COMMIT: ${{ steps.read_version.outputs.commit_sha }}
+          LIBSQL_TAG: ${{ steps.read_version.outputs.tag_name }}
+          LIBSQL_CARGO_VERSION: ${{ steps.read_version.outputs.cargo_version }}
+          RUST_COMPILER: ${{ steps.read_version.outputs.rust_version }}
+          BUILD_WORKFLOW_RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          bash scripts/libsql-build-info.sh write \
+            "$LIBSQL_REF" \
+            "$LIBSQL_COMMIT" \
+            "$LIBSQL_TAG" \
+            "$LIBSQL_CARGO_VERSION" \
+            "$RUST_COMPILER" \
+            "$BUILD_WORKFLOW_RUN"
 
       - name: Generate libSQL badge metadata
         run: bash scripts/generate-libsql-badge.sh

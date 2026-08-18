@@ -6,6 +6,8 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
+    <NativeAssetRuntimeIdentifier Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</NativeAssetRuntimeIdentifier>
+    <NativeAssetRuntimeIdentifier Condition="'$(NativeAssetRuntimeIdentifier)' == ''">$(NETCoreSdkRuntimeIdentifier)</NativeAssetRuntimeIdentifier>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,16 +26,16 @@
   </ItemGroup>
 
   <!-- Workaround for CI: Copy native library to output directory root for Linux -->
-  <Target Name="CopyNativeLibraryForLinux" AfterTargets="Build" Condition="'$(OS)' != 'Windows_NT' AND Exists('$(OutputPath)runtimes/linux-x64/native/libsql.so')">
-    <Copy SourceFiles="$(OutputPath)runtimes/linux-x64/native/libsql.so" 
-          DestinationFolder="$(OutputPath)" 
+  <Target Name="CopyNativeLibraryForLinux" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('Linux')) AND Exists('$(OutputPath)runtimes/$(NativeAssetRuntimeIdentifier)/native/libsql.so')">
+    <Copy SourceFiles="$(OutputPath)runtimes/$(NativeAssetRuntimeIdentifier)/native/libsql.so"
+          DestinationFolder="$(OutputPath)"
           SkipUnchangedFiles="true" />
   </Target>
 
   <!-- Workaround for CI: Copy native library to output directory root for macOS -->
-  <Target Name="CopyNativeLibraryForMacOS" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('OSX')) AND Exists('$(OutputPath)runtimes/osx-arm64/native/libsql.dylib')">
-    <Copy SourceFiles="$(OutputPath)runtimes/osx-arm64/native/libsql.dylib" 
-          DestinationFolder="$(OutputPath)" 
+  <Target Name="CopyNativeLibraryForMacOS" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('OSX')) AND Exists('$(OutputPath)runtimes/$(NativeAssetRuntimeIdentifier)/native/libsql.dylib')">
+    <Copy SourceFiles="$(OutputPath)runtimes/$(NativeAssetRuntimeIdentifier)/native/libsql.dylib"
+          DestinationFolder="$(OutputPath)"
           SkipUnchangedFiles="true" />
   </Target>
 

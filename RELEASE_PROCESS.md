@@ -12,7 +12,7 @@ The release process is now largely automated with proper version tracking, chang
 
 - **Version Location**: `Directory.Build.props` (VersionPrefix and VersionSuffix)
 - **Version Format**: Semantic Versioning (MAJOR.MINOR.PATCH[-PRERELEASE])
-- **Native Library Tracking**: `src/Nelknet.LibSQL.Bindings/runtimes/LIBSQL_VERSION`
+- **Native Library Tracking**: `src/Nelknet.LibSQL.Bindings/runtimes/LIBSQL_BUILD_INFO`
 
 ### 2. Workflows
 
@@ -22,7 +22,7 @@ The release process is now largely automated with proper version tracking, chang
 - **Input**: libSQL ref (branch, tag, or commit)
 - **Output**: 
   - Native libraries committed to repo
-  - Detailed version info in LIBSQL_VERSION file
+  - Detailed build information in the LIBSQL_BUILD_INFO file
 - **Usage**: `gh workflow run build-native-libraries.yml -f libsql_ref=v0.6.2`
 
 #### b. Version Bump (`version-bump.yml`)
@@ -114,7 +114,7 @@ When updating to a new libSQL version:
 3. The workflow will:
    - Build libraries for all platforms
    - Commit them to the repository
-   - Update LIBSQL_VERSION with detailed info
+   - Update LIBSQL_BUILD_INFO with detailed build information
 
 ## CI/CD Features
 

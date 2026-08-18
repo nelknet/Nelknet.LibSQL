@@ -25,7 +25,7 @@
   <!-- Native libraries should be pre-built and committed to the repository -->
   <!-- Include native libraries in the package and copy to output -->
   <ItemGroup>
-    <None Include="runtimes\**\*">
+    <None Include="runtimes\**\*" Exclude="runtimes\LIBSQL_BUILD_INFO">
       <Pack>true</Pack>
       <PackagePath>%(Identity)</PackagePath>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

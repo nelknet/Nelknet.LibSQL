@@ -25,9 +25,9 @@
   <!-- Include native libraries in the package -->
   <ItemGroup Condition="'$(BuildType)' == 'Full'">
     <!-- From pre-built binaries in Bindings project -->
-    <None Include="..\Nelknet.LibSQL.Bindings\runtimes\**\*">
+    <None Include="..\Nelknet.LibSQL.Bindings\runtimes\**\*" Exclude="..\Nelknet.LibSQL.Bindings\runtimes\LIBSQL_BUILD_INFO">
       <Pack>true</Pack>
-      <PackagePath>runtimes\%(RecursiveDir)</PackagePath>
+      <PackagePath>runtimes\%(RecursiveDir)%(Filename)%(Extension)</PackagePath>
     </None>
   </ItemGroup>
   <ItemGroup>

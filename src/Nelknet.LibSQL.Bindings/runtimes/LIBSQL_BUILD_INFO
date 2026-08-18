@@ -1,0 +1,11 @@
+libSQL Reference: libsql-server-v0.24.32
+libSQL Commit: 40c272de85ee4e62d722c5ccae5da2e76b4253a1
+libSQL Tag: libsql-server-v0.24.32
+libSQL Cargo Version: 0.6.0
+Rust Compiler: rustc 1.97.1 (8bab26f4f 2026-07-14)
+Build Date: 2026-08-18 15:51:16 UTC
+Build Workflow Run: https://github.com/nelknet/Nelknet.LibSQL/actions/runs/32156095618
+Linux x64 SHA-256: 5ec9843a6e1458d51a497466c7fcad5de10756467e6d976a05b0c8ffb1788118
+Linux ARM64 SHA-256: ade20493b06639ce0425bbe52cc532f51d36e3bac7dd4d9f3e3d58d77e1b0ee3
+macOS ARM64 SHA-256: 5daf1549a2625ddd8ba01b526536335679b79455ba13e71710412465279b2032
+Windows x64 SHA-256: 2818888d356574362e462ad67df8ce35b3c38a0e914e8ebdcd170d09983f97af
