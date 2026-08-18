@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Place native libraries in the correct runtime directories for the full package.
 - Handle quoted semicolons and SQL comments when HTTP commands select a request type.
 - Return an empty byte array for an empty native BLOB value.
 - Respect command and positional exclusions when statements enter the native cache.
