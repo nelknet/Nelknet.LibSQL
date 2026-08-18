@@ -182,9 +182,9 @@ internal sealed class LibSQLHttpCommand : DbCommand
     {
         var batch = new HranaBatchRequest();
         
-        // Check if we have multiple statements (naive check for semicolons outside of strings)
+        // Check if the SQL contains multiple statements.
         var sql = CommandText?.Trim() ?? string.Empty;
-        var hasMultipleStatements = CountStatements(sql) > 1;
+        var hasMultipleStatements = SqlStatementScanner.ContainsMultipleStatements(sql);
         
         if (hasMultipleStatements && (_parameters == null || _parameters.Count == 0))
         {
@@ -217,18 +217,6 @@ internal sealed class LibSQLHttpCommand : DbCommand
         return batch;
     }
     
-    private static int CountStatements(string sql)
-    {
-        // Simple count of statements by splitting on semicolons
-        // This is a naive implementation that doesn't handle semicolons in strings
-        if (string.IsNullOrWhiteSpace(sql))
-            return 0;
-            
-        var statements = sql.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        return statements.Where(s => !string.IsNullOrWhiteSpace(s)).Count();
-    }
-
-
     private List<HranaValue>? CreateArgs(SqlParameterLayout parameterLayout)
     {
         if (_parameters.Count == 0)
