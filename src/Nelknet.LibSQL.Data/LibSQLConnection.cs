@@ -3,14 +3,15 @@
 using System;
 using System.Data;
 using System.Data.Common;
+using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Nelknet.LibSQL.Bindings;
 using Nelknet.LibSQL.Data.Exceptions;
-using Nelknet.LibSQL.Data.Internal;
 using Nelknet.LibSQL.Data.Http;
+using Nelknet.LibSQL.Data.Internal;
 
 namespace Nelknet.LibSQL.Data;
 
@@ -24,6 +25,7 @@ namespace Nelknet.LibSQL.Data;
 public sealed class LibSQLConnection : DbConnection
 {
     private readonly object _lockObject = new();
+    private readonly HttpClient? _providedHttpClient;
     private LibSQLDatabaseHandle? _databaseHandle;
     private LibSQLConnectionHandle? _connectionHandle;
     private LibSQLHttpClient? _httpClient;
@@ -75,6 +77,22 @@ public sealed class LibSQLConnection : DbConnection
     public LibSQLConnection(string connectionString) : this()
     {
         ConnectionString = connectionString;
+    }
+
+    /// <summary>
+    /// Initializes a connection with a caller-provided HTTP client.
+    /// </summary>
+    /// <param name="connectionString">The connection string used to open the database.</param>
+    /// <param name="httpClient">The HTTP client for remote connections.</param>
+    /// <remarks>
+    /// The connection does not dispose the HTTP client.
+    /// The client controls the timeout and the lifetime of its HTTP handler.
+    /// </remarks>
+    public LibSQLConnection(string connectionString, HttpClient httpClient) : this()
+    {
+        ArgumentNullException.ThrowIfNull(httpClient);
+        ConnectionString = connectionString;
+        _providedHttpClient = httpClient;
     }
 
     /// <summary>
@@ -292,7 +310,9 @@ public sealed class LibSQLConnection : DbConnection
                     case LibSQLConnectionMode.Remote:
                         // Use HTTP-based remote connections
                         // Auth token is optional - some servers don't require authentication
-                        _httpClient = new LibSQLHttpClient(dataSource, builder.AuthToken);
+                        _httpClient = _providedHttpClient is null
+                            ? new LibSQLHttpClient(dataSource, builder.AuthToken)
+                            : new LibSQLHttpClient(dataSource, builder.AuthToken, _providedHttpClient);
                         _isHttpConnection = true;
                         
                         // Test the connection

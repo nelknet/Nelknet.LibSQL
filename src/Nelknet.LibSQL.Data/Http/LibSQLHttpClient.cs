@@ -2,6 +2,7 @@
 
 using System;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -15,32 +16,32 @@ namespace Nelknet.LibSQL.Data.Http;
 /// </summary>
 internal sealed class LibSQLHttpClient : IDisposable
 {
+    private static readonly HttpClient SharedHttpClient = CreateSharedHttpClient();
     private readonly HttpClient _httpClient;
+    private readonly AuthenticationHeaderValue? _authorization;
     private readonly SemaphoreSlim _pipelineLock = new(1, 1);
     private Uri _streamBaseUri;
     private string? _baton;
     private bool _disposed;
 
     public LibSQLHttpClient(string url, string authToken)
+        : this(url, authToken, SharedHttpClient)
+    {
+    }
+
+    public LibSQLHttpClient(string url, string authToken, HttpClient httpClient)
     {
         if (string.IsNullOrWhiteSpace(url))
             throw new ArgumentException("URL cannot be null or empty", nameof(url));
+        ArgumentNullException.ThrowIfNull(httpClient);
 
         _streamBaseUri = ParseStreamBaseUri(NormalizeUrl(url), currentBaseUri: null);
-        
-        _httpClient = new HttpClient
-        {
-            Timeout = TimeSpan.FromSeconds(30)
-        };
-        
-        // Only add authorization header if token is provided
+        _httpClient = httpClient;
+
         if (!string.IsNullOrWhiteSpace(authToken))
         {
-            _httpClient.DefaultRequestHeaders.Authorization = 
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", authToken);
+            _authorization = new AuthenticationHeaderValue("Bearer", authToken);
         }
-        
-        _httpClient.DefaultRequestHeaders.Add("User-Agent", "Nelknet.LibSQL/1.0");
     }
 
     /// <summary>
@@ -58,10 +59,14 @@ internal sealed class LibSQLHttpClient : IDisposable
             batch.Baton = _baton;
 
             var json = JsonSerializer.Serialize(batch, HranaJsonSerializerContext.Default.HranaBatchRequest);
-            using var content = new StringContent(json, Encoding.UTF8, "application/json");
             var pipelineUri = new Uri(_streamBaseUri, "v2/pipeline");
+            using var request = new HttpRequestMessage(HttpMethod.Post, pipelineUri)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json"),
+            };
+            request.Headers.Authorization = _authorization;
 
-            using var response = await _httpClient.PostAsync(pipelineUri, content, cancellationToken).ConfigureAwait(false);
+            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             
             if (!response.IsSuccessStatusCode)
             {
@@ -164,6 +169,21 @@ internal sealed class LibSQLHttpClient : IDisposable
         return url;
     }
 
+    private static HttpClient CreateSharedHttpClient()
+    {
+        var handler = new SocketsHttpHandler
+        {
+            PooledConnectionLifetime = TimeSpan.FromMinutes(15),
+            UseCookies = false,
+        };
+        var httpClient = new HttpClient(handler)
+        {
+            Timeout = TimeSpan.FromSeconds(30),
+        };
+        httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Nelknet.LibSQL/1.0");
+        return httpClient;
+    }
+
     private static Uri ParseStreamBaseUri(string baseUrl, Uri? currentBaseUri)
     {
         if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri)
@@ -200,7 +220,6 @@ internal sealed class LibSQLHttpClient : IDisposable
 
         _disposed = true;
         _baton = null;
-        _httpClient.Dispose();
     }
 }
 

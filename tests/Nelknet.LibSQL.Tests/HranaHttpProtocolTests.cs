@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using Nelknet.LibSQL.Data;
 using Nelknet.LibSQL.Data.Exceptions;
 using Nelknet.LibSQL.Data.Http;
 
@@ -94,6 +95,67 @@ public sealed class HranaHttpProtocolTests
         Assert.Contains("invalid Hrana base URL", exception.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task RemoteConnections_SequentialLifetimes_ReuseTcpConnection()
+    {
+        await using var server = new ScriptedHttpServer(SuccessResponse(), SuccessResponse());
+        var connectionString = $"Data Source={server.BaseUri}";
+
+        using (var firstConnection = new LibSQLConnection(connectionString))
+        {
+            firstConnection.Open();
+        }
+
+        using (var secondConnection = new LibSQLConnection(connectionString))
+        {
+            secondConnection.Open();
+        }
+
+        Assert.Equal(1, server.AcceptedConnectionCount);
+    }
+
+    [Fact]
+    public async Task RemoteConnection_InjectedHttpClient_RemainsUsableAfterClose()
+    {
+        using var handler = new RecordingHttpMessageHandler();
+        using var httpClient = new HttpClient(handler);
+
+        using (var connection = new LibSQLConnection("Data Source=https://example.test", httpClient))
+        {
+            connection.Open();
+        }
+
+        using var response = await httpClient.GetAsync("https://example.test/health");
+
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.Equal(2, handler.RequestCount);
+    }
+
+    [Fact]
+    public void RemoteConnections_InjectedHttpClient_IsolatesAuthorization()
+    {
+        using var handler = new RecordingHttpMessageHandler();
+        using var httpClient = new HttpClient(handler);
+
+        using (var firstConnection = new LibSQLConnection(
+            "Data Source=https://example.test;Auth Token=first-token",
+            httpClient))
+        {
+            firstConnection.Open();
+        }
+
+        using (var secondConnection = new LibSQLConnection(
+            "Data Source=https://example.test;Auth Token=second-token",
+            httpClient))
+        {
+            secondConnection.Open();
+        }
+
+        Assert.Equal(
+            ["Bearer first-token", "Bearer second-token"],
+            handler.AuthorizationHeaders);
+    }
+
     private static HranaBatchRequest CreateSelectBatch()
     {
         var batch = new HranaBatchRequest();
@@ -122,6 +184,7 @@ public sealed class HranaHttpProtocolTests
         private readonly CancellationTokenSource _stop = new();
         private readonly ConcurrentQueue<string> _responses;
         private readonly Task _serverTask;
+        private int _acceptedConnectionCount;
 
         internal ScriptedHttpServer(params string[] responses)
         {
@@ -136,6 +199,8 @@ public sealed class HranaHttpProtocolTests
         internal Uri BaseUri { get; }
 
         internal ConcurrentQueue<string> RequestBodies { get; } = new();
+
+        internal int AcceptedConnectionCount => Volatile.Read(ref _acceptedConnectionCount);
 
         public async ValueTask DisposeAsync()
         {
@@ -161,20 +226,29 @@ public sealed class HranaHttpProtocolTests
             while (!_stop.IsCancellationRequested)
             {
                 using var socket = await _listener.AcceptTcpClientAsync(_stop.Token).ConfigureAwait(false);
+                Interlocked.Increment(ref _acceptedConnectionCount);
                 await using var stream = socket.GetStream();
-                var requestBody = await ReadRequestBodyAsync(stream, _stop.Token).ConfigureAwait(false);
-                RequestBodies.Enqueue(requestBody);
-
-                if (!_responses.TryDequeue(out var responseBody))
+                while (!_stop.IsCancellationRequested)
                 {
-                    responseBody = SuccessResponse();
-                }
+                    var requestBody = await ReadRequestBodyAsync(stream, _stop.Token).ConfigureAwait(false);
+                    if (requestBody is null)
+                    {
+                        break;
+                    }
 
-                await WriteResponseAsync(stream, responseBody, _stop.Token).ConfigureAwait(false);
+                    RequestBodies.Enqueue(requestBody);
+
+                    if (!_responses.TryDequeue(out var responseBody))
+                    {
+                        responseBody = SuccessResponse();
+                    }
+
+                    await WriteResponseAsync(stream, responseBody, _stop.Token).ConfigureAwait(false);
+                }
             }
         }
 
-        private static async Task<string> ReadRequestBodyAsync(
+        private static async Task<string?> ReadRequestBodyAsync(
             NetworkStream stream,
             CancellationToken cancellationToken)
         {
@@ -188,6 +262,11 @@ public sealed class HranaHttpProtocolTests
                 var bytesRead = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
                 if (bytesRead == 0)
                 {
+                    if (request.Length == 0)
+                    {
+                        return null;
+                    }
+
                     break;
                 }
 
@@ -225,9 +304,29 @@ public sealed class HranaHttpProtocolTests
         {
             var bodyBytes = Encoding.UTF8.GetBytes(responseBody);
             var headerBytes = Encoding.ASCII.GetBytes(
-                $"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {bodyBytes.Length}\r\nConnection: close\r\n\r\n");
+                $"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {bodyBytes.Length}\r\nConnection: keep-alive\r\n\r\n");
             await stream.WriteAsync(headerBytes, cancellationToken).ConfigureAwait(false);
             await stream.WriteAsync(bodyBytes, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private sealed class RecordingHttpMessageHandler : HttpMessageHandler
+    {
+        private readonly List<string?> _authorizationHeaders = [];
+
+        internal IReadOnlyList<string?> AuthorizationHeaders => _authorizationHeaders;
+
+        internal int RequestCount => _authorizationHeaders.Count;
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            _authorizationHeaders.Add(request.Headers.Authorization?.ToString());
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(SuccessResponse(), Encoding.UTF8, "application/json"),
+            });
         }
     }
 }
