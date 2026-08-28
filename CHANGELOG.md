@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add a BenchmarkDotNet regression suite for native BLOB, parameter, and statement cache performance.
 - Add a Linux ARM64 native library from the verified libSQL source build.
+- Add caller-provided `HttpClient` support for remote connections.
 
 ### Changed
 
@@ -21,8 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- Remove the unused `Microsoft.Extensions.Http` package dependency.
+
 ### Fixed
 
+- Reuse the default HTTP transport across remote connection lifetimes ([#121](https://github.com/nelknet/Nelknet.LibSQL/issues/121)).
 - Place native libraries in the correct runtime directories for the full package.
 - Handle quoted semicolons and SQL comments when HTTP commands select a request type.
 - Return an empty byte array for an empty native BLOB value.

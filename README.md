@@ -90,6 +90,16 @@ connection.Open();
 // Use the connection normally...
 ```
 
+Remote connections reuse a shared HTTP transport by default.
+Pass an `HttpClient` when the application requires custom transport configuration.
+The connection does not dispose a caller-provided client.
+
+```csharp
+using var httpClient = httpClientFactory.CreateClient("libsql");
+using var connection = new LibSQLConnection(connectionString, httpClient);
+connection.Open();
+```
+
 ### Embedded Replica with Sync
 
 ```csharp

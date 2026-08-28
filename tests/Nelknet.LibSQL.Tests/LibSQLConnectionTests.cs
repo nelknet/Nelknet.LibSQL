@@ -1,8 +1,9 @@
 #nullable disable warnings
 
-using Nelknet.LibSQL.Data;
 using System;
 using System.Data;
+using System.Net.Http;
+using Nelknet.LibSQL.Data;
 using Xunit;
 
 namespace Nelknet.LibSQL.Tests;
@@ -26,6 +27,13 @@ public class LibSQLConnectionTests
         
         Assert.Equal(connectionString, connection.ConnectionString);
         Assert.Equal(ConnectionState.Closed, connection.State);
+    }
+
+    [Fact]
+    public void Constructor_NullHttpClient_ThrowsArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(
+            () => new LibSQLConnection("Data Source=https://example.test", (HttpClient)null!));
     }
 
     [Fact]
