@@ -9,11 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+## [0.2.13] - 2026-09-08
+
+### Added
+
 - Add a BenchmarkDotNet regression suite for native BLOB, parameter, and statement cache performance.
 - Add a Linux ARM64 native library from the verified libSQL source build.
 - Add caller-provided `HttpClient` support for remote connections.
 
 ### Changed
+- Merge weekly Dependabot package dependency updates (#125, #123, #118)
 
 - Copy native BLOB ranges directly into caller buffers.
 - Document the single-operation contract for connections, commands, and data readers.
@@ -274,7 +289,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
-[Unreleased]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.12...HEAD
+
+[Unreleased]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.13...HEAD
+[0.2.13]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.12...v0.2.13
 [0.2.12]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.11...v0.2.12
 [0.2.11]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.10...v0.2.11
 [0.2.10]: https://github.com/nelknet/Nelknet.LibSQL/compare/v0.2.9...v0.2.10
