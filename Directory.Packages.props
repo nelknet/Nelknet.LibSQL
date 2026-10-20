@@ -12,7 +12,7 @@
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
     <PackageVersion Include="System.Text.Json" Version="10.0.12" />
     <PackageVersion Include="xunit" Version="2.9.3" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
     <!-- Future packages for ADO.NET implementation -->
     <!-- <PackageVersion Include="System.Data.Common" Version="4.3.0" /> -->
     
